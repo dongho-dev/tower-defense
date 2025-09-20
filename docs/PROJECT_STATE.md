@@ -1,41 +1,55 @@
 ﻿# Project Snapshot: Tower Defense
 
 ## Overview
-- Single-page HTML5 canvas tower defense game (`index.html`, `style.css`, `main.js`)
-- Starting resources: gold 100, lives 20 (`main.js:46-52`)
-- Automated wave loop driven by `update()`; when a wave finishes the game waits ~4s before spawning the next (`main.js:539-588`)
+- Single-page HTML5 canvas tower defense (index.html, style.css, main.js)
+- Updated glassmorphism UI with a collapsible left build panel, central battlefield, and right-hand intel column
+- Integrated Web Audio soundscape (placement/upgrade/kill/explosion/laser/toggle cues) with a mute toggle on the HUD
 
 ## File Map
-- `index.html:10-60` - HUD (wave/lives/gold), speed controls, wave selector, wave preview, tower/enemy stat panels, defeat overlay
-- `style.css:1-189` - page layout, panel/overlay/button styling, reusable `.hidden` helper
-- `main.js:1-808` - constants, state containers, input handlers, rendering and game loop
+- index.html – header HUD, sound toggle, collapsible build panel (#build-panel), canvas stage, info column (wave preview, tower/enemy stats), defeat overlay
+- style.css – gradient background, glass panels, tower card grid, responsive collapse logic for the build panel, refreshed typography and buttons
+- main.js – tower definitions, dynamic build panel population, game state, audio engine, combat logic (shotgun/laser/aoe/mortar), rendering pipeline, and event wiring
 
 ## Controls & UI
-- Left-click empty tile: place tower (cost 25) (`main.js:420-445`)
-- Left-click tower/enemy: open relevant stat panel (`main.js:403-418`)
-- Right-click tower: attempt upgrade (`main.js:452-471`, `main.js:309-328`)
-- Speed buttons (1x/2x/3x) toggle `setGameSpeed` (`index.html:16-18`, `main.js:178-190`)
-- Wave input + Apply moves to a chosen wave when combat is idle (`index.html:21-24`, `main.js:218-236`, `main.js:473-491`)
-- Spacebar toggles pause (`main.js:504-510`)
-- On defeat, overlay offers retry (full reset) or close (`index.html:57-65`, `main.js:331-367`)
+- Build panel (left): toggle with the side handle, choose a tower card (shows cost/range/DPS), then left-click the map to place
+- Right-click a tower to upgrade (level cap 15, +2.5× damage per level)
+- Stats column auto-updates when selecting towers/enemies; wave preview shows status/HP/reward/speed
+- Top HUD: gold input + quick +100/+500, wave jump, speed buttons (1x/2x/3x), and sound toggle (🔊/🔇)
+- Spacebar pauses/resumes; defeat overlay offers restart or close
 
 ## Enemy Waves
-- Spawn count per wave: `8 + floor(wave * 1.5)` (`main.js:198-199`, `main.js:541-557`)
-- Health scales by `ENEMY_HP_GROWTH_RATE = 1.25`; speed (`ENEMY_SPEED = 49`) and reward (`ENEMY_BASE_REWARD = 14`) stay constant (`main.js:10-13`, `main.js:148-166`, `main.js:524-533`)
-- Wave preview panel displays status (Idle/Break/Running/Defeat), remaining enemies, HP, tile-per-second speed, reward (`main.js:154-176`)
+- Count per wave: 8 + floor(wave * 1.5)
+- Health scaling ENEMY_HP_GROWTH_RATE = 1.25; speed (49) and reward (14) remain constant
+- Wave preview exposes state (대기/휴식/전투 중/패배), enemies remaining, HP, tile-per-second speed, and reward
 
 ## Towers & Upgrades
-- Base range 140, fire delay 0.55s, base damage 35 (`main.js:437-445`)
-- Upgrades: cost gold, +1 level, damage x1.5 (rounded to 2 decimals), next cost doubles; max level 7 (`main.js:309-328`, `main.js:17`)
-- Tower panel lists position/range/fire delay/damage/level/next cost (`index.html:39-46`, `main.js:238-256`)
+- Eight archetypes defined in TOWER_TYPES:
+  - **Basic** – balanced single-shot
+  - **Shotgun** – short-range multi-pellet spread
+  - **Sniper** – long-range beam projectile
+  - **Burst** – burst volley with micro delays
+  - **Rapid** – high fire-rate stream
+  - **Explosive** – splash shells detonating on hit/expiry
+  - **Laser** – sustained beam damage (continuous tick, beam visual)
+  - **Mortar** – arcing projectile with high-damage, wide explosion
+- Upgrades cost gold, add +1 level, multiply damage by **2.5**, cap at level 15; upgrade costs double each level from a tower-specific base value
 
-## Game State Flow
-- `clearCurrentWave()` clears enemies/projectiles and resets counters (`main.js:196-205`)
-- `setWave()` (disabled during game over) rewinds to a chosen wave and refreshes preview (`main.js:218-236`)
-- `showDefeatDialog()` + `resetGame()` manage defeat handling and a full restart (`main.js:331-368`)
-- `drawState()` renders pause/defeat overlay text when needed (`main.js:771-781`)
+## Audio
+- Web Audio engine lazily initialises on first user interaction, mixing through a master gain node
+- Sound cues: select, 	oggle, uild, upgrade, kill, explosion, laser
+- HUD sound toggle updates icon/aria state and fully mutes/unmutes the master gain
+
+## Combat Logic Highlights
+- performTowerAttack() fans out per pattern (shotgun spread, burst queue, explosive splash, laser sustain, mortar arc)
+- handleLaserAttack() emits continuous damage, draws beams, and plays a beam cue on first contact
+- pplyExplosion() handles AoE damage, impact visuals, and explosion SFX
+- update() drives spawning, targeting, projectile movement, AoE resolution, gold/life updates, and UI refresh
+
+## Rendering
+- Canvas draw stack: grid, path, hover highlight, towers (shape per type), enemies with HP bars, projectiles (beams/triangles/hex/orbs/trails), impact flashes, active laser beams, pause/defeat overlay
+- Build panel + cards use CSS utility classes; range rings display when a tower is selected
 
 ## Notes
-- Source includes Korean UI strings; keep files saved as UTF-8 to avoid mojibake in other editors
-- No automated tests; manual playtesting recommended after code changes
-- `docs/PROJECT_STATE.md` should be updated whenever mechanics or UI change materially
+- All copy remains in Korean; keep files UTF-8 encoded to avoid mojibake
+- No automated tests – manually verify tower placement/upgrade (to level 15), AoE interactions, laser effects, audio toggle, and responsive layout
+- Update both docs/PROJECT_STATE.md and docs/PROJECT_STATE_ko.md when UI or mechanics evolve

@@ -5,17 +5,317 @@ const TILE_SIZE = 30;
 const GRID_COLS = Math.floor(canvas.width / TILE_SIZE);
 const GRID_ROWS = Math.floor(canvas.height / TILE_SIZE);
 const TILE_CENTER_OFFSET = TILE_SIZE / 2;
-const TOWER_RADIUS = 12;
+const TOWER_DRAW_BASE = 14;
+const TOWER_PICK_RADIUS = 18;
 const ENEMY_RADIUS = 14;
 const ENEMY_BASE_HP = 78;
 const ENEMY_HP_GROWTH_RATE = 1.25;
 const ENEMY_SPEED = 49;
 const ENEMY_BASE_REWARD = 14;
-const TOWER_BASE_DAMAGE = 35;
 const TOWER_UPGRADE_BASE_COST = 40;
-const TOWER_UPGRADE_DAMAGE_MULTIPLIER = 1.5;
+const TOWER_DAMAGE_GROWTH = 2.5;
 const TOWER_UPGRADE_COST_MULTIPLIER = 2;
-const TOWER_MAX_LEVEL = 7;
+const TOWER_MAX_LEVEL = 15;
+const DEFAULT_TOWER_TYPE = "basic";
+
+const TOWER_TYPES = {
+    basic: {
+        id: "basic",
+        label: "기본",
+        attackPattern: "projectile",
+        cost: 35,
+        baseDamage: 20,
+        baseUpgradeCost: 40,
+        range: 165,
+        fireDelay: 0.6,
+        projectileSpeed: 520,
+        projectileLife: 0.85,
+        projectileRadius: 6,
+        trailLength: 60,
+        shape: "circle",
+        outline: "#1f2f5a",
+        levelColors: [
+            "#bdd6ff",
+            "#a2c0ff",
+            "#8aa9ff",
+            "#7294ff",
+            "#5a7eff",
+            "#4368ff",
+            "#2e56f2"
+        ],
+        projectileColors: [
+            "#f8faff",
+            "#e5f0ff",
+            "#cddfff",
+            "#b3cdff",
+            "#9abbff",
+            "#81a7ff",
+            "#6b95ff"
+        ]
+    },
+    shotgun: {
+        id: "shotgun",
+        label: "샷건",
+        attackPattern: "shotgun",
+        cost: 55,
+        baseDamage: 6,
+        baseUpgradeCost: 45,
+        range: 150,
+        fireDelay: 0.9,
+        pellets: 5,
+        spread: Math.PI / 3.5,
+        projectileSpeed: 540,
+        projectileLife: 0.55,
+        projectileRadius: 6,
+        trailLength: 40,
+        shape: "circle",
+        outline: "#0b2b4c",
+        levelColors: [
+            "#90caf9",
+            "#74b9f6",
+            "#4fa8f4",
+            "#2d96f1",
+            "#1f86e8",
+            "#136fd6",
+            "#0d5abf"
+        ],
+        projectileColors: [
+            "#ffe082",
+            "#ffd54f",
+            "#ffca28",
+            "#ffc107",
+            "#ffb300",
+            "#ffa000",
+            "#ff8f00"
+        ]
+    },
+    longrange: {
+        id: "longrange",
+        label: "저격",
+        attackPattern: "beam",
+        cost: 90,
+        baseDamage: 35,
+        baseUpgradeCost: 65,
+        range: 260,
+        fireDelay: 1.6,
+        projectileSpeed: 820,
+        projectileLife: 1.5,
+        projectileRadius: 6,
+        trailLength: 150,
+        beamWidth: 6,
+        shape: "diamond",
+        outline: "#27144a",
+        levelColors: [
+            "#d0bbff",
+            "#ba9dff",
+            "#a279ff",
+            "#8c5aff",
+            "#7b43f0",
+            "#6a31d3",
+            "#5925b8"
+        ],
+        projectileColors: [
+            "#f5ebff",
+            "#e8d4ff",
+            "#dcbcff",
+            "#cea4ff",
+            "#c08cff",
+            "#b073ff",
+            "#a05dff"
+        ]
+    },
+    burst: {
+        id: "burst",
+        label: "점사",
+        attackPattern: "burst",
+        cost: 65,
+        baseDamage: 14,
+        baseUpgradeCost: 55,
+        range: 175,
+        fireDelay: 1.05,
+        burstCount: 3,
+        burstDelay: 0.08,
+        projectileSpeed: 600,
+        projectileLife: 0.85,
+        projectileRadius: 7,
+        trailLength: 70,
+        shape: "square",
+        outline: "#4a2509",
+        levelColors: [
+            "#ffd180",
+            "#ffb74d",
+            "#ffa040",
+            "#ff8f2c",
+            "#ff7b12",
+            "#f56705",
+            "#e25900"
+        ],
+        projectileColors: [
+            "#fff3cd",
+            "#ffe7a3",
+            "#ffd26e",
+            "#ffbe42",
+            "#ffaa23",
+            "#ff9514",
+            "#ff8609"
+        ]
+    },
+    rapid: {
+        id: "rapid",
+        label: "연사",
+        attackPattern: "projectile",
+        cost: 45,
+        baseDamage: 10,
+        baseUpgradeCost: 45,
+        range: 145,
+        fireDelay: 0.22,
+        projectileSpeed: 640,
+        projectileLife: 0.65,
+        projectileRadius: 5,
+        trailLength: 75,
+        shape: "triangle",
+        outline: "#073519",
+        levelColors: [
+            "#b9f6ca",
+            "#9bf1b3",
+            "#78e99a",
+            "#55dd80",
+            "#3ccc6b",
+            "#2daf58",
+            "#1f9348"
+        ],
+        projectileColors: [
+            "#d0ffdc",
+            "#aefecc",
+            "#88fcb5",
+            "#5af79a",
+            "#2fef7f",
+            "#1ddc6d",
+            "#10c05b"
+        ]
+    },
+    explosive: {
+        id: "explosive",
+        label: "폭발",
+        attackPattern: "explosive",
+        cost: 80,
+        baseDamage: 26,
+        baseUpgradeCost: 70,
+        range: 170,
+        fireDelay: 1.25,
+        projectileSpeed: 480,
+        projectileLife: 1.1,
+        projectileRadius: 8,
+        explosionRadius: 85,
+        explosionColor: "rgba(255, 182, 89, 0.45)",
+        trailLength: 55,
+        shape: "hex",
+        outline: "#56210a",
+        levelColors: [
+            "#ffcc80",
+            "#ffb74d",
+            "#ff9f43",
+            "#ff8a36",
+            "#ff7127",
+            "#ff5918",
+            "#ff4010"
+        ],
+        projectileColors: [
+            "#fff0d1",
+            "#ffe3b0",
+            "#ffd291",
+            "#ffc170",
+            "#ffb158",
+            "#ffa039",
+            "#ff9024"
+        ]
+    },
+    laser: {
+        id: "laser",
+        label: "레이저",
+        attackPattern: "laser",
+        cost: 95,
+        baseDamage: 5.5,
+        baseUpgradeCost: 80,
+        range: 200,
+        fireDelay: 0.1,
+        beamColor: "rgba(123, 234, 255, 0.9)",
+        beamGlowColor: "rgba(123, 234, 255, 0.45)",
+        beamWidth: 8,
+        sustainMultiplier: 1.15,
+        shape: "beam",
+        outline: "#0b3c4f",
+        levelColors: [
+            "#b1f4ff",
+            "#9be9ff",
+            "#84deff",
+            "#6dd2ff",
+            "#55c6ff",
+            "#3ab8ff",
+            "#24a7f5"
+        ],
+        projectileColors: [
+            "#e6fdff",
+            "#d0f8ff",
+            "#bbf3ff",
+            "#a4ecff",
+            "#90e5ff",
+            "#79ddff",
+            "#61d3ff"
+        ]
+    },
+    mortar: {
+        id: "mortar",
+        label: "박격포",
+        attackPattern: "mortar",
+        cost: 115,
+        baseDamage: 48,
+        baseUpgradeCost: 90,
+        range: 260,
+        fireDelay: 2.8,
+        projectileSpeed: 360,
+        projectileLife: 2.3,
+        projectileRadius: 9,
+        explosionRadius: 120,
+        explosionColor: "rgba(255, 220, 120, 0.35)",
+        trailLength: 45,
+        gravity: 720,
+        mortarLift: 420,
+        detonateOnExpire: true,
+        shape: "orb",
+        outline: "#3a2b15",
+        levelColors: [
+            "#fbe0b2",
+            "#f7cb86",
+            "#f4b25a",
+            "#f19b38",
+            "#ed8320",
+            "#e26e17",
+            "#d35d12"
+        ],
+        projectileColors: [
+            "#fff2d8",
+            "#ffe4b3",
+            "#ffd28d",
+            "#ffc167",
+            "#ffad3c",
+            "#ff9a24",
+            "#ff8610"
+        ]
+    }
+};
+
+
+const TOWER_ORDER = [
+    'basic',
+    'shotgun',
+    'longrange',
+    'burst',
+    'rapid',
+    'explosive',
+    'laser',
+    'mortar'
+];
 
 const waypoints = [
     { x: -2, y: 8 },
@@ -53,6 +353,7 @@ for (let i = 0; i < waypoints.length - 1; i++) {
 const towers = [];
 const enemies = [];
 const projectiles = [];
+const impactEffects = [];
 
 let gold = 100;
 let lives = 20;
@@ -67,26 +368,34 @@ let selectedTower = null;
 let selectedEnemy = null;
 let gameSpeed = 1;
 let gameOver = false;
+let selectedTowerType = DEFAULT_TOWER_TYPE;
+
+const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
 
 const GOLD_LABEL = document.getElementById("gold");
 const LIVES_LABEL = document.getElementById("lives");
 const WAVE_LABEL = document.getElementById("wave");
+const GOLD_INPUT = document.getElementById("gold-input");
+const GOLD_APPLY_BUTTON = document.getElementById("gold-apply");
+const GOLD_ADJUST_BUTTONS = Array.from(document.querySelectorAll('.gold-adjust'));
+
 
 const TOWER_STATS_PANEL = document.getElementById("tower-stats");
 const ENEMY_STATS_PANEL = document.getElementById("enemy-stats");
 const TOWER_STATS_FIELDS = {
-    position: TOWER_STATS_PANEL.querySelector('[data-field="tower-position"]'),
-    range: TOWER_STATS_PANEL.querySelector('[data-field="tower-range"]'),
-    fireDelay: TOWER_STATS_PANEL.querySelector('[data-field="tower-fire-delay"]'),
-    damage: TOWER_STATS_PANEL.querySelector('[data-field="tower-damage"]'),
-    level: TOWER_STATS_PANEL.querySelector('[data-field="tower-level"]'),
-    upgradeCost: TOWER_STATS_PANEL.querySelector('[data-field="tower-upgrade-cost"]')
+    type: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-type"]') : null,
+    position: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-position"]') : null,
+    range: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-range"]') : null,
+    fireDelay: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-fire-delay"]') : null,
+    damage: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-damage"]') : null,
+    level: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-level"]') : null,
+    upgradeCost: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-upgrade-cost"]') : null
 };
 const ENEMY_STATS_FIELDS = {
-    wave: ENEMY_STATS_PANEL.querySelector('[data-field="enemy-wave"]'),
-    hp: ENEMY_STATS_PANEL.querySelector('[data-field="enemy-hp"]'),
-    speed: ENEMY_STATS_PANEL.querySelector('[data-field="enemy-speed"]'),
-    reward: ENEMY_STATS_PANEL.querySelector('[data-field="enemy-reward"]')
+    wave: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-wave"]') : null,
+    hp: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-hp"]') : null,
+    speed: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-speed"]') : null,
+    reward: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-reward"]') : null
 };
 
 const SPEED_BUTTONS = Array.from(document.querySelectorAll('.speed-button'));
@@ -105,6 +414,158 @@ const WAVE_PREVIEW_FIELDS = WAVE_PREVIEW_PANEL ? {
 const DEFEAT_OVERLAY = document.getElementById('defeat-overlay');
 const RETRY_BUTTON = document.getElementById('retry-button');
 const CANCEL_RETRY_BUTTON = document.getElementById('cancel-retry-button');
+const BUILD_PANEL = document.getElementById('build-panel');
+const BUILD_TOGGLE = document.getElementById('build-toggle');
+const BUILD_CONTAINER = document.querySelector('.build-shell');
+const TOWER_LIST_CONTAINER = document.getElementById('tower-list');
+const SOUND_TOGGLE = document.getElementById('sound-toggle');
+
+let audioContext = null;
+let masterGain = null;
+let soundMuted = false;
+
+function ensureAudioContext() {
+    if (audioContext) {
+        return audioContext;
+    }
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+        console.warn('Web Audio API is not supported in this browser.');
+        soundMuted = true;
+        if (SOUND_TOGGLE) {
+            SOUND_TOGGLE.disabled = true;
+            SOUND_TOGGLE.textContent = "🔇";
+            SOUND_TOGGLE.title = "사운드를 사용할 수 없습니다";
+        }
+        return null;
+    }
+    audioContext = new AudioCtx();
+    masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.8;
+    masterGain.connect(audioContext.destination);
+    return audioContext;
+}
+
+function playToneSequence(steps) {
+    if (soundMuted) {
+        return;
+    }
+    const ctx = ensureAudioContext();
+    if (!ctx || !masterGain) {
+        return;
+    }
+    let current = ctx.currentTime;
+    for (const step of steps) {
+        const duration = typeof step.duration === 'number' ? step.duration : 0.15;
+        const delay = typeof step.delay === 'number' ? step.delay : 0;
+        current += delay;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const freq = typeof step.freq === 'number' ? step.freq : 440;
+        const volume = typeof step.volume === 'number' ? step.volume : 0.22;
+        const type = step.type || 'sine';
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, current);
+        gain.gain.setValueAtTime(0.0001, current);
+        gain.gain.exponentialRampToValueAtTime(volume, current + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, current + duration);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(current);
+        osc.stop(current + duration + 0.06);
+        current += duration;
+    }
+}
+
+function playNoise(duration = 0.25, volume = 0.24) {
+    if (soundMuted) {
+        return;
+    }
+    const ctx = ensureAudioContext();
+    if (!ctx || !masterGain) {
+        return;
+    }
+    const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < size; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.7;
+    }
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    source.buffer = buffer;
+    source.connect(gain);
+    gain.connect(masterGain);
+    source.start(now);
+    source.stop(now + duration + 0.06);
+}
+
+const SOUND_LIBRARY = {
+    select: () => playToneSequence([{ freq: 540, duration: 0.08, volume: 0.18 }]),
+    build: () => playToneSequence([
+        { freq: 360, duration: 0.08, volume: 0.22 },
+        { freq: 520, duration: 0.09, volume: 0.24, delay: 0.01 }
+    ]),
+    upgrade: () => playToneSequence([
+        { freq: 520, duration: 0.09, volume: 0.24 },
+        { freq: 680, duration: 0.12, volume: 0.22, type: 'triangle', delay: 0.02 }
+    ]),
+    kill: () => playToneSequence([
+        { freq: 420, duration: 0.08, volume: 0.18, type: 'square' },
+        { freq: 260, duration: 0.12, volume: 0.16, delay: 0.02 }
+    ]),
+    explosion: () => {
+        playNoise(0.22, 0.32);
+        playToneSequence([{ freq: 180, duration: 0.12, volume: 0.2, type: 'sawtooth' }]);
+    },
+    laser: () => playToneSequence([{ freq: 760, duration: 0.06, volume: 0.18 }]),
+    toggle: () => playToneSequence([{ freq: 420, duration: 0.07, volume: 0.18 }])
+};
+
+function updateSoundToggle() {
+    if (!SOUND_TOGGLE) {
+        return;
+    }
+    SOUND_TOGGLE.textContent = soundMuted ? '🔇' : '🔊';
+    SOUND_TOGGLE.setAttribute('aria-pressed', String(!soundMuted));
+    SOUND_TOGGLE.title = soundMuted ? '사운드 켜기' : '사운드 끄기';
+}
+
+function setSoundMuted(state) {
+    soundMuted = state;
+    if (audioContext && masterGain) {
+        const now = audioContext.currentTime;
+        const target = soundMuted ? 0.0001 : 0.8;
+        masterGain.gain.cancelScheduledValues(now);
+        masterGain.gain.setTargetAtTime(target, now + 0.01, 0.05);
+    }
+    updateSoundToggle();
+}
+
+function playSound(name) {
+    if (soundMuted) {
+        return;
+    }
+    const player = SOUND_LIBRARY[name];
+    if (!player) {
+        return;
+    }
+    if (!ensureAudioContext() || !masterGain) {
+        return;
+    }
+    try {
+        player();
+    } catch (error) {
+        console.warn('사운드 재생 실패:', error);
+    }
+}
+
+updateSoundToggle();
+
+let TOWER_SELECTOR_BUTTONS = [];
 
 function gridFromPosition(point) {
     return {
@@ -115,6 +576,56 @@ function gridFromPosition(point) {
 
 function keyFromGrid(x, y) {
     return `${x},${y}`;
+}
+
+function getTowerDefinition(id) {
+    return TOWER_TYPES[id] || TOWER_TYPES[DEFAULT_TOWER_TYPE];
+}
+
+function getTowerColor(definition, level) {
+    const colors = definition.levelColors || [];
+    return colors[Math.min(colors.length - 1, Math.max(0, level - 1))] || "#6296ff";
+}
+
+function getProjectileColor(definition, level) {
+    const colors = definition.projectileColors || [];
+    return colors[Math.min(colors.length - 1, Math.max(0, level - 1))] || "#ffd966";
+}
+
+function formatNumber(value) {
+    if (!Number.isFinite(value)) {
+        return "-";
+    }
+    if (Math.abs(value) < 1000) {
+        return Number.isInteger(value) ? `${value}` : value.toFixed(2);
+    }
+    return NUMBER_FORMAT.format(Math.round(value));
+}
+
+function calculateTowerDamage(definition, level) {
+    return parseFloat((definition.baseDamage * Math.pow(TOWER_DAMAGE_GROWTH, level - 1)).toFixed(4));
+}
+
+function calculateUpgradeCost(definition, level) {
+    const base = definition.baseUpgradeCost ?? TOWER_UPGRADE_BASE_COST;
+    return Math.round(base * Math.pow(TOWER_UPGRADE_COST_MULTIPLIER, level - 1));
+}
+
+function recalcTowerStats(tower) {
+    const def = getTowerDefinition(tower.type);
+    tower.range = def.range;
+    tower.fireDelay = def.fireDelay;
+    tower.damage = calculateTowerDamage(def, tower.level);
+    tower.upgradeCost = tower.level >= TOWER_MAX_LEVEL ? null : calculateUpgradeCost(def, tower.level);
+}
+
+function updateGoldUI() {
+    if (GOLD_LABEL) {
+        GOLD_LABEL.textContent = gold;
+    }
+    if (GOLD_INPUT) {
+        GOLD_INPUT.value = gold;
+    }
 }
 
 function hideTowerStats() {
@@ -136,6 +647,82 @@ function hideEnemyStats() {
 function hideAllStats() {
     hideTowerStats();
     hideEnemyStats();
+}
+
+﻿function setSelectedTowerButton(typeId) {
+    if (!TOWER_SELECTOR_BUTTONS || TOWER_SELECTOR_BUTTONS.length === 0) {
+        return;
+    }
+    for (const button of TOWER_SELECTOR_BUTTONS) {
+        const isSelected = button.dataset.tower === typeId;
+        button.classList.toggle('selected', isSelected);
+        button.classList.toggle('active', isSelected);
+        button.setAttribute('aria-pressed', String(isSelected));
+    }
+}
+
+function populateTowerList() {
+    if (!TOWER_LIST_CONTAINER) {
+        return;
+    }
+    TOWER_LIST_CONTAINER.innerHTML = '';
+    const order = Array.isArray(TOWER_ORDER) ? TOWER_ORDER : Object.keys(TOWER_TYPES);
+    TOWER_SELECTOR_BUTTONS = [];
+    for (const id of order) {
+        const def = getTowerDefinition(id);
+        if (!def) {
+            continue;
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'tower-card tower-button';
+        button.dataset.tower = id;
+        button.setAttribute('role', 'radio');
+        button.setAttribute('aria-pressed', 'false');
+        const cost = typeof def.cost === 'number' ? def.cost : 0;
+        const range = typeof def.range === 'number' ? def.range : 0;
+        const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
+        const fireDelay = typeof def.fireDelay === 'number' && def.fireDelay > 0 ? def.fireDelay : 1;
+        const dps = baseDamage / fireDelay;
+        button.innerHTML = `
+            <span class="tower-name">${def.label}</span>
+            <span class="tower-meta">
+                <span>비용 ${formatNumber(cost)}</span>
+                <span>사거리 ${Math.round(range)}px</span>
+                <span>DPS ${formatNumber(Number(dps.toFixed(1)))}</span>
+            </span>
+        `;
+        button.addEventListener('click', () => {
+            if (selectedTowerType === id) {
+                return;
+            }
+            selectedTowerType = id;
+            setSelectedTowerButton(id);
+            playSound('select');
+        });
+        TOWER_LIST_CONTAINER.appendChild(button);
+        TOWER_SELECTOR_BUTTONS.push(button);
+    }
+    setSelectedTowerButton(selectedTowerType);
+}
+
+let buildPanelCollapsed = false;
+let buildPanelUserOverride = false;
+
+function setBuildPanelCollapsed(state, options = {}) {
+    if (!BUILD_CONTAINER) {
+        return;
+    }
+    buildPanelCollapsed = state;
+    if (options.user) {
+        buildPanelUserOverride = true;
+    }
+    BUILD_CONTAINER.classList.toggle('collapsed', state);
+    if (BUILD_TOGGLE) {
+        BUILD_TOGGLE.setAttribute('aria-expanded', String(!state));
+        BUILD_TOGGLE.innerHTML = state ? '▶' : '◀';
+        BUILD_TOGGLE.setAttribute('title', state ? '포탑 패널 펼치기' : '포탑 패널 접기');
+    }
 }
 
 function getWaveEnemyCount(waveNumber) {
@@ -161,7 +748,7 @@ function updateWavePreview(remainingOverride) {
     if (gameOver) {
         status = '패배';
     } else if (waveInProgress) {
-        status = '진행 중';
+        status = '전투 중';
     } else if (nextWaveTimer > 0) {
         status = '휴식';
     } else {
@@ -196,6 +783,7 @@ function setGameSpeed(multiplier) {
 function clearCurrentWave() {
     enemies.length = 0;
     projectiles.length = 0;
+    impactEffects.length = 0;
     enemiesToSpawn = 0;
     spawnCooldown = 0;
     waveInProgress = false;
@@ -204,14 +792,18 @@ function clearCurrentWave() {
 }
 
 function ensureTowerMetadata(tower) {
+    if (!tower.type) {
+        tower.type = DEFAULT_TOWER_TYPE;
+    }
     if (typeof tower.level !== 'number' || tower.level < 1) {
         tower.level = 1;
     }
-    if (typeof tower.damage !== 'number') {
-        tower.damage = TOWER_BASE_DAMAGE;
+    recalcTowerStats(tower);
+    if (typeof tower.cooldown !== 'number') {
+        tower.cooldown = 0;
     }
-    if (typeof tower.upgradeCost !== 'number' || tower.upgradeCost <= 0) {
-        tower.upgradeCost = Math.round(TOWER_UPGRADE_BASE_COST * Math.pow(TOWER_UPGRADE_COST_MULTIPLIER, tower.level - 1));
+    if (!tower.activeBeam) {
+        tower.activeBeam = null;
     }
 }
 
@@ -224,6 +816,8 @@ function setWave(targetWave) {
     }
     const desiredWave = Math.max(1, Math.floor(targetWave));
     clearCurrentWave();
+    selectedTowerType = DEFAULT_TOWER_TYPE;
+    setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
     WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
@@ -237,13 +831,30 @@ function updateTowerStatsFields() {
         return;
     }
     ensureTowerMetadata(selectedTower);
-    TOWER_STATS_FIELDS.position.textContent = `${selectedTower.x}, ${selectedTower.y}`;
-    TOWER_STATS_FIELDS.range.textContent = `${(selectedTower.range / TILE_SIZE).toFixed(1)} 타일`;
-    TOWER_STATS_FIELDS.fireDelay.textContent = `${selectedTower.fireDelay.toFixed(2)}초`;
-    TOWER_STATS_FIELDS.damage.textContent = `${selectedTower.damage.toFixed(1)}`;
-    TOWER_STATS_FIELDS.level.textContent = `${selectedTower.level}`;
-    const nextCost = selectedTower.level >= TOWER_MAX_LEVEL ? 'MAX' : selectedTower.upgradeCost;
-    TOWER_STATS_FIELDS.upgradeCost.textContent = nextCost;
+    const def = getTowerDefinition(selectedTower.type);
+    if (TOWER_STATS_FIELDS.type) {
+        TOWER_STATS_FIELDS.type.textContent = def.label;
+    }
+    if (TOWER_STATS_FIELDS.position) {
+        TOWER_STATS_FIELDS.position.textContent = `${selectedTower.x}, ${selectedTower.y}`;
+    }
+    if (TOWER_STATS_FIELDS.range) {
+        const tiles = (selectedTower.range / TILE_SIZE).toFixed(1);
+        TOWER_STATS_FIELDS.range.textContent = `${Math.round(selectedTower.range)}px (${tiles}타일)`;
+    }
+    if (TOWER_STATS_FIELDS.fireDelay) {
+        TOWER_STATS_FIELDS.fireDelay.textContent = `${selectedTower.fireDelay.toFixed(2)}초`;
+    }
+    if (TOWER_STATS_FIELDS.damage) {
+        TOWER_STATS_FIELDS.damage.textContent = formatNumber(selectedTower.damage);
+    }
+    if (TOWER_STATS_FIELDS.level) {
+        TOWER_STATS_FIELDS.level.textContent = selectedTower.level;
+    }
+    if (TOWER_STATS_FIELDS.upgradeCost) {
+        const cost = selectedTower.upgradeCost;
+        TOWER_STATS_FIELDS.upgradeCost.textContent = cost == null ? 'MAX' : formatNumber(cost);
+    }
 }
 
 function updateEnemyStatsFields() {
@@ -253,12 +864,79 @@ function updateEnemyStatsFields() {
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
     const waveIndex = typeof selectedEnemy.waveIndex === "number" ? selectedEnemy.waveIndex : wave;
-    ENEMY_STATS_FIELDS.wave.textContent = waveIndex;
-    ENEMY_STATS_FIELDS.hp.textContent = `${currentHp} / ${maxHp}`;
-    ENEMY_STATS_FIELDS.speed.textContent = `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`;
-    ENEMY_STATS_FIELDS.reward.textContent = `${selectedEnemy.reward}`;
+    if (ENEMY_STATS_FIELDS.wave) {
+        ENEMY_STATS_FIELDS.wave.textContent = waveIndex;
+    }
+    if (ENEMY_STATS_FIELDS.hp) {
+        ENEMY_STATS_FIELDS.hp.textContent = `${currentHp.toLocaleString('ko-KR')} / ${maxHp.toLocaleString('ko-KR')}`;
+    }
+    if (ENEMY_STATS_FIELDS.speed) {
+        ENEMY_STATS_FIELDS.speed.textContent = `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`;
+    }
+    if (ENEMY_STATS_FIELDS.reward) {
+        ENEMY_STATS_FIELDS.reward.textContent = `${selectedEnemy.reward}`;
+    }
 }
 
+function damageEnemyAtIndex(index, amount) {
+    const enemy = enemies[index];
+    if (!enemy) {
+        return false;
+    }
+    enemy.hp -= amount;
+    if (enemy.hp <= 0) {
+        if (selectedEnemy === enemy) {
+            hideEnemyStats();
+        }
+        enemies.splice(index, 1);
+        gold += enemy.reward;
+        updateGoldUI();
+        playSound('kill');
+        return true;
+    }
+    return false;
+}
+
+function damageEnemy(enemy, amount) {
+    const idx = enemies.indexOf(enemy);
+    if (idx === -1) {
+        return false;
+    }
+    return damageEnemyAtIndex(idx, amount);
+}
+
+function spawnImpactEffect(x, y, radius, color) {
+    impactEffects.push({
+        x,
+        y,
+        radius,
+        color,
+        life: 0.3,
+        initialLife: 0.3
+    });
+}
+
+function applyExplosion(projectile, originX, originY) {
+    const radius = projectile.explosionRadius || 0;
+    if (radius <= 0) {
+        return;
+    }
+    const radiusSq = radius * radius;
+    for (let k = enemies.length - 1; k >= 0; k--) {
+        const foe = enemies[k];
+        const dx = foe.x - originX;
+        const dy = foe.y - originY;
+        if (dx * dx + dy * dy <= radiusSq) {
+            damageEnemyAtIndex(k, projectile.damage);
+        }
+    }
+    if (projectile.explosionColor) {
+        spawnImpactEffect(originX, originY, radius, projectile.explosionColor);
+    } else {
+        spawnImpactEffect(originX, originY, radius, 'rgba(255, 210, 120, 0.4)');
+    }
+    playSound('explosion');
+}
 function showTowerStats(tower) {
     if (!tower || !TOWER_STATS_PANEL) {
         return;
@@ -281,7 +959,7 @@ function showEnemyStats(enemy) {
 function getTowerAtPoint(px, py) {
     for (let i = towers.length - 1; i >= 0; i--) {
         const tower = towers[i];
-        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= TOWER_RADIUS) {
+        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= TOWER_PICK_RADIUS) {
             return tower;
         }
     }
@@ -312,16 +990,14 @@ function upgradeTower(tower) {
         return false;
     }
     const cost = tower.upgradeCost;
-    if (gold < cost) {
+    if (cost == null || gold < cost) {
         return false;
     }
     gold -= cost;
-    GOLD_LABEL.textContent = gold;
+    updateGoldUI();
     tower.level += 1;
-    tower.damage = parseFloat((tower.damage * TOWER_UPGRADE_DAMAGE_MULTIPLIER).toFixed(2));
-    if (tower.level < TOWER_MAX_LEVEL) {
-        tower.upgradeCost = Math.round(tower.upgradeCost * TOWER_UPGRADE_COST_MULTIPLIER);
-    }
+    recalcTowerStats(tower);
+    playSound('upgrade');
     if (selectedTower === tower) {
         updateTowerStatsFields();
     }
@@ -335,6 +1011,8 @@ function showDefeatDialog() {
     gameOver = true;
     paused = true;
     clearCurrentWave();
+    selectedTowerType = DEFAULT_TOWER_TYPE;
+    setSelectedTowerButton(selectedTowerType);
     setGameSpeed(1);
     DEFEAT_OVERLAY.classList.remove('hidden');
     updateWavePreview(0);
@@ -357,7 +1035,9 @@ function resetGame() {
     hideAllStats();
     towers.length = 0;
     clearCurrentWave();
-    GOLD_LABEL.textContent = gold;
+    selectedTowerType = DEFAULT_TOWER_TYPE;
+    setSelectedTowerButton(selectedTowerType);
+    updateGoldUI();
     LIVES_LABEL.textContent = lives;
     WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
@@ -381,136 +1061,6 @@ function startWave() {
     updateWavePreview(enemiesToSpawn + enemies.length);
 }
 
-canvas.addEventListener("mousemove", event => {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
-    const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
-    if (x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS) {
-        hoverTile = { x, y };
-    } else {
-        hoverTile = null;
-    }
-});
-
-canvas.addEventListener("mouseleave", () => {
-    hoverTile = null;
-});
-
-canvas.addEventListener("click", event => {
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-
-    const tower = getTowerAtPoint(canvasX, canvasY);
-    if (tower) {
-        showTowerStats(tower);
-        return;
-    }
-
-    const enemy = getEnemyAtPoint(canvasX, canvasY);
-    if (enemy) {
-        showEnemyStats(enemy);
-        return;
-    }
-
-    const x = Math.floor(canvasX / TILE_SIZE);
-    const y = Math.floor(canvasY / TILE_SIZE);
-
-    if (paused) {
-        hideAllStats();
-        return;
-    }
-
-    if (!canBuildAt(x, y)) {
-        hideAllStats();
-        return;
-    }
-
-    const cost = 25;
-    if (gold < cost) {
-        return;
-    }
-
-    gold -= cost;
-    GOLD_LABEL.textContent = gold;
-    const towerData = {
-        x,
-        y,
-        worldX: x * TILE_SIZE + TILE_CENTER_OFFSET,
-        worldY: y * TILE_SIZE + TILE_CENTER_OFFSET,
-        range: 140,
-        fireDelay: 0.55,
-        cooldown: 0,
-        damage: TOWER_BASE_DAMAGE,
-        level: 1,
-        upgradeCost: TOWER_UPGRADE_BASE_COST
-    };
-    towers.push(towerData);
-    showTowerStats(towerData);
-});
-
-canvas.addEventListener("contextmenu", event => {
-    event.preventDefault();
-    if (gameOver) {
-        return;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-    const tower = getTowerAtPoint(canvasX, canvasY);
-    if (!tower) {
-        return;
-    }
-    upgradeTower(tower);
-});
-
-SPEED_BUTTONS.forEach(button => {
-    button.addEventListener('click', () => {
-        const multiplier = Number(button.dataset.speed) || 1;
-        setGameSpeed(multiplier);
-    });
-});
-
-if (WAVE_APPLY_BUTTON && WAVE_INPUT) {
-    const applyWaveFromInput = () => {
-        const value = Number(WAVE_INPUT.value);
-        if (!Number.isFinite(value)) {
-            WAVE_INPUT.value = wave;
-            return;
-        }
-        setWave(value);
-    };
-    WAVE_APPLY_BUTTON.addEventListener('click', applyWaveFromInput);
-    WAVE_INPUT.addEventListener('change', applyWaveFromInput);
-    WAVE_INPUT.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            applyWaveFromInput();
-        }
-    });
-}
-
-if (RETRY_BUTTON) {
-    RETRY_BUTTON.addEventListener('click', () => {
-        resetGame();
-    });
-}
-
-if (CANCEL_RETRY_BUTTON) {
-    CANCEL_RETRY_BUTTON.addEventListener('click', () => {
-        hideDefeatDialog();
-    });
-}
-
-document.addEventListener("keydown", event => {
-    if (event.code === "Space") {
-        if (lives === 0 || gameOver) {
-            return;
-        }
-        paused = !paused;
-        event.preventDefault();
-    }
-});
-
 function canBuildAt(x, y) {
     if (x < 0 || x >= GRID_COLS || y < 0 || y >= GRID_ROWS) {
         return false;
@@ -519,6 +1069,24 @@ function canBuildAt(x, y) {
         return false;
     }
     return !towers.some(t => t.x === x && t.y === y);
+}
+
+function createTowerData(x, y, typeId) {
+    const def = getTowerDefinition(typeId);
+    return {
+        type: def.id,
+        x,
+        y,
+        worldX: x * TILE_SIZE + TILE_CENTER_OFFSET,
+        worldY: y * TILE_SIZE + TILE_CENTER_OFFSET,
+        cooldown: 0,
+        level: 1,
+        range: def.range,
+        fireDelay: def.fireDelay,
+        damage: calculateTowerDamage(def, 1),
+        upgradeCost: calculateUpgradeCost(def, 1),
+        activeBeam: null
+    };
 }
 
 function spawnEnemy() {
@@ -536,6 +1104,236 @@ function spawnEnemy() {
     });
 }
 
+function findTarget(tower) {
+    let chosen = null;
+    let bestScore = -Infinity;
+    for (const enemy of enemies) {
+        const dx = enemy.x - tower.worldX;
+        const dy = enemy.y - tower.worldY;
+        const dist = Math.hypot(dx, dy);
+        if (dist > tower.range) {
+            continue;
+        }
+        const score = enemy.waypoint * 1000 - dist;
+        if (score > bestScore) {
+            bestScore = score;
+            chosen = enemy;
+        }
+    }
+    return chosen;
+}
+
+function spawnProjectile(options) {
+    const speed = Math.hypot(options.vx, options.vy) || 1;
+    projectiles.push({
+        x: options.x,
+        y: options.y,
+        vx: options.vx,
+        vy: options.vy,
+        damage: options.damage,
+        life: options.life,
+        initialLife: options.life,
+        radius: options.radius,
+        color: options.color,
+        outline: options.outline || null,
+        shape: options.shape || 'circle',
+        trailColor: options.trailColor || null,
+        trailLength: options.trailLength || 0,
+        hitRadius: options.hitRadius || Math.max(16, (options.radius || 6) * 1.6),
+        rotation: options.rotation != null ? options.rotation : Math.atan2(options.vy, options.vx),
+        spin: options.spin || 0,
+        delay: options.delay || 0,
+        gravity: options.gravity || 0,
+        explosionRadius: options.explosionRadius || 0,
+        explosionColor: options.explosionColor || null,
+        detonateOnExpire: Boolean(options.detonateOnExpire),
+        speed
+    });
+}
+
+function performTowerAttack(tower, target) {
+    const def = getTowerDefinition(tower.type);
+    const baseDx = target.x - tower.worldX;
+    const baseDy = target.y - tower.worldY;
+    const baseDist = Math.hypot(baseDx, baseDy) || 1;
+    const baseAngle = Math.atan2(baseDy, baseDx);
+    const dirX = baseDx / baseDist;
+    const dirY = baseDy / baseDist;
+
+    if (def.attackPattern === 'shotgun') {
+        const pellets = def.pellets || 4;
+        const spread = def.spread || (Math.PI / 4);
+        for (let i = 0; i < pellets; i++) {
+            const ratio = pellets === 1 ? 0 : (i / (pellets - 1)) - 0.5;
+            const jitter = (Math.random() - 0.5) * 0.35;
+            const angle = baseAngle + (ratio + jitter) * spread;
+            const speed = def.projectileSpeed * (0.9 + Math.random() * 0.3);
+            spawnProjectile({
+                x: tower.worldX,
+                y: tower.worldY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                damage: tower.damage,
+                life: def.projectileLife + (tower.level - 1) * 0.05,
+                radius: def.projectileRadius + (tower.level - 1) * 0.7,
+                color: getProjectileColor(def, tower.level),
+                outline: '#2e2e2e',
+                trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+                trailLength: def.trailLength + (tower.level - 1) * 10,
+                hitRadius: 14 + tower.level,
+                shape: 'circle'
+            });
+        }
+        return;
+    }
+
+    if (def.attackPattern === 'beam') {
+        const speed = def.projectileSpeed + (tower.level - 1) * 25;
+        spawnProjectile({
+            x: tower.worldX,
+            y: tower.worldY,
+            vx: dirX * speed,
+            vy: dirY * speed,
+            damage: tower.damage,
+            life: def.projectileLife + (tower.level - 1) * 0.2,
+            radius: def.beamWidth + (tower.level - 1) * 1.2,
+            color: getProjectileColor(def, tower.level),
+            outline: '#ffffff33',
+            shape: 'beam',
+            trailColor: getProjectileColor(def, tower.level),
+            trailLength: def.trailLength + (tower.level - 1) * 30,
+            hitRadius: 24 + tower.level * 1.5
+        });
+        return;
+    }
+
+    if (def.attackPattern === 'burst') {
+        const speed = def.projectileSpeed + (tower.level - 1) * 25;
+        const burstCount = def.burstCount || 3;
+        const delayStep = def.burstDelay ?? 0.07;
+        for (let i = 0; i < burstCount; i++) {
+            const delay = i * delayStep;
+            spawnProjectile({
+                x: tower.worldX,
+                y: tower.worldY,
+                vx: dirX * speed,
+                vy: dirY * speed,
+                damage: tower.damage,
+                life: def.projectileLife + (tower.level - 1) * 0.08 + delay,
+                radius: def.projectileRadius + (tower.level - 1) * 0.5,
+                color: getProjectileColor(def, tower.level),
+                outline: '#351a05',
+                shape: 'triangle',
+                trailColor: '#fffbf2',
+                trailLength: def.trailLength + (tower.level - 1) * 12,
+                delay,
+                hitRadius: 18 + tower.level * 1.4
+            });
+        }
+        return;
+    }
+
+    if (def.attackPattern === 'explosive') {
+        const speed = def.projectileSpeed + (tower.level - 1) * 20;
+        spawnProjectile({
+            x: tower.worldX,
+            y: tower.worldY,
+            vx: dirX * speed,
+            vy: dirY * speed,
+            damage: tower.damage,
+            life: def.projectileLife + (tower.level - 1) * 0.12,
+            radius: def.projectileRadius + (tower.level - 1) * 0.6,
+            color: getProjectileColor(def, tower.level),
+            outline: def.outline,
+            shape: 'hex',
+            trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+            trailLength: def.trailLength + (tower.level - 1) * 15,
+            explosionRadius: def.explosionRadius + tower.level * 4,
+            explosionColor: def.explosionColor,
+            hitRadius: 22 + tower.level * 1.5,
+            detonateOnExpire: true
+        });
+        return;
+    }
+
+    if (def.attackPattern === 'mortar') {
+        const speed = def.projectileSpeed + (tower.level - 1) * 12;
+        const lift = def.mortarLift + (tower.level - 1) * 12;
+        spawnProjectile({
+            x: tower.worldX,
+            y: tower.worldY,
+            vx: dirX * speed,
+            vy: dirY * speed - lift,
+            damage: tower.damage,
+            life: def.projectileLife + (tower.level - 1) * 0.18,
+            radius: def.projectileRadius + (tower.level - 1) * 1.2,
+            color: getProjectileColor(def, tower.level),
+            outline: def.outline,
+            shape: 'orb',
+            trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+            trailLength: def.trailLength + (tower.level - 1) * 14,
+            gravity: def.gravity,
+            explosionRadius: def.explosionRadius + tower.level * 5,
+            explosionColor: def.explosionColor,
+            hitRadius: 26 + tower.level * 2,
+            detonateOnExpire: true
+        });
+        return;
+    }
+
+    // default projectile (기본/연사 등)
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * 20;
+    spawnProjectile({
+        x: tower.worldX,
+        y: tower.worldY,
+        vx: dirX * speed,
+        vy: dirY * speed,
+        damage: tower.damage,
+        life: (def.projectileLife || 0.8) + (tower.level - 1) * 0.06,
+        radius: (def.projectileRadius || 6) + (tower.level - 1) * 0.4,
+        color: getProjectileColor(def, tower.level),
+        outline: def.outline,
+        shape: def.shape === 'triangle' ? 'triangle' : 'circle',
+        trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+        trailLength: def.trailLength + (tower.level - 1) * 12,
+        hitRadius: 16 + tower.level * 1.2
+    });
+}
+
+function handleLaserAttack(tower, dt) {
+    const def = getTowerDefinition(tower.type);
+    const hadBeam = Boolean(tower.activeBeam && tower.activeBeam.alpha > 0.2);
+    if (tower.activeBeam) {
+        tower.activeBeam.alpha = Math.max(0, tower.activeBeam.alpha - dt * 8);
+        if (tower.activeBeam.alpha <= 0.01) {
+            tower.activeBeam = null;
+        }
+    }
+    const target = findTarget(tower);
+    if (!target) {
+        return;
+    }
+    const damagePerSecond = tower.damage * (def.sustainMultiplier || 1);
+    const appliedDamage = damagePerSecond * dt;
+    const killed = damageEnemy(target, appliedDamage);
+    const beamColor = def.beamColor || getProjectileColor(def, tower.level);
+    tower.activeBeam = {
+        x1: tower.worldX,
+        y1: tower.worldY,
+        x2: target.x,
+        y2: target.y,
+        width: (def.beamWidth || 6) + (tower.level - 1) * 0.35,
+        color: beamColor,
+        glow: def.beamGlowColor || beamColor,
+        alpha: 0.95
+    };
+    if (!hadBeam) {
+        playSound('laser');
+    }
+    if (killed) {
+        spawnImpactEffect(target.x, target.y, 36 + tower.level * 2, def.beamGlowColor || 'rgba(150, 255, 255, 0.4)');
+    }
+}
 function update(dt) {
     if (gameOver) {
         return;
@@ -595,50 +1393,93 @@ function update(dt) {
     }
 
     for (const tower of towers) {
+        const def = getTowerDefinition(tower.type);
+        if (def.attackPattern === 'laser') {
+            handleLaserAttack(tower, dt);
+            continue;
+        }
+        if (tower.activeBeam) {
+            tower.activeBeam.alpha = Math.max(0, tower.activeBeam.alpha - dt * 6);
+            if (tower.activeBeam.alpha <= 0.05) {
+                tower.activeBeam = null;
+            }
+        }
         if (tower.cooldown > 0) {
             tower.cooldown -= dt;
-            continue;
+            if (tower.cooldown > 0) {
+                continue;
+            }
         }
         const target = findTarget(tower);
         if (!target) {
+            tower.cooldown = 0;
             continue;
         }
-        fireProjectile(tower, target);
+        performTowerAttack(tower, target);
         tower.cooldown = tower.fireDelay;
     }
 
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const projectile = projectiles[i];
+        if (projectile.delay > 0) {
+            projectile.delay -= dt;
+            if (projectile.delay > 0) {
+                continue;
+            }
+        }
+        if (projectile.gravity) {
+            projectile.vy += projectile.gravity * dt;
+        }
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
         projectile.life -= dt;
-        if (projectile.life <= 0) {
-            projectiles.splice(i, 1);
-            continue;
+        if (projectile.spin) {
+            projectile.rotation += projectile.spin * dt;
+        } else {
+            projectile.rotation = Math.atan2(projectile.vy, projectile.vx);
         }
-        let hit = false;
+        projectile.speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+
+        let remove = false;
+        let impacted = false;
         for (let j = enemies.length - 1; j >= 0; j--) {
             const enemy = enemies[j];
             const dx = enemy.x - projectile.x;
             const dy = enemy.y - projectile.y;
-            if (dx * dx + dy * dy <= 18 * 18) {
-                enemy.hp -= projectile.damage;
-                if (enemy.hp <= 0) {
-                    if (selectedEnemy === enemy) {
-                        hideEnemyStats();
-                    }
-                    enemies.splice(j, 1);
-                    gold += enemy.reward;
-                    GOLD_LABEL.textContent = gold;
+            if (dx * dx + dy * dy <= projectile.hitRadius * projectile.hitRadius) {
+                if (projectile.explosionRadius) {
+                    applyExplosion(projectile, projectile.x, projectile.y);
+                } else {
+                    damageEnemyAtIndex(j, projectile.damage);
                 }
-                hit = true;
+                impacted = true;
+                remove = true;
                 break;
             }
         }
-        if (hit) {
+
+        if (!impacted && projectile.life <= 0 && projectile.detonateOnExpire && projectile.explosionRadius) {
+            applyExplosion(projectile, projectile.x, projectile.y);
+            remove = true;
+        }
+
+        if (projectile.life <= 0) {
+            remove = true;
+        }
+
+        if (remove) {
             projectiles.splice(i, 1);
         }
     }
+
+    for (let i = impactEffects.length - 1; i >= 0; i--) {
+        const effect = impactEffects[i];
+        effect.life -= dt;
+        if (effect.life <= 0) {
+            impactEffects.splice(i, 1);
+        }
+    }
+
     if (selectedEnemy) {
         updateEnemyStatsFields();
     }
@@ -647,41 +1488,6 @@ function update(dt) {
     }
     updateWavePreview(waveInProgress ? enemiesToSpawn + enemies.length : null);
 }
-
-function findTarget(tower) {
-    let chosen = null;
-    let bestScore = -Infinity;
-    for (const enemy of enemies) {
-        const dx = enemy.x - tower.worldX;
-        const dy = enemy.y - tower.worldY;
-        const dist = Math.hypot(dx, dy);
-        if (dist > tower.range) {
-            continue;
-        }
-        const score = enemy.waypoint * 1000 - dist;
-        if (score > bestScore) {
-            bestScore = score;
-            chosen = enemy;
-        }
-    }
-    return chosen;
-}
-
-function fireProjectile(tower, target) {
-    const dx = target.x - tower.worldX;
-    const dy = target.y - tower.worldY;
-    const dist = Math.hypot(dx, dy) || 1;
-    const speed = 320;
-    projectiles.push({
-        x: tower.worldX,
-        y: tower.worldY,
-        vx: (dx / dist) * speed,
-        vy: (dy / dist) * speed,
-        damage: tower.damage,
-        life: 1.6
-    });
-}
-
 function drawGrid() {
     ctx.save();
     ctx.strokeStyle = "#2a333d";
@@ -714,16 +1520,96 @@ function drawPath() {
     ctx.restore();
 }
 
+function drawHexagon(x, y, radius) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const angle = Math.PI / 3 * i + Math.PI / 6;
+        const px = x + Math.cos(angle) * radius;
+        const py = y + Math.sin(angle) * radius;
+        if (i === 0) {
+            ctx.moveTo(px, py);
+        } else {
+            ctx.lineTo(px, py);
+        }
+    }
+    ctx.closePath();
+}
+
+function drawTowerShape(tower, color, outline) {
+    const def = getTowerDefinition(tower.type);
+    const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = outline || '#1f2f5a';
+    ctx.lineWidth = 3;
+    const x = tower.worldX;
+    const y = tower.worldY;
+    switch (def.shape) {
+    case 'diamond':
+        ctx.beginPath();
+        ctx.moveTo(x, y - size);
+        ctx.lineTo(x + size, y);
+        ctx.lineTo(x, y + size);
+        ctx.lineTo(x - size, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+    case 'square':
+        ctx.beginPath();
+        ctx.rect(x - size, y - size, size * 2, size * 2);
+        ctx.fill();
+        ctx.stroke();
+        break;
+    case 'triangle':
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 1.2);
+        ctx.lineTo(x + size * 0.9, y + size * 1.1);
+        ctx.lineTo(x - size * 0.9, y + size * 1.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+    case 'hex':
+        drawHexagon(x, y, size * 0.95);
+        ctx.fill();
+        ctx.stroke();
+        break;
+    case 'orb': {
+        const gradient = ctx.createRadialGradient(x, y, size * 0.25, x, y, size);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(1, color);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#32210f';
+        ctx.stroke();
+        break;
+    }
+    default:
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        break;
+    }
+}
+
 function drawTowers() {
     ctx.save();
     for (const tower of towers) {
-        ctx.fillStyle = "#6296ff";
-        ctx.beginPath();
-        ctx.arc(tower.worldX, tower.worldY, TOWER_RADIUS, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#1f2f5a";
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        const def = getTowerDefinition(tower.type);
+        if (selectedTower === tower) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(tower.worldX, tower.worldY, tower.range, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+        const color = getTowerColor(def, tower.level);
+        drawTowerShape(tower, color, def.outline);
     }
     ctx.restore();
 }
@@ -744,15 +1630,163 @@ function drawEnemies() {
     ctx.restore();
 }
 
-function drawProjectiles() {
+function drawProjectileTrail(projectile) {
+    if (!projectile.trailLength) {
+        return;
+    }
+    const norm = projectile.speed || Math.hypot(projectile.vx, projectile.vy) || 1;
+    const tx = projectile.x - (projectile.vx / norm) * projectile.trailLength;
+    const ty = projectile.y - (projectile.vy / norm) * projectile.trailLength;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(projectile.x, projectile.y);
+    ctx.strokeStyle = projectile.trailColor || projectile.color;
+    ctx.lineWidth = Math.max(1.5, (projectile.radius || 4) * 0.7);
+    ctx.stroke();
+}
+
+function drawImpactEffects() {
+    if (impactEffects.length === 0) {
+        return;
+    }
     ctx.save();
-    ctx.fillStyle = "#ffd966";
-    for (const projectile of projectiles) {
+    for (const effect of impactEffects) {
+        const alpha = Math.max(0, effect.life / effect.initialLife);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = effect.color;
         ctx.beginPath();
-        ctx.arc(projectile.x, projectile.y, 6, 0, Math.PI * 2);
+        ctx.arc(effect.x, effect.y, effect.radius * (1 + (1 - alpha) * 0.4), 0, Math.PI * 2);
         ctx.fill();
     }
     ctx.restore();
+}
+
+function drawLaserBeams() {
+    ctx.save();
+    for (const tower of towers) {
+        const beam = tower.activeBeam;
+        if (!beam || beam.alpha <= 0) {
+            continue;
+        }
+        ctx.globalAlpha = Math.min(1, beam.alpha);
+        ctx.strokeStyle = beam.glow || beam.color;
+        ctx.lineWidth = (beam.width || 6) * 1.8;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = beam.glow || beam.color;
+        ctx.shadowBlur = (beam.width || 6) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(beam.x1, beam.y1);
+        ctx.lineTo(beam.x2, beam.y2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = Math.min(1, beam.alpha * 0.8);
+        ctx.strokeStyle = beam.color;
+        ctx.lineWidth = beam.width || 6;
+        ctx.beginPath();
+        ctx.moveTo(beam.x1, beam.y1);
+        ctx.lineTo(beam.x2, beam.y2);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawProjectiles() {
+    ctx.save();
+    for (const projectile of projectiles) {
+        if (projectile.delay > 0) {
+            continue;
+        }
+        const alpha = projectile.initialLife > 0 ? Math.max(0.25, projectile.life / projectile.initialLife) : 1;
+        ctx.globalAlpha = Math.min(1, alpha);
+        if (projectile.trailLength) {
+            ctx.save();
+            ctx.globalAlpha = Math.min(0.7, alpha);
+            drawProjectileTrail(projectile);
+            ctx.restore();
+            ctx.globalAlpha = Math.min(1, alpha);
+        }
+        switch (projectile.shape) {
+        case 'beam': {
+            const length = projectile.trailLength || 40;
+            ctx.strokeStyle = projectile.color;
+            ctx.lineWidth = (projectile.radius || 6) * 1.6;
+            ctx.beginPath();
+            ctx.moveTo(projectile.x - (projectile.vx / projectile.speed) * length,
+                projectile.y - (projectile.vy / projectile.speed) * length);
+            ctx.lineTo(projectile.x, projectile.y);
+            ctx.stroke();
+            break;
+        }
+        case 'triangle': {
+            const size = projectile.radius || 6;
+            const angle = projectile.rotation || 0;
+            ctx.fillStyle = projectile.color;
+            ctx.beginPath();
+            ctx.moveTo(
+                projectile.x + Math.cos(angle) * size * 1.4,
+                projectile.y + Math.sin(angle) * size * 1.4
+            );
+            ctx.lineTo(
+                projectile.x + Math.cos(angle + 2.5) * size,
+                projectile.y + Math.sin(angle + 2.5) * size
+            );
+            ctx.lineTo(
+                projectile.x + Math.cos(angle - 2.5) * size,
+                projectile.y + Math.sin(angle - 2.5) * size
+            );
+            ctx.closePath();
+            ctx.fill();
+            if (projectile.outline) {
+                ctx.strokeStyle = projectile.outline;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            break;
+        }
+        case 'hex': {
+            ctx.fillStyle = projectile.color;
+            drawHexagon(projectile.x, projectile.y, (projectile.radius || 8));
+            ctx.fill();
+            if (projectile.outline) {
+                ctx.strokeStyle = projectile.outline;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            break;
+        }
+        case 'orb': {
+            const gradient = ctx.createRadialGradient(projectile.x, projectile.y, (projectile.radius || 6) * 0.2,
+                projectile.x, projectile.y, projectile.radius || 6);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(1, projectile.color);
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(projectile.x, projectile.y, projectile.radius || 6, 0, Math.PI * 2);
+            ctx.fill();
+            if (projectile.outline) {
+                ctx.strokeStyle = projectile.outline;
+                ctx.lineWidth = 1.3;
+                ctx.stroke();
+            }
+            break;
+        }
+        default: {
+            ctx.fillStyle = projectile.color;
+            ctx.beginPath();
+            ctx.arc(projectile.x, projectile.y, projectile.radius || 6, 0, Math.PI * 2);
+            ctx.fill();
+            if (projectile.outline) {
+                ctx.strokeStyle = projectile.outline;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            break;
+        }
+        }
+    }
+    ctx.restore();
+    drawImpactEffects();
+    drawLaserBeams();
 }
 
 function drawHover() {
@@ -794,6 +1828,205 @@ function render() {
     drawProjectiles();
     drawState();
 }
+canvas.addEventListener("mousemove", event => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
+    const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
+    if (x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS) {
+        hoverTile = { x, y };
+    } else {
+        hoverTile = null;
+    }
+});
+
+canvas.addEventListener("mouseleave", () => {
+    hoverTile = null;
+});
+
+canvas.addEventListener("click", event => {
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+
+    const tower = getTowerAtPoint(canvasX, canvasY);
+    if (tower) {
+        showTowerStats(tower);
+        return;
+    }
+
+    const enemy = getEnemyAtPoint(canvasX, canvasY);
+    if (enemy) {
+        showEnemyStats(enemy);
+        return;
+    }
+
+    const x = Math.floor(canvasX / TILE_SIZE);
+    const y = Math.floor(canvasY / TILE_SIZE);
+
+    if (paused) {
+        hideAllStats();
+        return;
+    }
+
+    if (!canBuildAt(x, y)) {
+        hideAllStats();
+        return;
+    }
+
+    const towerDef = getTowerDefinition(selectedTowerType);
+    const cost = towerDef.cost || 25;
+    if (gold < cost) {
+        return;
+    }
+
+    gold -= cost;
+    updateGoldUI();
+    const towerData = createTowerData(x, y, towerDef.id);
+    towers.push(towerData);
+    playSound('build');
+    showTowerStats(towerData);
+});
+
+canvas.addEventListener("contextmenu", event => {
+    event.preventDefault();
+    if (gameOver) {
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+    const tower = getTowerAtPoint(canvasX, canvasY);
+    if (!tower) {
+        return;
+    }
+    upgradeTower(tower);
+});
+
+populateTowerList();
+
+if (BUILD_TOGGLE) {
+    BUILD_TOGGLE.addEventListener('click', () => {
+        setBuildPanelCollapsed(!buildPanelCollapsed, { user: true });
+        playSound('toggle');
+    });
+}
+
+setBuildPanelCollapsed(false);
+
+const AUTOCOLLAPSE_WIDTH = 1180;
+if (typeof window !== 'undefined') {
+    const autoCollapse = () => {
+        if (buildPanelUserOverride) {
+            return;
+        }
+        setBuildPanelCollapsed(window.innerWidth < AUTOCOLLAPSE_WIDTH);
+    };
+    autoCollapse();
+    window.addEventListener('resize', () => {
+        if (buildPanelUserOverride) {
+            return;
+        }
+        autoCollapse();
+    });
+} else {
+    setBuildPanelCollapsed(false);
+}
+
+if (SOUND_TOGGLE) {
+    SOUND_TOGGLE.addEventListener('click', () => {
+        if (soundMuted) {
+            if (!ensureAudioContext()) {
+                return;
+            }
+            setSoundMuted(false);
+            playSound('toggle');
+        } else {
+            playSound('toggle');
+            setSoundMuted(true);
+        }
+    });
+}
+
+SPEED_BUTTONS.forEach(button => {
+    button.addEventListener('click', () => {
+        const multiplier = Number(button.dataset.speed) || 1;
+        setGameSpeed(multiplier);
+    });
+});
+
+if (WAVE_APPLY_BUTTON && WAVE_INPUT) {
+    const applyWaveFromInput = () => {
+        const value = Number(WAVE_INPUT.value);
+        if (!Number.isFinite(value)) {
+            WAVE_INPUT.value = wave;
+            return;
+        }
+        setWave(value);
+    };
+    WAVE_APPLY_BUTTON.addEventListener('click', applyWaveFromInput);
+    WAVE_INPUT.addEventListener('change', applyWaveFromInput);
+    WAVE_INPUT.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            applyWaveFromInput();
+        }
+    });
+}
+
+if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
+    const applyGold = () => {
+        const value = Number(GOLD_INPUT.value);
+        if (!Number.isFinite(value)) {
+            GOLD_INPUT.value = gold;
+            return;
+        }
+        gold = Math.max(0, Math.floor(value));
+        updateGoldUI();
+    };
+    GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
+    GOLD_INPUT.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            applyGold();
+        }
+    });
+}
+
+GOLD_ADJUST_BUTTONS.forEach(button => {
+    button.addEventListener('click', () => {
+        const delta = Number(button.dataset.delta) || 0;
+        gold = Math.max(0, gold + delta);
+        updateGoldUI();
+    });
+});
+
+if (RETRY_BUTTON) {
+    RETRY_BUTTON.addEventListener('click', () => {
+        resetGame();
+    });
+}
+
+if (CANCEL_RETRY_BUTTON) {
+    CANCEL_RETRY_BUTTON.addEventListener('click', () => {
+        hideDefeatDialog();
+    });
+}
+
+if (DEFEAT_OVERLAY) {
+    DEFEAT_OVERLAY.addEventListener('click', event => {
+        if (event.target === DEFEAT_OVERLAY) {
+            hideDefeatDialog();
+        }
+    });
+}
+
+document.addEventListener("keydown", event => {
+    if (event.code === "Space") {
+        if (lives === 0 || gameOver) {
+            return;
+        }
+        paused = !paused;
+        event.preventDefault();
+    }
+});
 
 let lastTime = performance.now();
 function loop(timestamp) {
@@ -808,27 +2041,12 @@ function loop(timestamp) {
 
 updateSpeedControls();
 updateWavePreview();
+updateGoldUI();
 if (WAVE_INPUT) {
     WAVE_INPUT.value = wave;
 }
 
 requestAnimationFrame(loop);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
