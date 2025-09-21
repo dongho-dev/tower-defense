@@ -435,3 +435,22 @@ canvas {
 .hidden {
     display: none !important;
 }
+#enemy-stats {
+    background: linear-gradient(135deg, rgba(18, 28, 42, 0.92), rgba(34, 44, 62, 0.78));
+    border-color: rgba(123, 234, 255, 0.28);
+    box-shadow: 0 12px 28px rgba(6, 10, 20, 0.55);
+}
+
+#enemy-stats h3 {
+    color: #7be9ff;
+    letter-spacing: 0.03em;
+}
+
+#enemy-stats p {
+    color: rgba(196, 210, 226, 0.86);
+}
+
+#enemy-stats span {
+    color: #f7fbff;
+    font-weight: 600;
+}

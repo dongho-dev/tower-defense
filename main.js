@@ -18,6 +18,13 @@ const TOWER_UPGRADE_COST_MULTIPLIER = 2;
 const TOWER_MAX_LEVEL = 15;
 const DEFAULT_TOWER_TYPE = "basic";
 
+const ENEMY_STYLES = [
+    { body: "#d65a57", core: "#ffe6c2", outline: "#321816", thruster: "#ff9a6d", halo: "rgba(214, 90, 87, 0.55)" },
+    { body: "#5d7dff", core: "#d8e1ff", outline: "#19224f", thruster: "#8aa8ff", halo: "rgba(93, 125, 255, 0.55)" },
+    { body: "#58d6a4", core: "#d4ffe7", outline: "#12392a", thruster: "#7ef2c9", halo: "rgba(88, 214, 164, 0.55)" },
+    { body: "#c95de9", core: "#f5d1ff", outline: "#3d1649", thruster: "#ff96f3", halo: "rgba(201, 93, 233, 0.55)" }
+];
+
 const TOWER_TYPES = {
     basic: {
         id: "basic",
@@ -32,7 +39,18 @@ const TOWER_TYPES = {
         projectileLife: 0.85,
         projectileRadius: 6,
         trailLength: 60,
-        shape: "circle",
+        shape: "turret",
+        baseColor: "#1c2740",
+        coreColor: "#dae8ff",
+        barrelColor: "#9abaf9",
+        glowColor: "#8ab7ff",
+        auraColor: "rgba(138, 183, 255, 0.32)",
+        muzzleFlashColor: "#fde7a2",
+        muzzleLengthMultiplier: 1.7,
+        flashSizeMultiplier: 0.95,
+        recoilKick: 0.5,
+        recoilRecovery: 3.1,
+        turnSpeed: 7.2,
         outline: "#1f2f5a",
         levelColors: [
             "#bdd6ff",
@@ -68,7 +86,18 @@ const TOWER_TYPES = {
         projectileLife: 0.55,
         projectileRadius: 6,
         trailLength: 40,
-        shape: "circle",
+        shape: "vulcan",
+        baseColor: "#0c233d",
+        coreColor: "#ffe3a3",
+        barrelColor: "#f5a844",
+        glowColor: "#ff985c",
+        auraColor: "rgba(255, 152, 92, 0.32)",
+        muzzleFlashColor: "#ffd17a",
+        muzzleLengthMultiplier: 1.45,
+        flashSizeMultiplier: 1.05,
+        recoilKick: 0.62,
+        recoilRecovery: 2.9,
+        turnSpeed: 6.4,
         outline: "#0b2b4c",
         levelColors: [
             "#90caf9",
@@ -103,7 +132,18 @@ const TOWER_TYPES = {
         projectileRadius: 6,
         trailLength: 150,
         beamWidth: 6,
-        shape: "diamond",
+        shape: "rail",
+        baseColor: "#1a1034",
+        coreColor: "#cebaff",
+        barrelColor: "#8d72ff",
+        glowColor: "#a57eff",
+        auraColor: "rgba(165, 126, 255, 0.28)",
+        muzzleFlashColor: "#e4d6ff",
+        muzzleLengthMultiplier: 2.2,
+        flashSizeMultiplier: 0.8,
+        recoilKick: 0.35,
+        recoilRecovery: 3.4,
+        turnSpeed: 8.6,
         outline: "#27144a",
         levelColors: [
             "#d0bbff",
@@ -139,7 +179,18 @@ const TOWER_TYPES = {
         projectileLife: 0.85,
         projectileRadius: 7,
         trailLength: 70,
-        shape: "square",
+        shape: "prism",
+        baseColor: "#341d0a",
+        coreColor: "#ffbe73",
+        barrelColor: "#ff8e3f",
+        glowColor: "#ff9f52",
+        auraColor: "rgba(255, 159, 82, 0.28)",
+        muzzleFlashColor: "#ffd9a1",
+        muzzleLengthMultiplier: 1.6,
+        flashSizeMultiplier: 0.9,
+        recoilKick: 0.48,
+        recoilRecovery: 3,
+        turnSpeed: 7.8,
         outline: "#4a2509",
         levelColors: [
             "#ffd180",
@@ -173,7 +224,18 @@ const TOWER_TYPES = {
         projectileLife: 0.65,
         projectileRadius: 5,
         trailLength: 75,
-        shape: "triangle",
+        shape: "gyro",
+        baseColor: "#052b18",
+        coreColor: "#8ce7b5",
+        barrelColor: "#43d886",
+        glowColor: "#66f3b6",
+        auraColor: "rgba(82, 235, 164, 0.32)",
+        muzzleFlashColor: "#bbffd9",
+        muzzleLengthMultiplier: 1.55,
+        flashSizeMultiplier: 0.85,
+        recoilKick: 0.38,
+        recoilRecovery: 3.6,
+        turnSpeed: 9.2,
         outline: "#073519",
         levelColors: [
             "#b9f6ca",
@@ -208,8 +270,22 @@ const TOWER_TYPES = {
         projectileRadius: 8,
         explosionRadius: 85,
         explosionColor: "rgba(255, 182, 89, 0.45)",
+        explosionHaloColor: "#ffe9c0",
+        explosionStrokeColor: "rgba(255, 161, 86, 0.55)",
+        explosionLife: 0.5,
         trailLength: 55,
-        shape: "hex",
+        shape: "howitzer",
+        baseColor: "#3e1b08",
+        coreColor: "#ffbc76",
+        barrelColor: "#ff8a45",
+        glowColor: "#ffa25a",
+        auraColor: "rgba(255, 162, 90, 0.32)",
+        muzzleFlashColor: "#ffd27f",
+        muzzleLengthMultiplier: 1.9,
+        flashSizeMultiplier: 1.15,
+        recoilKick: 0.68,
+        recoilRecovery: 2.7,
+        turnSpeed: 6.5,
         outline: "#56210a",
         levelColors: [
             "#ffcc80",
@@ -243,7 +319,18 @@ const TOWER_TYPES = {
         beamGlowColor: "rgba(123, 234, 255, 0.45)",
         beamWidth: 8,
         sustainMultiplier: 1.15,
-        shape: "beam",
+        shape: "sentinel",
+        baseColor: "#0a2f3f",
+        coreColor: "#92f2ff",
+        barrelColor: "#42d8ff",
+        glowColor: "#66e7ff",
+        auraColor: "rgba(78, 228, 255, 0.32)",
+        muzzleFlashColor: "#b6f6ff",
+        muzzleLengthMultiplier: 1.85,
+        flashSizeMultiplier: 0.8,
+        recoilKick: 0.28,
+        recoilRecovery: 3.8,
+        turnSpeed: 9.5,
         outline: "#0b3c4f",
         levelColors: [
             "#b1f4ff",
@@ -278,11 +365,25 @@ const TOWER_TYPES = {
         projectileRadius: 9,
         explosionRadius: 120,
         explosionColor: "rgba(255, 220, 120, 0.35)",
+        explosionHaloColor: "#ffe6bd",
+        explosionStrokeColor: "rgba(255, 176, 84, 0.5)",
+        explosionLife: 0.6,
         trailLength: 45,
         gravity: 720,
         mortarLift: 420,
         detonateOnExpire: true,
-        shape: "orb",
+        shape: "artillery",
+        baseColor: "#36250f",
+        coreColor: "#f4d29a",
+        barrelColor: "#e88f32",
+        glowColor: "#ffc874",
+        auraColor: "rgba(255, 200, 116, 0.32)",
+        muzzleFlashColor: "#ffe1a8",
+        muzzleLengthMultiplier: 1.75,
+        flashSizeMultiplier: 1.2,
+        recoilKick: 0.72,
+        recoilRecovery: 2.5,
+        turnSpeed: 6.1,
         outline: "#3a2b15",
         levelColors: [
             "#fbe0b2",
@@ -354,6 +455,7 @@ const towers = [];
 const enemies = [];
 const projectiles = [];
 const impactEffects = [];
+const muzzleFlashes = [];
 
 let gold = 100;
 let lives = 20;
@@ -592,6 +694,52 @@ function getProjectileColor(definition, level) {
     return colors[Math.min(colors.length - 1, Math.max(0, level - 1))] || "#ffd966";
 }
 
+function hexToRgba(hex, alpha) {
+    if (!hex) {
+        return `rgba(255, 255, 255, ${alpha})`;
+    }
+    const sanitized = hex.replace('#', '');
+    const normalized = sanitized.length === 3 ? sanitized.split('').map(ch => ch + ch).join('') : sanitized.padEnd(6, '0');
+    const value = parseInt(normalized, 16);
+    const r = (value >> 16) & 255;
+    const g = (value >> 8) & 255;
+    const b = value & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function applyAlpha(color, alpha) {
+    if (!color) {
+        return `rgba(255, 255, 255, ${alpha})`;
+    }
+    if (color.startsWith('#')) {
+        return hexToRgba(color, alpha);
+    }
+    if (color.startsWith('rgba')) {
+        return color.replace(/rgba\(([^)]+)\)/, (_, inner) => {
+            const parts = inner.split(',').map(part => part.trim());
+            if (parts.length < 3) {
+                return color;
+            }
+            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+        });
+    }
+    if (color.startsWith('rgb')) {
+        return color.replace(/rgb\(([^)]+)\)/, (_, inner) => `rgba(${inner}, ${alpha})`);
+    }
+    return color;
+}
+
+function lerpAngle(current, target, t) {
+    const twoPi = Math.PI * 2;
+    let delta = (target - current) % twoPi;
+    if (delta > Math.PI) {
+        delta -= twoPi;
+    } else if (delta < -Math.PI) {
+        delta += twoPi;
+    }
+    return current + delta * t;
+}
+
 function formatNumber(value) {
     if (!Number.isFinite(value)) {
         return "-";
@@ -784,6 +932,7 @@ function clearCurrentWave() {
     enemies.length = 0;
     projectiles.length = 0;
     impactEffects.length = 0;
+    muzzleFlashes.length = 0;
     enemiesToSpawn = 0;
     spawnCooldown = 0;
     waveInProgress = false;
@@ -885,6 +1034,14 @@ function damageEnemyAtIndex(index, amount) {
     }
     enemy.hp -= amount;
     if (enemy.hp <= 0) {
+        const style = enemy.style || ENEMY_STYLES[0];
+        spawnImpactEffect(enemy.x, enemy.y, ENEMY_RADIUS * 1.9, style.core || 'rgba(255, 220, 190, 0.7)', {
+            haloColor: style.halo || style.body,
+            stroke: style.outline || 'rgba(20, 16, 26, 0.7)',
+            lineWidth: ENEMY_RADIUS * 0.5,
+            life: 0.5,
+            pulse: true
+        });
         if (selectedEnemy === enemy) {
             hideEnemyStats();
         }
@@ -897,6 +1054,7 @@ function damageEnemyAtIndex(index, amount) {
     return false;
 }
 
+
 function damageEnemy(enemy, amount) {
     const idx = enemies.indexOf(enemy);
     if (idx === -1) {
@@ -905,16 +1063,37 @@ function damageEnemy(enemy, amount) {
     return damageEnemyAtIndex(idx, amount);
 }
 
-function spawnImpactEffect(x, y, radius, color) {
+function spawnMuzzleFlash(x, y, radius, color, angle, options = {}) {
+    const life = options.life ?? 0.18;
+    muzzleFlashes.push({
+        x,
+        y,
+        radius,
+        startRadius: radius,
+        color,
+        angle,
+        life,
+        initialLife: life,
+        growth: options.growth ?? radius * 8
+    });
+}
+
+function spawnImpactEffect(x, y, radius, color, options = {}) {
+    const life = options.life ?? 0.35;
     impactEffects.push({
         x,
         y,
         radius,
         color,
-        life: 0.3,
-        initialLife: 0.3
+        halo: options.haloColor || color,
+        stroke: options.stroke || null,
+        lineWidth: options.lineWidth || null,
+        pulse: Boolean(options.pulse),
+        life,
+        initialLife: life
     });
 }
+
 
 function applyExplosion(projectile, originX, originY) {
     const radius = projectile.explosionRadius || 0;
@@ -930,13 +1109,17 @@ function applyExplosion(projectile, originX, originY) {
             damageEnemyAtIndex(k, projectile.damage);
         }
     }
-    if (projectile.explosionColor) {
-        spawnImpactEffect(originX, originY, radius, projectile.explosionColor);
-    } else {
-        spawnImpactEffect(originX, originY, radius, 'rgba(255, 210, 120, 0.4)');
-    }
+    const effectColor = projectile.explosionColor || 'rgba(255, 210, 120, 0.4)';
+    spawnImpactEffect(originX, originY, radius, effectColor, {
+        haloColor: projectile.explosionHaloColor || '#ffeac8',
+        stroke: projectile.explosionStrokeColor || null,
+        lineWidth: projectile.explosionStrokeColor ? radius * 0.18 : undefined,
+        life: projectile.explosionLife || 0.45,
+        pulse: true
+    });
     playSound('explosion');
 }
+
 function showTowerStats(tower) {
     if (!tower || !TOWER_STATS_PANEL) {
         return;
@@ -1046,6 +1229,7 @@ function resetGame() {
     hideDefeatDialog();
     setGameSpeed(1);
     updateWavePreview();
+    elapsedTime = 0;
     lastTime = performance.now();
 }
 
@@ -1085,13 +1269,20 @@ function createTowerData(x, y, typeId) {
         fireDelay: def.fireDelay,
         damage: calculateTowerDamage(def, 1),
         upgradeCost: calculateUpgradeCost(def, 1),
-        activeBeam: null
+        activeBeam: null,
+        heading: 0,
+        aimAngle: null,
+        flashTimer: 0,
+        recoil: 0,
+        auraOffset: Math.random() * Math.PI * 2
     };
 }
+
 
 function spawnEnemy() {
     const start = waypoints[0];
     const stats = getWaveEnemyStats(wave);
+    const style = ENEMY_STYLES[(wave - 1) % ENEMY_STYLES.length];
     enemies.push({
         x: start.x,
         y: start.y,
@@ -1100,9 +1291,13 @@ function spawnEnemy() {
         maxHp: stats.hp,
         waypoint: 0,
         reward: stats.reward,
-        waveIndex: wave
+        waveIndex: wave,
+        heading: 0,
+        style,
+        pulseSeed: Math.random() * Math.PI * 2
     });
 }
+
 
 function findTarget(tower) {
     let chosen = null;
@@ -1139,6 +1334,7 @@ function spawnProjectile(options) {
         shape: options.shape || 'circle',
         trailColor: options.trailColor || null,
         trailLength: options.trailLength || 0,
+        glowColor: options.glowColor || options.color,
         hitRadius: options.hitRadius || Math.max(16, (options.radius || 6) * 1.6),
         rotation: options.rotation != null ? options.rotation : Math.atan2(options.vy, options.vx),
         spin: options.spin || 0,
@@ -1146,8 +1342,30 @@ function spawnProjectile(options) {
         gravity: options.gravity || 0,
         explosionRadius: options.explosionRadius || 0,
         explosionColor: options.explosionColor || null,
+        explosionHaloColor: options.explosionHaloColor || null,
+        explosionStrokeColor: options.explosionStrokeColor || null,
+        explosionLife: options.explosionLife || null,
         detonateOnExpire: Boolean(options.detonateOnExpire),
         speed
+    });
+}
+
+function handleTowerFireVisuals(tower, def, angle) {
+    const baseSize = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
+    tower.aimAngle = angle;
+    tower.heading = angle;
+    const flashDuration = def.flashDuration || 0.12;
+    tower.flashTimer = Math.max(tower.flashTimer || 0, flashDuration);
+    const recoilKick = def.recoilKick ?? 0.45;
+    tower.recoil = Math.min(1.4, (tower.recoil || 0) + recoilKick);
+    const muzzleDistance = baseSize * (def.muzzleLengthMultiplier || 1.65);
+    const muzzleX = tower.worldX + Math.cos(angle) * muzzleDistance;
+    const muzzleY = tower.worldY + Math.sin(angle) * muzzleDistance;
+    const flashColor = def.muzzleFlashColor || getTowerColor(def, tower.level);
+    const flashRadius = baseSize * (def.flashSizeMultiplier || 0.9);
+    spawnMuzzleFlash(muzzleX, muzzleY, flashRadius, flashColor, angle, {
+        growth: flashRadius * 9,
+        life: def.flashDuration || 0.16
     });
 }
 
@@ -1160,6 +1378,8 @@ function performTowerAttack(tower, target) {
     const dirX = baseDx / baseDist;
     const dirY = baseDy / baseDist;
 
+    handleTowerFireVisuals(tower, def, baseAngle);
+
     if (def.attackPattern === 'shotgun') {
         const pellets = def.pellets || 4;
         const spread = def.spread || (Math.PI / 4);
@@ -1168,6 +1388,7 @@ function performTowerAttack(tower, target) {
             const jitter = (Math.random() - 0.5) * 0.35;
             const angle = baseAngle + (ratio + jitter) * spread;
             const speed = def.projectileSpeed * (0.9 + Math.random() * 0.3);
+            const color = getProjectileColor(def, tower.level);
             spawnProjectile({
                 x: tower.worldX,
                 y: tower.worldY,
@@ -1176,11 +1397,13 @@ function performTowerAttack(tower, target) {
                 damage: tower.damage,
                 life: def.projectileLife + (tower.level - 1) * 0.05,
                 radius: def.projectileRadius + (tower.level - 1) * 0.7,
-                color: getProjectileColor(def, tower.level),
+                color,
+                glowColor: def.glowColor || color,
                 outline: '#2e2e2e',
                 trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
                 trailLength: def.trailLength + (tower.level - 1) * 10,
                 hitRadius: 14 + tower.level,
+                spin: (Math.random() - 0.5) * 6,
                 shape: 'circle'
             });
         }
@@ -1189,6 +1412,7 @@ function performTowerAttack(tower, target) {
 
     if (def.attackPattern === 'beam') {
         const speed = def.projectileSpeed + (tower.level - 1) * 25;
+        const color = getProjectileColor(def, tower.level);
         spawnProjectile({
             x: tower.worldX,
             y: tower.worldY,
@@ -1197,10 +1421,11 @@ function performTowerAttack(tower, target) {
             damage: tower.damage,
             life: def.projectileLife + (tower.level - 1) * 0.2,
             radius: def.beamWidth + (tower.level - 1) * 1.2,
-            color: getProjectileColor(def, tower.level),
+            color,
+            glowColor: def.glowColor || color,
             outline: '#ffffff33',
             shape: 'beam',
-            trailColor: getProjectileColor(def, tower.level),
+            trailColor: color,
             trailLength: def.trailLength + (tower.level - 1) * 30,
             hitRadius: 24 + tower.level * 1.5
         });
@@ -1211,6 +1436,7 @@ function performTowerAttack(tower, target) {
         const speed = def.projectileSpeed + (tower.level - 1) * 25;
         const burstCount = def.burstCount || 3;
         const delayStep = def.burstDelay ?? 0.07;
+        const color = getProjectileColor(def, tower.level);
         for (let i = 0; i < burstCount; i++) {
             const delay = i * delayStep;
             spawnProjectile({
@@ -1221,12 +1447,14 @@ function performTowerAttack(tower, target) {
                 damage: tower.damage,
                 life: def.projectileLife + (tower.level - 1) * 0.08 + delay,
                 radius: def.projectileRadius + (tower.level - 1) * 0.5,
-                color: getProjectileColor(def, tower.level),
+                color,
+                glowColor: def.glowColor || color,
                 outline: '#351a05',
                 shape: 'triangle',
                 trailColor: '#fffbf2',
                 trailLength: def.trailLength + (tower.level - 1) * 12,
                 delay,
+                spin: 6,
                 hitRadius: 18 + tower.level * 1.4
             });
         }
@@ -1235,6 +1463,7 @@ function performTowerAttack(tower, target) {
 
     if (def.attackPattern === 'explosive') {
         const speed = def.projectileSpeed + (tower.level - 1) * 20;
+        const color = getProjectileColor(def, tower.level);
         spawnProjectile({
             x: tower.worldX,
             y: tower.worldY,
@@ -1243,13 +1472,17 @@ function performTowerAttack(tower, target) {
             damage: tower.damage,
             life: def.projectileLife + (tower.level - 1) * 0.12,
             radius: def.projectileRadius + (tower.level - 1) * 0.6,
-            color: getProjectileColor(def, tower.level),
+            color,
+            glowColor: def.glowColor || color,
             outline: def.outline,
             shape: 'hex',
             trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
             trailLength: def.trailLength + (tower.level - 1) * 15,
             explosionRadius: def.explosionRadius + tower.level * 4,
             explosionColor: def.explosionColor,
+            explosionHaloColor: def.explosionHaloColor,
+            explosionStrokeColor: def.explosionStrokeColor,
+            explosionLife: def.explosionLife,
             hitRadius: 22 + tower.level * 1.5,
             detonateOnExpire: true
         });
@@ -1259,6 +1492,7 @@ function performTowerAttack(tower, target) {
     if (def.attackPattern === 'mortar') {
         const speed = def.projectileSpeed + (tower.level - 1) * 12;
         const lift = def.mortarLift + (tower.level - 1) * 12;
+        const color = getProjectileColor(def, tower.level);
         spawnProjectile({
             x: tower.worldX,
             y: tower.worldY,
@@ -1267,7 +1501,8 @@ function performTowerAttack(tower, target) {
             damage: tower.damage,
             life: def.projectileLife + (tower.level - 1) * 0.18,
             radius: def.projectileRadius + (tower.level - 1) * 1.2,
-            color: getProjectileColor(def, tower.level),
+            color,
+            glowColor: def.glowColor || color,
             outline: def.outline,
             shape: 'orb',
             trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
@@ -1275,14 +1510,17 @@ function performTowerAttack(tower, target) {
             gravity: def.gravity,
             explosionRadius: def.explosionRadius + tower.level * 5,
             explosionColor: def.explosionColor,
+            explosionHaloColor: def.explosionHaloColor,
+            explosionStrokeColor: def.explosionStrokeColor,
+            explosionLife: def.explosionLife,
             hitRadius: 26 + tower.level * 2,
             detonateOnExpire: true
         });
         return;
     }
 
-    // default projectile (기본/연사 등)
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * 20;
+    const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
         y: tower.worldY,
@@ -1291,7 +1529,8 @@ function performTowerAttack(tower, target) {
         damage: tower.damage,
         life: (def.projectileLife || 0.8) + (tower.level - 1) * 0.06,
         radius: (def.projectileRadius || 6) + (tower.level - 1) * 0.4,
-        color: getProjectileColor(def, tower.level),
+        color,
+        glowColor: def.glowColor || color,
         outline: def.outline,
         shape: def.shape === 'triangle' ? 'triangle' : 'circle',
         trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
@@ -1299,6 +1538,7 @@ function performTowerAttack(tower, target) {
         hitRadius: 16 + tower.level * 1.2
     });
 }
+
 
 function handleLaserAttack(tower, dt) {
     const def = getTowerDefinition(tower.type);
@@ -1311,8 +1551,18 @@ function handleLaserAttack(tower, dt) {
     }
     const target = findTarget(tower);
     if (!target) {
+        tower.aimAngle = null;
         return;
     }
+    const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
+    tower.aimAngle = angle;
+    if (typeof tower.heading !== 'number') {
+        tower.heading = angle;
+    } else {
+        const turnSpeed = Math.max(4, (def.turnSpeed || 8) * 1.25);
+        tower.heading = lerpAngle(tower.heading, angle, Math.min(1, dt * turnSpeed));
+    }
+    tower.flashTimer = Math.max(tower.flashTimer || 0, (def.flashDuration || 0.08));
     const damagePerSecond = tower.damage * (def.sustainMultiplier || 1);
     const appliedDamage = damagePerSecond * dt;
     const killed = damageEnemy(target, appliedDamage);
@@ -1331,9 +1581,14 @@ function handleLaserAttack(tower, dt) {
         playSound('laser');
     }
     if (killed) {
-        spawnImpactEffect(target.x, target.y, 36 + tower.level * 2, def.beamGlowColor || 'rgba(150, 255, 255, 0.4)');
+        spawnImpactEffect(target.x, target.y, 36 + tower.level * 2, def.beamGlowColor || 'rgba(150, 255, 255, 0.4)', {
+            haloColor: '#d4fbff',
+            life: 0.4,
+            pulse: true
+        });
     }
 }
+
 function update(dt) {
     if (gameOver) {
         return;
@@ -1381,19 +1636,24 @@ function update(dt) {
         }
         const dx = target.x - enemy.x;
         const dy = target.y - enemy.y;
-        const dist = Math.hypot(dx, dy);
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+        enemy.heading = Math.atan2(dirY, dirX);
         if (dist < enemy.speed * dt) {
             enemy.x = target.x;
             enemy.y = target.y;
             enemy.waypoint += 1;
         } else {
-            enemy.x += (dx / dist) * enemy.speed * dt;
-            enemy.y += (dy / dist) * enemy.speed * dt;
+            enemy.x += dirX * enemy.speed * dt;
+            enemy.y += dirY * enemy.speed * dt;
         }
     }
 
     for (const tower of towers) {
         const def = getTowerDefinition(tower.type);
+        tower.flashTimer = Math.max(0, (tower.flashTimer || 0) - dt * 4.6);
+        tower.recoil = Math.max(0, (tower.recoil || 0) - dt * (def.recoilRecovery || 3));
         if (def.attackPattern === 'laser') {
             handleLaserAttack(tower, dt);
             continue;
@@ -1404,13 +1664,25 @@ function update(dt) {
                 tower.activeBeam = null;
             }
         }
+        let target = findTarget(tower);
+        if (target) {
+            const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
+            tower.aimAngle = angle;
+        }
+        if (tower.aimAngle != null) {
+            if (typeof tower.heading !== 'number') {
+                tower.heading = tower.aimAngle;
+            } else {
+                const turnSpeed = Math.max(3, def.turnSpeed || 7.5);
+                tower.heading = lerpAngle(tower.heading, tower.aimAngle, Math.min(1, dt * turnSpeed));
+            }
+        }
         if (tower.cooldown > 0) {
             tower.cooldown -= dt;
             if (tower.cooldown > 0) {
                 continue;
             }
         }
-        const target = findTarget(tower);
         if (!target) {
             tower.cooldown = 0;
             continue;
@@ -1451,6 +1723,11 @@ function update(dt) {
                     applyExplosion(projectile, projectile.x, projectile.y);
                 } else {
                     damageEnemyAtIndex(j, projectile.damage);
+                    spawnImpactEffect(projectile.x, projectile.y, (projectile.radius || 6) * 1.4, projectile.glowColor || projectile.color, {
+                        haloColor: projectile.color,
+                        life: 0.28,
+                        pulse: false
+                    });
                 }
                 impacted = true;
                 remove = true;
@@ -1472,6 +1749,15 @@ function update(dt) {
         }
     }
 
+    for (let i = muzzleFlashes.length - 1; i >= 0; i--) {
+        const flash = muzzleFlashes[i];
+        flash.life -= dt;
+        flash.radius += flash.growth * dt;
+        if (flash.life <= 0) {
+            muzzleFlashes.splice(i, 1);
+        }
+    }
+
     for (let i = impactEffects.length - 1; i >= 0; i--) {
         const effect = impactEffects[i];
         effect.life -= dt;
@@ -1488,6 +1774,8 @@ function update(dt) {
     }
     updateWavePreview(waveInProgress ? enemiesToSpawn + enemies.length : null);
 }
+
+
 function drawGrid() {
     ctx.save();
     ctx.strokeStyle = "#2a333d";
@@ -1535,100 +1823,463 @@ function drawHexagon(x, y, radius) {
     ctx.closePath();
 }
 
-function drawTowerShape(tower, color, outline) {
+function drawTowerShape(tower, color, outline, time) {
     const def = getTowerDefinition(tower.type);
     const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
-    ctx.fillStyle = color;
-    ctx.strokeStyle = outline || '#1f2f5a';
-    ctx.lineWidth = 3;
     const x = tower.worldX;
     const y = tower.worldY;
+    const heading = typeof tower.heading === 'number' ? tower.heading : 0;
+    const recoil = Math.min(1, tower.recoil || 0);
+    const flashIntensity = Math.min(1, (tower.flashTimer || 0) * 8);
+    const baseColor = def.baseColor || outline || color;
+    const coreColor = def.coreColor || color;
+    const barrelColor = def.barrelColor || coreColor;
+    const glowColor = def.glowColor || color;
+    ctx.lineJoin = 'round';
+
     switch (def.shape) {
-    case 'diamond':
+    case 'turret': {
+        const baseRadius = size * 1.18;
+        ctx.fillStyle = baseColor;
         ctx.beginPath();
-        ctx.moveTo(x, y - size);
-        ctx.lineTo(x + size, y);
-        ctx.lineTo(x, y + size);
-        ctx.lineTo(x - size, y);
+        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#1f2f5a';
+        ctx.lineWidth = 2.6;
+        ctx.stroke();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.95, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading);
+        const barrelLength = size * (def.muzzleLengthMultiplier || 1.8) - recoil * size * 0.75;
+        const barrelWidth = size * (def.barrelWidthMultiplier || 0.45);
+        ctx.fillStyle = barrelColor;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.2, -barrelWidth);
+        ctx.lineTo(barrelLength, -barrelWidth);
+        ctx.lineTo(barrelLength, barrelWidth);
+        ctx.lineTo(-size * 0.2, barrelWidth);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        break;
-    case 'square':
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.85);
         ctx.beginPath();
-        ctx.rect(x - size, y - size, size * 2, size * 2);
+        ctx.arc(barrelLength, 0, barrelWidth * (0.6 + flashIntensity * 0.4), 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
-        break;
-    case 'triangle':
+        ctx.restore();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.55 + flashIntensity * 0.25);
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(x, y - size * 1.2);
-        ctx.lineTo(x + size * 0.9, y + size * 1.1);
-        ctx.lineTo(x - size * 0.9, y + size * 1.1);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        break;
-    case 'hex':
-        drawHexagon(x, y, size * 0.95);
-        ctx.fill();
-        ctx.stroke();
-        break;
-    case 'orb': {
-        const gradient = ctx.createRadialGradient(x, y, size * 0.25, x, y, size);
-        gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(1, color);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = outline || '#32210f';
+        ctx.arc(x, y, size * 0.58, 0, Math.PI * 2);
         ctx.stroke();
         break;
     }
-    default:
+    case 'vulcan': {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading * 0.15);
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 1.35, size * 1.05, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#0b2b4c';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.88, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading);
+        const barrelLength = size * (def.muzzleLengthMultiplier || 1.45) - recoil * size * 0.6;
+        const barrelWidth = size * 0.46;
+        ctx.fillStyle = barrelColor;
+        ctx.fillRect(-size * 0.25, -barrelWidth * 0.55, barrelLength, barrelWidth * 0.55);
+        ctx.fillRect(-size * 0.25, barrelWidth * 0.05, barrelLength, barrelWidth * 0.55);
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.78 + flashIntensity * 0.22);
+        ctx.beginPath();
+        ctx.arc(barrelLength, -barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
+        ctx.arc(barrelLength, barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.58);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+    }
+    case 'rail': {
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 1.3);
+        ctx.lineTo(x + size * 0.95, y);
+        ctx.lineTo(x, y + size * 1.3);
+        ctx.lineTo(x - size * 0.95, y);
+        ctx.closePath();
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        ctx.strokeStyle = outline || '#27144a';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading);
+        const barrelLength = size * (def.muzzleLengthMultiplier || 2.2) - recoil * size * 0.85;
+        const railWidth = size * 0.32;
+        ctx.fillStyle = barrelColor;
+        ctx.fillRect(-size * 0.2, -railWidth, barrelLength, railWidth * 0.6);
+        ctx.fillRect(-size * 0.2, railWidth * 0.4, barrelLength, railWidth * 0.6);
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.8);
+        ctx.fillRect(-size * 0.1, -railWidth * 0.25, barrelLength, railWidth * 0.5);
+        ctx.restore();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.68, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.48 + flashIntensity * 0.3);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.76, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+    }
+    case 'prism': {
+        ctx.fillStyle = baseColor;
+        drawHexagon(x, y, size * 1.05);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#4a2509';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading);
+        const prongLength = size * (def.muzzleLengthMultiplier || 1.6) - recoil * size * 0.6;
+        ctx.fillStyle = barrelColor;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.25, -size * 0.45);
+        ctx.lineTo(prongLength, -size * 0.18);
+        ctx.lineTo(prongLength, size * 0.18);
+        ctx.lineTo(-size * 0.25, size * 0.45);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.85);
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.15, -size * 0.25);
+        ctx.lineTo(prongLength * 0.85, 0);
+        ctx.lineTo(-size * 0.15, size * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.82, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.62 + flashIntensity * 0.23);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+    }
+    case 'gyro': {
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 1.25);
+        ctx.lineTo(x + size * 1.05, y + size * 1.05);
+        ctx.lineTo(x - size * 1.05, y + size * 1.05);
+        ctx.closePath();
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        ctx.strokeStyle = outline || '#073519';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.78, 0, Math.PI * 2);
+        ctx.fill();
+
+        const spin = (time || 0) * 6 + (tower.auraOffset || 0);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(spin);
+        ctx.fillStyle = barrelColor;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(size * 0.25, -size * 0.12);
+            ctx.lineTo(size * 1.1 - recoil * size * 0.4, 0);
+            ctx.lineTo(size * 0.25, size * 0.12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.rotate((Math.PI * 2) / 3);
+        }
+        ctx.restore();
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.2);
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.46, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+    }
+    case 'howitzer': {
+        const baseRadius = size * 1.28;
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#56210a';
+        ctx.lineWidth = 2.6;
+        ctx.stroke();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.92, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading - Math.PI / 10);
+        const tubeLength = size * (def.muzzleLengthMultiplier || 1.9) - recoil * size * 1.1;
+        const tubeWidth = size * 0.6;
+        ctx.fillStyle = barrelColor;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.35, -tubeWidth / 2);
+        ctx.lineTo(tubeLength, -tubeWidth * 0.35);
+        ctx.lineTo(tubeLength + size * 0.35, 0);
+        ctx.lineTo(tubeLength, tubeWidth * 0.35);
+        ctx.lineTo(-size * 0.35, tubeWidth / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.58 + flashIntensity * 0.24);
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 1.05, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+    }
+    case 'sentinel': {
+        const baseRadius = size * 1.1;
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#0b3c4f';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading);
+        const prongLength = size * (def.muzzleLengthMultiplier || 1.85) - recoil * size * 0.5;
+        const prongWidth = size * 0.5;
+        ctx.fillStyle = barrelColor;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.15, -prongWidth / 2);
+        ctx.lineTo(prongLength, -prongWidth * 0.25);
+        ctx.lineTo(prongLength, prongWidth * 0.25);
+        ctx.lineTo(-size * 0.15, prongWidth / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.25);
+        ctx.fillRect(-size * 0.12, -prongWidth * 0.3, prongLength, prongWidth * 0.6);
+        ctx.restore();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.75, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = applyAlpha(glowColor, 0.8);
+        ctx.beginPath();
+        ctx.arc(x, y, size * (0.38 + flashIntensity * 0.25), 0, Math.PI * 2);
+        ctx.fill();
+        break;
+    }
+    case 'artillery': {
+        const baseRadius = size * 1.35;
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = outline || '#3a2b15';
+        ctx.lineWidth = 2.6;
+        ctx.stroke();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.98, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(heading - Math.PI / 5);
+        const tubeLength = size * (def.muzzleLengthMultiplier || 1.75) - recoil * size * 1.05;
+        const tubeWidth = size * 0.58;
+        ctx.fillStyle = barrelColor;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.4, -tubeWidth / 2);
+        ctx.lineTo(tubeLength, -tubeWidth * 0.4);
+        ctx.lineTo(tubeLength + size * 0.3, 0);
+        ctx.lineTo(tubeLength, tubeWidth * 0.4);
+        ctx.lineTo(-size * 0.4, tubeWidth / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        ctx.strokeStyle = applyAlpha(glowColor, 0.5 + flashIntensity * 0.3);
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 1.12, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+    }
+    default: {
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
+        if (outline) {
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+        }
         break;
+    }
     }
 }
 
+
 function drawTowers() {
+    const now = performance.now() / 1000;
     ctx.save();
     for (const tower of towers) {
         const def = getTowerDefinition(tower.type);
+        const color = getTowerColor(def, tower.level);
+        const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
+        const glowColor = def.glowColor || color;
+        const auraRadius = size * (1.8 + Math.sin(now * 2.4 + (tower.auraOffset || 0)) * 0.35);
+        const gradient = ctx.createRadialGradient(tower.worldX, tower.worldY, size * 0.3, tower.worldX, tower.worldY, auraRadius);
+        gradient.addColorStop(0, applyAlpha(glowColor, 0.4 + (tower.flashTimer || 0) * 0.6));
+        gradient.addColorStop(1, applyAlpha(glowColor, 0));
+        ctx.save();
+        ctx.fillStyle = gradient;
+        ctx.globalAlpha = 0.75;
+        ctx.beginPath();
+        ctx.arc(tower.worldX, tower.worldY, auraRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
         if (selectedTower === tower) {
             ctx.save();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.strokeStyle = applyAlpha(glowColor, 0.35);
             ctx.lineWidth = 2;
+            ctx.setLineDash([8, 6]);
             ctx.beginPath();
             ctx.arc(tower.worldX, tower.worldY, tower.range, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.setLineDash([]);
             ctx.restore();
         }
-        const color = getTowerColor(def, tower.level);
-        drawTowerShape(tower, color, def.outline);
+
+        ctx.save();
+        ctx.shadowColor = applyAlpha(glowColor, 0.6 + (tower.flashTimer || 0) * 0.9);
+        ctx.shadowBlur = size * (1.2 + (tower.flashTimer || 0) * 2.1);
+        drawTowerShape(tower, color, def.outline, now);
+        ctx.restore();
     }
     ctx.restore();
 }
 
+
 function drawEnemies() {
+    const time = elapsedTime;
     ctx.save();
+    ctx.lineJoin = 'round';
     for (const enemy of enemies) {
-        ctx.fillStyle = "#d65a57";
+        const style = enemy.style || ENEMY_STYLES[0];
+        const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
+        const pulse = Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
+        const size = ENEMY_RADIUS;
+
+        ctx.save();
+        ctx.translate(enemy.x, enemy.y);
+        ctx.rotate(heading + Math.PI);
+        const thrusterLength = size * (1.1 + pulse * 0.45);
+        const thrusterWidth = size * 0.7;
+        const thrusterGradient = ctx.createLinearGradient(-size * 0.2, 0, -thrusterLength - size * 0.2, 0);
+        thrusterGradient.addColorStop(0, applyAlpha(style.thruster || '#ff9a6d', 0));
+        thrusterGradient.addColorStop(1, applyAlpha(style.thruster || '#ff9a6d', 0.85));
         ctx.beginPath();
-        ctx.arc(enemy.x, enemy.y, ENEMY_RADIUS, 0, Math.PI * 2);
+        ctx.moveTo(-size * 0.25, -thrusterWidth / 2);
+        ctx.lineTo(-thrusterLength - size * 0.35, 0);
+        ctx.lineTo(-size * 0.25, thrusterWidth / 2);
+        ctx.closePath();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = thrusterGradient;
         ctx.fill();
-        ctx.fillStyle = "#1b1f24";
-        ctx.fillRect(enemy.x - 16, enemy.y - 22, 32, 6);
-        ctx.fillStyle = "#2d9248";
-        const w = Math.max(0, (enemy.hp / enemy.maxHp) * 32);
-        ctx.fillRect(enemy.x - 16, enemy.y - 22, w, 6);
+        ctx.restore();
+
+        const auraGradient = ctx.createRadialGradient(enemy.x, enemy.y, size * 0.4, enemy.x, enemy.y, size * 1.9);
+        auraGradient.addColorStop(0, applyAlpha(style.body, 0.4 + pulse * 0.25));
+        auraGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = auraGradient;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, size * (1.7 + pulse * 0.25), 0, Math.PI * 2);
+        ctx.fill();
+
+        const bodyGradient = ctx.createRadialGradient(enemy.x, enemy.y, size * 0.2, enemy.x, enemy.y, size * 1.05);
+        bodyGradient.addColorStop(0, applyAlpha(style.core, 0.95));
+        bodyGradient.addColorStop(0.6, style.body);
+        bodyGradient.addColorStop(1, applyAlpha(style.body, 0.4));
+        ctx.fillStyle = bodyGradient;
+        ctx.beginPath();
+        ctx.ellipse(enemy.x, enemy.y, size * 1.05, size * (0.85 + pulse * 0.05), heading, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = style.outline || '#1b1f24';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(enemy.x, enemy.y, size * 1.05, size * (0.85 + pulse * 0.05), heading, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = applyAlpha(style.core, 0.8 + pulse * 0.15);
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, size * (0.48 + pulse * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+
+        const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+        ctx.strokeStyle = applyAlpha(style.core, 0.65);
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, size * 1.22, -Math.PI / 2, -Math.PI / 2 + hpRatio * Math.PI * 2);
+        ctx.stroke();
     }
     ctx.restore();
 }
+
 
 function drawProjectileTrail(projectile) {
     if (!projectile.trailLength) {
@@ -1637,29 +2288,58 @@ function drawProjectileTrail(projectile) {
     const norm = projectile.speed || Math.hypot(projectile.vx, projectile.vy) || 1;
     const tx = projectile.x - (projectile.vx / norm) * projectile.trailLength;
     const ty = projectile.y - (projectile.vy / norm) * projectile.trailLength;
+    ctx.save();
+    const color = projectile.trailColor || projectile.color;
+    const gradient = ctx.createLinearGradient(tx, ty, projectile.x, projectile.y);
+    gradient.addColorStop(0, applyAlpha(color, 0));
+    gradient.addColorStop(0.65, applyAlpha(color, 0.4));
+    gradient.addColorStop(1, applyAlpha(color, 0.9));
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = Math.max(1.5, (projectile.radius || 4) * 0.7);
+    ctx.lineCap = 'round';
+    ctx.shadowColor = applyAlpha(color, 0.45);
+    ctx.shadowBlur = ctx.lineWidth * 1.8;
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(projectile.x, projectile.y);
-    ctx.strokeStyle = projectile.trailColor || projectile.color;
-    ctx.lineWidth = Math.max(1.5, (projectile.radius || 4) * 0.7);
     ctx.stroke();
+    ctx.restore();
 }
+
 
 function drawImpactEffects() {
     if (impactEffects.length === 0) {
         return;
     }
     ctx.save();
+    const previousComposite = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
     for (const effect of impactEffects) {
         const alpha = Math.max(0, effect.life / effect.initialLife);
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = effect.color;
+        const radius = effect.radius * (effect.pulse ? 1 + Math.sin((1 - alpha) * Math.PI) * 0.25 : 1 + (1 - alpha) * 0.35);
+        const gradient = ctx.createRadialGradient(effect.x, effect.y, radius * 0.15, effect.x, effect.y, radius);
+        gradient.addColorStop(0, applyAlpha('#ffffff', Math.min(0.9, 0.6 + alpha * 0.4)));
+        gradient.addColorStop(0.45, applyAlpha(effect.halo || effect.color, Math.min(1, 0.5 + alpha * 0.5)));
+        gradient.addColorStop(1, applyAlpha(effect.color, 0));
+        ctx.globalAlpha = Math.min(1, alpha + 0.15);
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius * (1 + (1 - alpha) * 0.4), 0, Math.PI * 2);
+        ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
         ctx.fill();
+
+        if (effect.stroke) {
+            ctx.globalAlpha = Math.min(1, alpha * 0.8);
+            ctx.strokeStyle = applyAlpha(effect.stroke, 0.8);
+            ctx.lineWidth = effect.lineWidth || Math.max(1.5, radius * 0.12);
+            ctx.beginPath();
+            ctx.arc(effect.x, effect.y, radius * 0.82, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
+    ctx.globalCompositeOperation = previousComposite;
     ctx.restore();
 }
+
 
 function drawLaserBeams() {
     ctx.save();
@@ -1690,6 +2370,40 @@ function drawLaserBeams() {
     ctx.restore();
 }
 
+function drawMuzzleFlashes() {
+    if (muzzleFlashes.length === 0) {
+        return;
+    }
+    ctx.save();
+    const previousComposite = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
+    for (const flash of muzzleFlashes) {
+        const alpha = Math.max(0, flash.life / flash.initialLife);
+        const radius = flash.radius;
+        const gradient = ctx.createRadialGradient(flash.x, flash.y, radius * 0.1, flash.x, flash.y, radius);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        gradient.addColorStop(0.45, applyAlpha(flash.color, Math.min(1, 0.7 + alpha * 0.3)));
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (flash.angle != null) {
+            ctx.save();
+            ctx.translate(flash.x, flash.y);
+            ctx.rotate(flash.angle);
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.fillStyle = applyAlpha(flash.color, 0.8);
+            ctx.fillRect(-radius * 0.2, -radius * 0.08, radius * 1.8, radius * 0.16);
+            ctx.restore();
+        }
+    }
+    ctx.globalCompositeOperation = previousComposite;
+    ctx.restore();
+}
+
 function drawProjectiles() {
     ctx.save();
     for (const projectile of projectiles) {
@@ -1697,17 +2411,21 @@ function drawProjectiles() {
             continue;
         }
         const alpha = projectile.initialLife > 0 ? Math.max(0.25, projectile.life / projectile.initialLife) : 1;
+        ctx.save();
         ctx.globalAlpha = Math.min(1, alpha);
         if (projectile.trailLength) {
             ctx.save();
-            ctx.globalAlpha = Math.min(0.7, alpha);
+            ctx.globalAlpha = Math.min(0.8, alpha);
             drawProjectileTrail(projectile);
             ctx.restore();
-            ctx.globalAlpha = Math.min(1, alpha);
         }
+        const glowColor = projectile.glowColor || projectile.color;
+        ctx.shadowColor = applyAlpha(glowColor, 0.6);
+        ctx.shadowBlur = (projectile.radius || 6) * 1.4;
         switch (projectile.shape) {
         case 'beam': {
             const length = projectile.trailLength || 40;
+            ctx.lineCap = 'round';
             ctx.strokeStyle = projectile.color;
             ctx.lineWidth = (projectile.radius || 6) * 1.6;
             ctx.beginPath();
@@ -1745,7 +2463,7 @@ function drawProjectiles() {
         }
         case 'hex': {
             ctx.fillStyle = projectile.color;
-            drawHexagon(projectile.x, projectile.y, (projectile.radius || 8));
+            drawHexagon(projectile.x, projectile.y, projectile.radius || 8);
             ctx.fill();
             if (projectile.outline) {
                 ctx.strokeStyle = projectile.outline;
@@ -1755,13 +2473,14 @@ function drawProjectiles() {
             break;
         }
         case 'orb': {
-            const gradient = ctx.createRadialGradient(projectile.x, projectile.y, (projectile.radius || 6) * 0.2,
-                projectile.x, projectile.y, projectile.radius || 6);
+            const radius = projectile.radius || 6;
+            const gradient = ctx.createRadialGradient(projectile.x, projectile.y, radius * 0.2,
+                projectile.x, projectile.y, radius);
             gradient.addColorStop(0, '#ffffff');
             gradient.addColorStop(1, projectile.color);
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(projectile.x, projectile.y, projectile.radius || 6, 0, Math.PI * 2);
+            ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
             ctx.fill();
             if (projectile.outline) {
                 ctx.strokeStyle = projectile.outline;
@@ -1783,11 +2502,13 @@ function drawProjectiles() {
             break;
         }
         }
+        ctx.restore();
     }
     ctx.restore();
     drawImpactEffects();
     drawLaserBeams();
 }
+
 
 function drawHover() {
     if (!hoverTile) {
@@ -1825,9 +2546,11 @@ function render() {
     drawHover();
     drawTowers();
     drawEnemies();
+    drawMuzzleFlashes();
     drawProjectiles();
     drawState();
 }
+
 canvas.addEventListener("mousemove", event => {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
@@ -2028,16 +2751,20 @@ document.addEventListener("keydown", event => {
     }
 });
 
+let elapsedTime = 0;
 let lastTime = performance.now();
 function loop(timestamp) {
     const dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
     if (!paused) {
-        update(dt * gameSpeed);
+        const scaledDt = dt * gameSpeed;
+        elapsedTime += scaledDt;
+        update(scaledDt);
     }
     render();
     requestAnimationFrame(loop);
 }
+
 
 updateSpeedControls();
 updateWavePreview();
