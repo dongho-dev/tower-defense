@@ -9,13 +9,14 @@ const TOWER_DRAW_BASE = 14;
 const TOWER_PICK_RADIUS = 18;
 const ENEMY_RADIUS = 14;
 const ENEMY_BASE_HP = 78;
-const ENEMY_HP_GROWTH_RATE = 1.25;
+const ENEMY_HP_GROWTH_RATE = 1.18;
 const ENEMY_SPEED = 49;
 const ENEMY_BASE_REWARD = 14;
 const TOWER_UPGRADE_BASE_COST = 40;
-const TOWER_DAMAGE_GROWTH = 2.5;
-const TOWER_UPGRADE_COST_MULTIPLIER = 2;
+const TOWER_DAMAGE_GROWTH = 1.5;
+const TOWER_UPGRADE_COST_MULTIPLIER = 1.6;
 const TOWER_MAX_LEVEL = 15;
+const WAVE_MAX = 9999;
 const DEFAULT_TOWER_TYPE = "basic";
 
 const ENEMY_STYLES = [
@@ -879,9 +880,9 @@ function getWaveEnemyCount(waveNumber) {
 
 function getWaveEnemyStats(waveNumber) {
     const growth = Math.pow(ENEMY_HP_GROWTH_RATE, Math.max(0, waveNumber - 1));
-    const hp = Math.round(ENEMY_BASE_HP * growth);
+    const hp = Math.round(Math.min(ENEMY_BASE_HP * growth, Number.MAX_SAFE_INTEGER));
     const speed = ENEMY_SPEED;
-    const reward = ENEMY_BASE_REWARD;
+    const reward = Math.round(ENEMY_BASE_REWARD + waveNumber * 1.5);
     const count = getWaveEnemyCount(waveNumber);
     return { hp, speed, reward, count };
 }
@@ -963,7 +964,7 @@ function setWave(targetWave) {
         }
         return;
     }
-    const desiredWave = Math.max(1, Math.floor(targetWave));
+    const desiredWave = Math.max(1, Math.min(WAVE_MAX, Math.floor(targetWave)));
     clearCurrentWave();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
@@ -2774,6 +2775,10 @@ if (WAVE_INPUT) {
 }
 
 requestAnimationFrame(loop);
+
+if (typeof module !== 'undefined') {
+    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, enemies };
+}
 
 
 
