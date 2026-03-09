@@ -492,7 +492,8 @@ const TOWER_STATS_FIELDS = {
     fireDelay: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-fire-delay"]') : null,
     damage: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-damage"]') : null,
     level: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-level"]') : null,
-    upgradeCost: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-upgrade-cost"]') : null
+    upgradeCost: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-upgrade-cost"]') : null,
+    sellRefund: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-sell-refund"]') : null
 };
 const ENEMY_STATS_FIELDS = {
     wave: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-wave"]') : null,
@@ -808,6 +809,11 @@ function hideAllStats() {
         button.classList.toggle('active', isSelected);
         button.setAttribute('aria-pressed', String(isSelected));
     }
+    const indicator = document.getElementById('selected-tower-indicator');
+    if (indicator) {
+        const def = getTowerDefinition(typeId);
+        indicator.textContent = def ? def.label : '';
+    }
 }
 
 function populateTowerList() {
@@ -1005,6 +1011,10 @@ function updateTowerStatsFields() {
         const cost = selectedTower.upgradeCost;
         TOWER_STATS_FIELDS.upgradeCost.textContent = cost == null ? 'MAX' : formatNumber(cost);
     }
+    if (TOWER_STATS_FIELDS.sellRefund) {
+        const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
+        TOWER_STATS_FIELDS.sellRefund.textContent = formatNumber(refund);
+    }
 }
 
 function updateEnemyStatsFields() {
@@ -1178,6 +1188,7 @@ function upgradeTower(tower) {
         return false;
     }
     gold -= cost;
+    tower.spentGold = (tower.spentGold || 0) + cost;
     updateGoldUI();
     tower.level += 1;
     recalcTowerStats(tower);
@@ -1186,6 +1197,28 @@ function upgradeTower(tower) {
         updateTowerStatsFields();
     }
     return true;
+}
+
+function sellTower(tower) {
+    if (gameOver) return false;
+    const idx = towers.indexOf(tower);
+    if (idx === -1) return false;
+    const refund = Math.floor((tower.spentGold || 0) * 0.5);
+    towers.splice(idx, 1);
+    gold += refund;
+    updateGoldUI();
+    if (selectedTower === tower) hideTowerStats();
+    playSound('build');
+    return true;
+}
+
+function flashGoldInsufficient() {
+    if (!GOLD_LABEL) return;
+    const chip = GOLD_LABEL.closest('.stat-chip');
+    if (!chip) return;
+    chip.classList.remove('flash-insufficient');
+    void chip.offsetWidth;
+    chip.classList.add('flash-insufficient');
 }
 
 function showDefeatDialog() {
@@ -1275,7 +1308,8 @@ function createTowerData(x, y, typeId) {
         aimAngle: null,
         flashTimer: 0,
         recoil: 0,
-        auraOffset: Math.random() * Math.PI * 2
+        auraOffset: Math.random() * Math.PI * 2,
+        spentGold: def.cost || 0
     };
 }
 
@@ -2600,6 +2634,7 @@ canvas.addEventListener("click", event => {
     const towerDef = getTowerDefinition(selectedTowerType);
     const cost = towerDef.cost || 25;
     if (gold < cost) {
+        flashGoldInsufficient();
         return;
     }
 
@@ -2722,6 +2757,13 @@ GOLD_ADJUST_BUTTONS.forEach(button => {
     });
 });
 
+const SELL_TOWER_BUTTON = document.getElementById('sell-tower-button');
+if (SELL_TOWER_BUTTON) {
+    SELL_TOWER_BUTTON.addEventListener('click', () => {
+        if (selectedTower) sellTower(selectedTower);
+    });
+}
+
 if (RETRY_BUTTON) {
     RETRY_BUTTON.addEventListener('click', () => {
         resetGame();
@@ -2777,7 +2819,7 @@ if (WAVE_INPUT) {
 requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
-    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, enemies };
+    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, enemies, towers, gold: () => gold };
 }
 
 
