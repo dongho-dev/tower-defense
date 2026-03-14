@@ -1,5 +1,8 @@
 ﻿const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+if (!canvas) {
+    console.error('Canvas element not found');
+}
+const ctx = canvas ? canvas.getContext("2d") : null;
 
 const TILE_SIZE = 30;
 const GRID_COLS = Math.floor(canvas.width / TILE_SIZE);
@@ -975,7 +978,7 @@ function setWave(targetWave) {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
-    WAVE_LABEL.textContent = wave;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1222,7 +1225,7 @@ function flashGoldInsufficient() {
 }
 
 function showDefeatDialog() {
-    if (!DEFEAT_OVERLAY || gameOver) {
+    if (gameOver) {
         return;
     }
     gameOver = true;
@@ -1231,7 +1234,9 @@ function showDefeatDialog() {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     setGameSpeed(1);
-    DEFEAT_OVERLAY.classList.remove('hidden');
+    if (DEFEAT_OVERLAY) {
+        DEFEAT_OVERLAY.classList.remove('hidden');
+    }
     updateWavePreview(0);
 }
 
@@ -1255,8 +1260,8 @@ function resetGame() {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     updateGoldUI();
-    LIVES_LABEL.textContent = lives;
-    WAVE_LABEL.textContent = wave;
+    if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1272,7 +1277,7 @@ function startWave() {
     enemiesToSpawn = getWaveEnemyCount(wave);
     spawnCooldown = 0;
     nextWaveTimer = 0;
-    WAVE_LABEL.textContent = wave;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1643,7 +1648,7 @@ function update(dt) {
             waveInProgress = false;
             nextWaveTimer = 4;
             wave += 1;
-            WAVE_LABEL.textContent = wave;
+            if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
             if (WAVE_INPUT) {
                 WAVE_INPUT.value = wave;
             }
@@ -1662,7 +1667,7 @@ function update(dt) {
             }
             enemies.splice(i, 1);
             lives = Math.max(0, lives - 1);
-            LIVES_LABEL.textContent = lives;
+            if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
             if (lives === 0) {
                 showDefeatDialog();
                 return;
