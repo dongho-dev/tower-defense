@@ -993,6 +993,7 @@ function setWave(targetWave) {
     }
     const desiredWave = Math.max(1, Math.min(WAVE_MAX, Math.floor(targetWave)));
     clearCurrentWave();
+    hideTowerStats();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
@@ -1289,6 +1290,12 @@ function resetGame() {
     }
     hideDefeatDialog();
     setGameSpeed(1);
+    buildPanelUserOverride = false;
+    if (typeof window !== 'undefined' && window.innerWidth < AUTOCOLLAPSE_WIDTH) {
+        setBuildPanelCollapsed(true);
+    } else {
+        setBuildPanelCollapsed(false);
+    }
     updateWavePreview();
     elapsedTime = 0;
     lastTime = performance.now();
