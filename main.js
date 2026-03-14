@@ -533,6 +533,9 @@ let soundMuted = false;
 
 function ensureAudioContext() {
     if (audioContext) {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+        }
         return audioContext;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -546,11 +549,18 @@ function ensureAudioContext() {
         }
         return null;
     }
-    audioContext = new AudioCtx();
-    masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.8;
-    masterGain.connect(audioContext.destination);
-    return audioContext;
+    try {
+        audioContext = new AudioCtx();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0.8;
+        masterGain.connect(audioContext.destination);
+        return audioContext;
+    } catch (e) {
+        console.warn('AudioContext 생성 실패:', e);
+        audioContext = null;
+        masterGain = null;
+        return null;
+    }
 }
 
 function playToneSequence(steps) {
