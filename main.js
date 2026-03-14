@@ -2797,14 +2797,19 @@ document.addEventListener("keydown", event => {
 let elapsedTime = 0;
 let lastTime = performance.now();
 function loop(timestamp) {
-    const dt = (timestamp - lastTime) / 1000;
-    lastTime = timestamp;
-    if (!paused) {
-        const scaledDt = dt * gameSpeed;
-        elapsedTime += scaledDt;
-        update(scaledDt);
+    try {
+        const rawDt = (timestamp - lastTime) / 1000;
+        const dt = Math.min(rawDt, 0.1);
+        lastTime = timestamp;
+        if (!paused) {
+            const scaledDt = dt * gameSpeed;
+            elapsedTime += scaledDt;
+            update(scaledDt);
+        }
+        render();
+    } catch (e) {
+        console.error('Game loop error:', e);
     }
-    render();
     requestAnimationFrame(loop);
 }
 
