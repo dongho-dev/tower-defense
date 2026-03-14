@@ -852,14 +852,22 @@ function populateTowerList() {
         const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
         const fireDelay = typeof def.fireDelay === 'number' && def.fireDelay > 0 ? def.fireDelay : 1;
         const dps = baseDamage / fireDelay;
-        button.innerHTML = `
-            <span class="tower-name">${def.label}</span>
-            <span class="tower-meta">
-                <span>비용 ${formatNumber(cost)}</span>
-                <span>사거리 ${Math.round(range)}px</span>
-                <span>DPS ${formatNumber(Number(dps.toFixed(1)))}</span>
-            </span>
-        `;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'tower-name';
+        nameSpan.textContent = def.label;
+
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'tower-meta';
+
+        const costSpan = document.createElement('span');
+        costSpan.textContent = '비용 ' + formatNumber(cost);
+        const rangeSpan = document.createElement('span');
+        rangeSpan.textContent = '사거리 ' + Math.round(range) + 'px';
+        const dpsSpan = document.createElement('span');
+        dpsSpan.textContent = 'DPS ' + formatNumber(Number(dps.toFixed(1)));
+
+        metaSpan.append(costSpan, rangeSpan, dpsSpan);
+        button.append(nameSpan, metaSpan);
         button.addEventListener('click', () => {
             if (selectedTowerType === id) {
                 return;
@@ -888,7 +896,7 @@ function setBuildPanelCollapsed(state, options = {}) {
     BUILD_CONTAINER.classList.toggle('collapsed', state);
     if (BUILD_TOGGLE) {
         BUILD_TOGGLE.setAttribute('aria-expanded', String(!state));
-        BUILD_TOGGLE.innerHTML = state ? '▶' : '◀';
+        BUILD_TOGGLE.textContent = state ? '▶' : '◀';
         BUILD_TOGGLE.setAttribute('title', state ? '포탑 패널 펼치기' : '포탑 패널 접기');
     }
 }
