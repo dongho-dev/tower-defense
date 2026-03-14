@@ -596,26 +596,30 @@ function playToneSequence(steps) {
     }
 }
 
+let cachedNoiseBuffer = null;
+let cachedNoiseDuration = 0;
+
 function playNoise(duration = 0.25, volume = 0.24) {
-    if (soundMuted) {
-        return;
-    }
+    if (soundMuted) return;
     const ctx = ensureAudioContext();
-    if (!ctx || !masterGain) {
-        return;
-    }
+    if (!ctx || !masterGain) return;
+
     const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < size; i++) {
-        data[i] = (Math.random() * 2 - 1) * 0.7;
+    if (!cachedNoiseBuffer || cachedNoiseDuration !== duration) {
+        cachedNoiseBuffer = ctx.createBuffer(1, size, ctx.sampleRate);
+        const data = cachedNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < size; i++) {
+            data[i] = (Math.random() * 2 - 1) * 0.7;
+        }
+        cachedNoiseDuration = duration;
     }
+
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     const now = ctx.currentTime;
     gain.gain.setValueAtTime(volume, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    source.buffer = buffer;
+    source.buffer = cachedNoiseBuffer;
     source.connect(gain);
     gain.connect(masterGain);
     source.start(now);
@@ -1205,14 +1209,6 @@ function getEnemyAtPoint(px, py) {
     return null;
 }
 
-function getTowerUpgradeCost(tower) {
-    ensureTowerMetadata(tower);
-    if (tower.level >= TOWER_MAX_LEVEL) {
-        return null;
-    }
-    return tower.upgradeCost;
-}
-
 function upgradeTower(tower) {
     ensureTowerMetadata(tower);
     if (tower.level >= TOWER_MAX_LEVEL) {
@@ -1380,14 +1376,13 @@ function spawnEnemy() {
 function findTarget(tower) {
     let chosen = null;
     let bestScore = -Infinity;
+    const rangeSq = tower.range * tower.range;
     for (const enemy of enemies) {
         const dx = enemy.x - tower.worldX;
         const dy = enemy.y - tower.worldY;
-        const dist = Math.hypot(dx, dy);
-        if (dist > tower.range) {
-            continue;
-        }
-        const score = enemy.waypoint * 1000 - dist;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > rangeSq) continue;
+        const score = enemy.waypoint * 1000 - distSq;
         if (score > bestScore) {
             bestScore = score;
             chosen = enemy;
@@ -2761,11 +2756,11 @@ if (typeof window !== 'undefined') {
         setBuildPanelCollapsed(window.innerWidth < AUTOCOLLAPSE_WIDTH);
     };
     autoCollapse();
+    let resizeRaf = 0;
     window.addEventListener('resize', () => {
-        if (buildPanelUserOverride) {
-            return;
-        }
-        autoCollapse();
+        if (buildPanelUserOverride) return;
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(autoCollapse);
     });
 } else {
     setBuildPanelCollapsed(false);
