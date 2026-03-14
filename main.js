@@ -2900,7 +2900,7 @@ buildStaticLayer();
 requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
-    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, enemies, towers, gold: () => gold };
+    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold };
 }
 
 

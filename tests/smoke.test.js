@@ -79,7 +79,22 @@ function setupDom() {
         save: noop, restore: noop, font: '', textAlign: '', textBaseline: '',
         fillText: noop,
         createRadialGradient: () => ({ addColorStop: noop }),
-        createLinearGradient: () => ({ addColorStop: noop })
+        createLinearGradient: () => ({ addColorStop: noop }),
+        setLineDash: noop,
+        ellipse: noop,
+        resetTransform: noop,
+        globalCompositeOperation: 'source-over',
+        shadowColor: '',
+        shadowBlur: 0,
+        globalAlpha: 1,
+        lineCap: 'butt',
+        lineJoin: 'miter',
+        rotate: noop,
+        translate: noop,
+        closePath: noop,
+        setTransform: noop,
+        measureText: () => ({ width: 0 }),
+        drawImage: noop
     });
 
     delete require.cache[require.resolve('../main.js')];
