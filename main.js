@@ -4,6 +4,8 @@ if (!canvas) {
 }
 const ctx = canvas ? canvas.getContext("2d") : null;
 
+let staticLayer = null;
+
 const TILE_SIZE = 30;
 const GRID_COLS = Math.floor(canvas.width / TILE_SIZE);
 const GRID_ROWS = Math.floor(canvas.height / TILE_SIZE);
@@ -594,26 +596,30 @@ function playToneSequence(steps) {
     }
 }
 
+let cachedNoiseBuffer = null;
+let cachedNoiseDuration = 0;
+
 function playNoise(duration = 0.25, volume = 0.24) {
-    if (soundMuted) {
-        return;
-    }
+    if (soundMuted) return;
     const ctx = ensureAudioContext();
-    if (!ctx || !masterGain) {
-        return;
-    }
+    if (!ctx || !masterGain) return;
+
     const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < size; i++) {
-        data[i] = (Math.random() * 2 - 1) * 0.7;
+    if (!cachedNoiseBuffer || cachedNoiseDuration !== duration) {
+        cachedNoiseBuffer = ctx.createBuffer(1, size, ctx.sampleRate);
+        const data = cachedNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < size; i++) {
+            data[i] = (Math.random() * 2 - 1) * 0.7;
+        }
+        cachedNoiseDuration = duration;
     }
+
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     const now = ctx.currentTime;
     gain.gain.setValueAtTime(volume, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    source.buffer = buffer;
+    source.buffer = cachedNoiseBuffer;
     source.connect(gain);
     gain.connect(masterGain);
     source.start(now);
@@ -722,26 +728,33 @@ function hexToRgba(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+const alphaCache = new Map();
+const ALPHA_CACHE_MAX = 512;
+
 function applyAlpha(color, alpha) {
-    if (!color) {
-        return `rgba(255, 255, 255, ${alpha})`;
-    }
+    if (!color) return 'rgba(255, 255, 255, ' + alpha + ')';
+    const key = color + '|' + alpha;
+    let cached = alphaCache.get(key);
+    if (cached !== undefined) return cached;
+
+    let result;
     if (color.startsWith('#')) {
-        return hexToRgba(color, alpha);
-    }
-    if (color.startsWith('rgba')) {
-        return color.replace(/rgba\(([^)]+)\)/, (_, inner) => {
+        result = hexToRgba(color, alpha);
+    } else if (color.startsWith('rgba')) {
+        result = color.replace(/rgba\(([^)]+)\)/, (_, inner) => {
             const parts = inner.split(',').map(part => part.trim());
-            if (parts.length < 3) {
-                return color;
-            }
-            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+            if (parts.length < 3) return color;
+            return 'rgba(' + parts[0] + ', ' + parts[1] + ', ' + parts[2] + ', ' + alpha + ')';
         });
+    } else if (color.startsWith('rgb')) {
+        result = color.replace(/rgb\(([^)]+)\)/, (_, inner) => 'rgba(' + inner + ', ' + alpha + ')');
+    } else {
+        result = color;
     }
-    if (color.startsWith('rgb')) {
-        return color.replace(/rgb\(([^)]+)\)/, (_, inner) => `rgba(${inner}, ${alpha})`);
-    }
-    return color;
+
+    if (alphaCache.size >= ALPHA_CACHE_MAX) alphaCache.clear();
+    alphaCache.set(key, result);
+    return result;
 }
 
 function lerpAngle(current, target, t) {
@@ -993,6 +1006,7 @@ function setWave(targetWave) {
     }
     const desiredWave = Math.max(1, Math.min(WAVE_MAX, Math.floor(targetWave)));
     clearCurrentWave();
+    hideTowerStats();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
@@ -1195,14 +1209,6 @@ function getEnemyAtPoint(px, py) {
     return null;
 }
 
-function getTowerUpgradeCost(tower) {
-    ensureTowerMetadata(tower);
-    if (tower.level >= TOWER_MAX_LEVEL) {
-        return null;
-    }
-    return tower.upgradeCost;
-}
-
 function upgradeTower(tower) {
     ensureTowerMetadata(tower);
     if (tower.level >= TOWER_MAX_LEVEL) {
@@ -1289,6 +1295,12 @@ function resetGame() {
     }
     hideDefeatDialog();
     setGameSpeed(1);
+    buildPanelUserOverride = false;
+    if (typeof window !== 'undefined' && window.innerWidth < AUTOCOLLAPSE_WIDTH) {
+        setBuildPanelCollapsed(true);
+    } else {
+        setBuildPanelCollapsed(false);
+    }
     updateWavePreview();
     elapsedTime = 0;
     lastTime = performance.now();
@@ -1364,14 +1376,13 @@ function spawnEnemy() {
 function findTarget(tower) {
     let chosen = null;
     let bestScore = -Infinity;
+    const rangeSq = tower.range * tower.range;
     for (const enemy of enemies) {
         const dx = enemy.x - tower.worldX;
         const dy = enemy.y - tower.worldY;
-        const dist = Math.hypot(dx, dy);
-        if (dist > tower.range) {
-            continue;
-        }
-        const score = enemy.waypoint * 1000 - dist;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > rangeSq) continue;
+        const score = enemy.waypoint * 1000 - distSq;
         if (score > bestScore) {
             bestScore = score;
             chosen = enemy;
@@ -1868,6 +1879,39 @@ function drawPath() {
         ctx.fillRect(gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     });
     ctx.restore();
+}
+
+function buildStaticLayer() {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const offCtx = offscreen.getContext('2d');
+
+    // drawGrid 로직
+    offCtx.strokeStyle = "#2a333d";
+    offCtx.lineWidth = 1;
+    for (let x = 0; x <= GRID_COLS; x++) {
+        offCtx.beginPath();
+        offCtx.moveTo(x * TILE_SIZE + 0.5, 0);
+        offCtx.lineTo(x * TILE_SIZE + 0.5, GRID_ROWS * TILE_SIZE);
+        offCtx.stroke();
+    }
+    for (let y = 0; y <= GRID_ROWS; y++) {
+        offCtx.beginPath();
+        offCtx.moveTo(0, y * TILE_SIZE + 0.5);
+        offCtx.lineTo(GRID_COLS * TILE_SIZE, y * TILE_SIZE + 0.5);
+        offCtx.stroke();
+    }
+
+    // drawPath 로직
+    offCtx.fillStyle = "#3b4637";
+    pathTiles.forEach(key => {
+        const [gx, gy] = key.split(",").map(Number);
+        if (gx < 0 || gy < 0 || gx >= GRID_COLS || gy >= GRID_ROWS) return;
+        offCtx.fillRect(gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    });
+
+    staticLayer = offscreen;
 }
 
 function drawHexagon(x, y, radius) {
@@ -2603,8 +2647,12 @@ function drawState() {
 
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawPath();
-    drawGrid();
+    if (staticLayer) {
+        ctx.drawImage(staticLayer, 0, 0);
+    } else {
+        drawGrid();
+        drawPath();
+    }
     drawHover();
     drawTowers();
     drawEnemies();
@@ -2708,11 +2756,11 @@ if (typeof window !== 'undefined') {
         setBuildPanelCollapsed(window.innerWidth < AUTOCOLLAPSE_WIDTH);
     };
     autoCollapse();
+    let resizeRaf = 0;
     window.addEventListener('resize', () => {
-        if (buildPanelUserOverride) {
-            return;
-        }
-        autoCollapse();
+        if (buildPanelUserOverride) return;
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(autoCollapse);
     });
 } else {
     setBuildPanelCollapsed(false);
@@ -2848,10 +2896,11 @@ if (WAVE_INPUT) {
     WAVE_INPUT.value = wave;
 }
 
+buildStaticLayer();
 requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
-    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, enemies, towers, gold: () => gold };
+    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold };
 }
 
 
