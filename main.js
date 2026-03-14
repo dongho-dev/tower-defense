@@ -1034,6 +1034,10 @@ function updateEnemyStatsFields() {
     if (!selectedEnemy || !ENEMY_STATS_PANEL) {
         return;
     }
+    if (!enemies.includes(selectedEnemy)) {
+        hideEnemyStats();
+        return;
+    }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
     const waveIndex = typeof selectedEnemy.waveIndex === "number" ? selectedEnemy.waveIndex : wave;
