@@ -1,5 +1,8 @@
 ﻿const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+if (!canvas) {
+    console.error('Canvas element not found');
+}
+const ctx = canvas ? canvas.getContext("2d") : null;
 
 const TILE_SIZE = 30;
 const GRID_COLS = Math.floor(canvas.width / TILE_SIZE);
@@ -530,6 +533,9 @@ let soundMuted = false;
 
 function ensureAudioContext() {
     if (audioContext) {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+        }
         return audioContext;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -543,11 +549,18 @@ function ensureAudioContext() {
         }
         return null;
     }
-    audioContext = new AudioCtx();
-    masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.8;
-    masterGain.connect(audioContext.destination);
-    return audioContext;
+    try {
+        audioContext = new AudioCtx();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0.8;
+        masterGain.connect(audioContext.destination);
+        return audioContext;
+    } catch (e) {
+        console.warn('AudioContext 생성 실패:', e);
+        audioContext = null;
+        masterGain = null;
+        return null;
+    }
 }
 
 function playToneSequence(steps) {
@@ -839,14 +852,22 @@ function populateTowerList() {
         const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
         const fireDelay = typeof def.fireDelay === 'number' && def.fireDelay > 0 ? def.fireDelay : 1;
         const dps = baseDamage / fireDelay;
-        button.innerHTML = `
-            <span class="tower-name">${def.label}</span>
-            <span class="tower-meta">
-                <span>비용 ${formatNumber(cost)}</span>
-                <span>사거리 ${Math.round(range)}px</span>
-                <span>DPS ${formatNumber(Number(dps.toFixed(1)))}</span>
-            </span>
-        `;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'tower-name';
+        nameSpan.textContent = def.label;
+
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'tower-meta';
+
+        const costSpan = document.createElement('span');
+        costSpan.textContent = '비용 ' + formatNumber(cost);
+        const rangeSpan = document.createElement('span');
+        rangeSpan.textContent = '사거리 ' + Math.round(range) + 'px';
+        const dpsSpan = document.createElement('span');
+        dpsSpan.textContent = 'DPS ' + formatNumber(Number(dps.toFixed(1)));
+
+        metaSpan.append(costSpan, rangeSpan, dpsSpan);
+        button.append(nameSpan, metaSpan);
         button.addEventListener('click', () => {
             if (selectedTowerType === id) {
                 return;
@@ -875,7 +896,7 @@ function setBuildPanelCollapsed(state, options = {}) {
     BUILD_CONTAINER.classList.toggle('collapsed', state);
     if (BUILD_TOGGLE) {
         BUILD_TOGGLE.setAttribute('aria-expanded', String(!state));
-        BUILD_TOGGLE.innerHTML = state ? '▶' : '◀';
+        BUILD_TOGGLE.textContent = state ? '▶' : '◀';
         BUILD_TOGGLE.setAttribute('title', state ? '포탑 패널 펼치기' : '포탑 패널 접기');
     }
 }
@@ -975,7 +996,7 @@ function setWave(targetWave) {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
-    WAVE_LABEL.textContent = wave;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1019,6 +1040,10 @@ function updateTowerStatsFields() {
 
 function updateEnemyStatsFields() {
     if (!selectedEnemy || !ENEMY_STATS_PANEL) {
+        return;
+    }
+    if (!enemies.includes(selectedEnemy)) {
+        hideEnemyStats();
         return;
     }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
@@ -1222,7 +1247,7 @@ function flashGoldInsufficient() {
 }
 
 function showDefeatDialog() {
-    if (!DEFEAT_OVERLAY || gameOver) {
+    if (gameOver) {
         return;
     }
     gameOver = true;
@@ -1231,7 +1256,9 @@ function showDefeatDialog() {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     setGameSpeed(1);
-    DEFEAT_OVERLAY.classList.remove('hidden');
+    if (DEFEAT_OVERLAY) {
+        DEFEAT_OVERLAY.classList.remove('hidden');
+    }
     updateWavePreview(0);
 }
 
@@ -1255,8 +1282,8 @@ function resetGame() {
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
     updateGoldUI();
-    LIVES_LABEL.textContent = lives;
-    WAVE_LABEL.textContent = wave;
+    if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1272,7 +1299,7 @@ function startWave() {
     enemiesToSpawn = getWaveEnemyCount(wave);
     spawnCooldown = 0;
     nextWaveTimer = 0;
-    WAVE_LABEL.textContent = wave;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = wave;
     }
@@ -1643,7 +1670,7 @@ function update(dt) {
             waveInProgress = false;
             nextWaveTimer = 4;
             wave += 1;
-            WAVE_LABEL.textContent = wave;
+            if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
             if (WAVE_INPUT) {
                 WAVE_INPUT.value = wave;
             }
@@ -1662,7 +1689,7 @@ function update(dt) {
             }
             enemies.splice(i, 1);
             lives = Math.max(0, lives - 1);
-            LIVES_LABEL.textContent = lives;
+            if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
             if (lives === 0) {
                 showDefeatDialog();
                 return;
@@ -2797,14 +2824,19 @@ document.addEventListener("keydown", event => {
 let elapsedTime = 0;
 let lastTime = performance.now();
 function loop(timestamp) {
-    const dt = (timestamp - lastTime) / 1000;
-    lastTime = timestamp;
-    if (!paused) {
-        const scaledDt = dt * gameSpeed;
-        elapsedTime += scaledDt;
-        update(scaledDt);
+    try {
+        const rawDt = (timestamp - lastTime) / 1000;
+        const dt = Math.min(rawDt, 0.1);
+        lastTime = timestamp;
+        if (!paused) {
+            const scaledDt = dt * gameSpeed;
+            elapsedTime += scaledDt;
+            update(scaledDt);
+        }
+        render();
+    } catch (e) {
+        console.error('Game loop error:', e);
     }
-    render();
     requestAnimationFrame(loop);
 }
 
