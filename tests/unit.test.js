@@ -526,6 +526,18 @@ function run() {
     towers.length = 0;
     enemies.length = 0;
 
+    // --- #69: buildStaticLayer offCtx null 안전 ---
+    const origGetContext = window.HTMLCanvasElement.prototype.getContext;
+    window.HTMLCanvasElement.prototype.getContext = () => null;
+    let buildStaticLayerError = false;
+    try {
+        game.buildStaticLayer();
+    } catch (e) {
+        buildStaticLayerError = true;
+    }
+    assertEqual(buildStaticLayerError, false, 'buildStaticLayer: offCtx null 시 크래시 없음');
+    window.HTMLCanvasElement.prototype.getContext = origGetContext;
+
     // --- #68: 입력 검증 ---
     // setGameSpeed 상한 클램핑
     game.setGameSpeed(100);

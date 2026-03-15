@@ -1,8 +1,11 @@
 ﻿const canvas = document.getElementById("game");
 if (!canvas) {
-    console.error('Canvas element not found');
+    throw new Error('Canvas element #game not found');
 }
-const ctx = canvas ? canvas.getContext("2d") : null;
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+    throw new Error('Failed to get 2D rendering context');
+}
 
 let staticLayer = null;
 
@@ -2093,6 +2096,10 @@ function buildStaticLayer() {
     offscreen.width = canvas.width;
     offscreen.height = canvas.height;
     const offCtx = offscreen.getContext('2d');
+    if (!offCtx) {
+        console.error('Failed to get offscreen 2D context');
+        return;
+    }
 
     // drawGrid 로직
     offCtx.strokeStyle = "#2a333d";
@@ -2852,6 +2859,7 @@ function drawState() {
 }
 
 function render() {
+    if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (staticLayer) {
         ctx.drawImage(staticLayer, 0, 0);
@@ -3309,6 +3317,7 @@ if (typeof module !== 'undefined') {
         setEnemiesToSpawn: (v) => { enemiesToSpawn = v; },
         lerpAngle,
         resetGame,
+        buildStaticLayer,
         buildMapData,
         startWave,
         handleLaserAttack,
