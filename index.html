@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- NOTE: 서버 배포 시 HTTP 헤더로 CSP 전환 권장 (frame-ancestors 'none' 추가 가능) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; connect-src 'none'; form-action 'none'; frame-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; connect-src 'none'; form-action 'none'; frame-src 'none';">
     <title>타워 디펜스 커맨드</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,7 +22,7 @@
                         <span class="stat-label">생명력</span>
                         <span class="stat-value" id="lives">20</span>
                     </div>
-                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
+                    <div class="stat-chip">
                         <span class="stat-label">골드</span>
                         <span class="stat-value" id="gold">100</span>
                     </div>
@@ -67,7 +64,7 @@
                 <aside id="build-panel" class="build-panel">
                     <h2>포탑 제작</h2>
                     <p class="build-hint">왼쪽에서 포탑을 선택한 뒤 지형을 클릭하세요.</p>
-                    <div id="tower-list" class="tower-list" role="toolbar" aria-label="포탑 선택"></div>
+                    <div id="tower-list" class="tower-list" role="radiogroup" aria-label="포탑 선택"></div>
                 </aside>
             </div>
 
@@ -78,7 +75,7 @@
             </main>
 
             <aside class="info-column">
-                <div id="wave-preview" class="stats-panel card">
+                <div id="wave-preview" class="stats-panel card" aria-live="polite" aria-atomic="true">
                     <h3>다음 웨이브 정보</h3>
                     <p>상태: <span data-field="preview-status">대기</span></p>
                     <p>웨이브: <span data-field="preview-wave">1</span></p>

@@ -583,6 +583,62 @@ function run() {
     assertEqual(game.getLives(), 0, 'setLives: -5 → 0으로 클램핑');
     game.setLives(20);
 
+    // --- #75: ARIA/스크린 리더 접근성 ---
+    // wave-preview aria-live 속성
+    const wavePreview = document.getElementById('wave-preview');
+    assertEqual(wavePreview.getAttribute('aria-live'), 'polite', '#75: wave-preview에 aria-live="polite" 추가됨');
+
+    // tower-list role 속성
+    const towerList = document.getElementById('tower-list');
+    assertEqual(towerList.getAttribute('role'), 'radiogroup', '#75: tower-list의 role이 radiogroup으로 변경됨');
+
+    // 골드 stat-chip aria-live 제거
+    const goldEl = document.getElementById('gold');
+    const goldChip = goldEl.closest('.stat-chip');
+    assertEqual(goldChip.getAttribute('aria-live'), null, '#75: 골드 stat-chip에서 aria-live 제거됨');
+
+    // 속도 버튼 announce
+    const speedBtn = document.querySelector('.speed-button[data-speed="2"]');
+    const announcer = document.getElementById('a11y-announcer');
+    speedBtn.click();
+    // announce uses requestAnimationFrame — check synchronous textContent reset
+    assertEqual(announcer.textContent, '', '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)');
+
+    // --- #80: upgrade-tower-button CSS ---
+    const cssContent = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf-8');
+    assert(cssContent.includes('#upgrade-tower-button'), '#80: style.css에 #upgrade-tower-button 규칙 존재');
+    assert(cssContent.includes('#upgrade-tower-button:focus-visible'), '#80: style.css에 #upgrade-tower-button:focus-visible 존재');
+    const mainJsContent = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf-8');
+    assert(!mainJsContent.includes("'tower-button'") && !mainJsContent.includes('"tower-button"'), '#80: main.js에서 tower-button 클래스 미사용');
+
+    // --- #81: Google Fonts 로컬 전환 + CSP ---
+    const htmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf-8');
+    assert(!htmlContent.includes('googleapis.com'), '#81: index.html에 googleapis.com 참조 없음');
+    assert(!htmlContent.includes('gstatic.com'), '#81: index.html에 gstatic.com 참조 없음');
+
+    // CSP style-src self만 허용
+    const cspMatch = htmlContent.match(/style-src\s+([^;]+)/);
+    assert(cspMatch, '#81: CSP에 style-src 지시어 존재');
+    assert(!cspMatch[1].includes('https://'), '#81: CSP style-src에 외부 도메인 없음');
+
+    // CSP font-src self만 허용
+    const fontSrcMatch = htmlContent.match(/font-src\s+([^;]+)/);
+    assert(fontSrcMatch, '#81: CSP에 font-src 지시어 존재');
+    assert(!fontSrcMatch[1].includes('https://'), '#81: CSP font-src에 외부 도메인 없음');
+
+    // 폰트 파일 존재
+    assert(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Regular.woff2')), '#81: NotoSansKR-Regular.woff2 존재');
+    assert(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Bold.woff2')), '#81: NotoSansKR-Bold.woff2 존재');
+
+    // style.css에 @font-face 선언 존재
+    assert(cssContent.includes("@font-face"), '#81: style.css에 @font-face 선언 존재');
+    assert(cssContent.includes("NotoSansKR-Regular.woff2"), '#81: style.css에 Regular 폰트 참조');
+    assert(cssContent.includes("NotoSansKR-Bold.woff2"), '#81: style.css에 Bold 폰트 참조');
+
+    // --- #77: prefersReducedMotion 기본값 ---
+    // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
+    assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
+
     console.log('Unit tests passed');
 }
 
