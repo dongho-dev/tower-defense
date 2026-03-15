@@ -3190,11 +3190,7 @@ if (MAP_SELECT_OVERLAY) {
     MAP_SELECT_OVERLAY.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
             event.preventDefault();
-            hideMapSelectOverlay();
-            resetGame();
-            buildStaticLayer();
-            paused = false;
-            startLoop();
+            // 맵 선택은 필수 단계이므로 Escape 무시
             return;
         }
         if (event.key !== 'Tab') return;
