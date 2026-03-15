@@ -609,3 +609,87 @@ canvas {
 .build-shell.collapsed .build-panel {
     visibility: hidden;
 }
+
+/* ── Mobile / responsive layout (≤768px) ── */
+@media (max-width: 768px) {
+    body {
+        padding: 12px 8px 24px;
+    }
+
+    .top-bar {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 16px;
+    }
+
+    .bar-right {
+        justify-content: flex-start;
+        gap: 8px 10px;
+    }
+
+    .brand {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    .stat-chip {
+        min-width: 90px;
+        padding: 8px 12px;
+    }
+
+    .stat-value {
+        font-size: 18px;
+    }
+
+    .control-row {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 10px;
+    }
+
+    .gold-control input,
+    .wave-control input {
+        width: 72px;
+    }
+
+    .instructions {
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+
+    /* Canvas fills the available width on mobile */
+    .canvas-wrapper {
+        padding: 8px;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    canvas {
+        max-width: 100%;
+        height: auto;
+        touch-action: none;
+    }
+
+    .stage-area {
+        width: 100%;
+    }
+
+    .info-column {
+        flex-direction: column;
+    }
+
+    .info-column .card {
+        flex: none;
+        width: 100%;
+    }
+
+    /* Build toggle repositioned for small screens */
+    .build-toggle {
+        top: -48px;
+        right: 12px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+    }
+}

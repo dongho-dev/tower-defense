@@ -2779,26 +2779,57 @@ function render() {
     drawState();
 }
 
-canvas.addEventListener("mousemove", event => {
+// ── Shared pointer coordinate helpers ──────────────────────────────────────
+
+/**
+ * Convert a client-space point to canvas-space coordinates,
+ * accounting for any CSS scaling applied to the canvas element.
+ */
+function getCanvasCoords(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
-    const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
-    if (x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS) {
-        hoverTile = { x, y };
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+    };
+}
+
+/**
+ * Shared handler for pointer/touch hover (mousemove / touchmove).
+ * @param {number} canvasX - Canvas-space X coordinate
+ * @param {number} canvasY - Canvas-space Y coordinate
+ */
+function handlePointerMove(canvasX, canvasY) {
+    const tileX = Math.floor(canvasX / TILE_SIZE);
+    const tileY = Math.floor(canvasY / TILE_SIZE);
+    if (tileX >= 0 && tileX < GRID_COLS && tileY >= 0 && tileY < GRID_ROWS) {
+        hoverTile = { x: tileX, y: tileY };
     } else {
         hoverTile = null;
     }
-});
+}
 
-canvas.addEventListener("mouseleave", () => {
-    hoverTile = null;
-});
+/**
+ * Shared handler for pointer/touch down (click / touchstart).
+ * @param {number} canvasX    - Canvas-space X coordinate
+ * @param {number} canvasY    - Canvas-space Y coordinate
+ * @param {boolean} isRightClick - true for secondary action (upgrade), false for primary (build/select)
+ */
+function handlePointerDown(canvasX, canvasY, isRightClick) {
+    if (isRightClick) {
+        if (gameOver) {
+            return;
+        }
+        const tower = getTowerAtPoint(canvasX, canvasY);
+        if (!tower) {
+            return;
+        }
+        upgradeTower(tower);
+        return;
+    }
 
-canvas.addEventListener("click", event => {
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-
+    // Primary action: select tower / enemy, or build
     const tower = getTowerAtPoint(canvasX, canvasY);
     if (tower) {
         showTowerStats(tower);
@@ -2837,22 +2868,50 @@ canvas.addEventListener("click", event => {
     towers.push(towerData);
     playSound('build');
     showTowerStats(towerData);
+}
+
+// ── Mouse event handlers ────────────────────────────────────────────────────
+
+canvas.addEventListener("mousemove", event => {
+    const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+    handlePointerMove(x, y);
+});
+
+canvas.addEventListener("mouseleave", () => {
+    hoverTile = null;
+});
+
+canvas.addEventListener("click", event => {
+    const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+    handlePointerDown(x, y, false);
 });
 
 canvas.addEventListener("contextmenu", event => {
     event.preventDefault();
-    if (gameOver) {
-        return;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-    const tower = getTowerAtPoint(canvasX, canvasY);
-    if (!tower) {
-        return;
-    }
-    upgradeTower(tower);
+    const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+    handlePointerDown(x, y, true);
 });
+
+// ── Touch event handlers ────────────────────────────────────────────────────
+
+canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+    handlePointerDown(x, y, false);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+    handlePointerMove(x, y);
+}, { passive: false });
+
+canvas.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    hoverTile = null;
+}, { passive: false });
 
 populateTowerList();
 
