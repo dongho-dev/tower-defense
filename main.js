@@ -559,6 +559,7 @@ const BUILD_CONTAINER = document.querySelector('.build-shell');
 const TOWER_LIST_CONTAINER = document.getElementById('tower-list');
 const SOUND_TOGGLE = document.getElementById('sound-toggle');
 const A11Y_ANNOUNCER = document.getElementById('a11y-announcer');
+const SELECTED_TOWER_INDICATOR = document.getElementById('selected-tower-indicator');
 
 function announce(message) {
     if (!A11Y_ANNOUNCER) return;
@@ -826,7 +827,8 @@ function formatNumber(value) {
 }
 
 function calculateTowerDamage(definition, level) {
-    return parseFloat((definition.baseDamage * Math.pow(TOWER_DAMAGE_GROWTH, level - 1)).toFixed(4));
+    const raw = definition.baseDamage * Math.pow(TOWER_DAMAGE_GROWTH, level - 1);
+    return Math.round(raw * 10000) / 10000;
 }
 
 function calculateUpgradeCost(definition, level) {
@@ -882,10 +884,9 @@ function setSelectedTowerButton(typeId) {
         button.classList.toggle('active', isSelected);
         button.setAttribute('aria-pressed', String(isSelected));
     }
-    const indicator = document.getElementById('selected-tower-indicator');
-    if (indicator) {
+    if (SELECTED_TOWER_INDICATOR) {
         const def = getTowerDefinition(typeId);
-        indicator.textContent = def ? def.label : '';
+        SELECTED_TOWER_INDICATOR.textContent = def ? def.label : '';
     }
 }
 
@@ -1087,7 +1088,12 @@ function updateTowerStatsFields() {
         TOWER_STATS_FIELDS.range.textContent = `${Math.round(selectedTower.range)}px (${tiles}타일)`;
     }
     if (TOWER_STATS_FIELDS.fireDelay) {
-        TOWER_STATS_FIELDS.fireDelay.textContent = `${selectedTower.fireDelay.toFixed(2)}초`;
+        if (def.attackPattern === 'laser') {
+            const dps = (selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1);
+            TOWER_STATS_FIELDS.fireDelay.textContent = `지속 (${dps} DPS)`;
+        } else {
+            TOWER_STATS_FIELDS.fireDelay.textContent = `${selectedTower.fireDelay.toFixed(2)}초`;
+        }
     }
     if (TOWER_STATS_FIELDS.damage) {
         TOWER_STATS_FIELDS.damage.textContent = formatNumber(selectedTower.damage);
@@ -1109,10 +1115,6 @@ function updateEnemyStatsFields() {
     if (!selectedEnemy || !ENEMY_STATS_PANEL) {
         return;
     }
-    if (!enemies.includes(selectedEnemy)) {
-        hideEnemyStats();
-        return;
-    }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
     const waveIndex = typeof selectedEnemy.waveIndex === "number" ? selectedEnemy.waveIndex : wave;
@@ -1120,7 +1122,7 @@ function updateEnemyStatsFields() {
         ENEMY_STATS_FIELDS.wave.textContent = waveIndex;
     }
     if (ENEMY_STATS_FIELDS.hp) {
-        ENEMY_STATS_FIELDS.hp.textContent = `${currentHp.toLocaleString('ko-KR')} / ${maxHp.toLocaleString('ko-KR')}`;
+        ENEMY_STATS_FIELDS.hp.textContent = `${NUMBER_FORMAT.format(currentHp)} / ${NUMBER_FORMAT.format(maxHp)}`;
     }
     if (ENEMY_STATS_FIELDS.speed) {
         ENEMY_STATS_FIELDS.speed.textContent = `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`;
@@ -1459,6 +1461,7 @@ function canBuildAt(x, y) {
 function createTowerData(x, y, typeId) {
     const def = getTowerDefinition(typeId);
     return {
+        def,
         type: def.id,
         x,
         y,
@@ -1516,9 +1519,11 @@ function spawnEnemy() {
 
 function findTarget(tower) {
     let chosen = null;
+    let chosenIndex = -1;
     let bestScore = -Infinity;
     const rangeSq = tower.range * tower.range;
-    for (const enemy of enemies) {
+    for (let i = 0; i < enemies.length; i++) {
+        const enemy = enemies[i];
         const dx = enemy.x - tower.worldX;
         const dy = enemy.y - tower.worldY;
         const distSq = dx * dx + dy * dy;
@@ -1527,9 +1532,10 @@ function findTarget(tower) {
         if (score > bestScore) {
             bestScore = score;
             chosen = enemy;
+            chosenIndex = i;
         }
     }
-    return chosen;
+    return chosen ? { enemy: chosen, index: chosenIndex } : null;
 }
 
 function spawnProjectile(options) {
@@ -1583,8 +1589,7 @@ function handleTowerFireVisuals(tower, def, angle) {
     });
 }
 
-function performTowerAttack(tower, target) {
-    const def = getTowerDefinition(tower.type);
+function performTowerAttack(tower, target, def) {
     const baseDx = target.x - tower.worldX;
     const baseDy = target.y - tower.worldY;
     const baseDist = Math.hypot(baseDx, baseDy) || 1;
@@ -1754,8 +1759,7 @@ function performTowerAttack(tower, target) {
 }
 
 
-function handleLaserAttack(tower, dt) {
-    const def = getTowerDefinition(tower.type);
+function handleLaserAttack(tower, dt, def) {
     const hadBeam = Boolean(tower.activeBeam && tower.activeBeam.alpha > 0.2);
     if (tower.activeBeam) {
         tower.activeBeam.alpha = Math.max(0, tower.activeBeam.alpha - dt * 8);
@@ -1763,11 +1767,13 @@ function handleLaserAttack(tower, dt) {
             tower.activeBeam = null;
         }
     }
-    const target = findTarget(tower);
-    if (!target) {
+    const result = findTarget(tower);
+    if (!result) {
         tower.aimAngle = null;
         return;
     }
+    const target = result.enemy;
+    const targetIndex = result.index;
     const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
     tower.aimAngle = angle;
     if (typeof tower.heading !== 'number') {
@@ -1779,13 +1785,15 @@ function handleLaserAttack(tower, dt) {
     tower.flashTimer = Math.max(tower.flashTimer || 0, (def.flashDuration || 0.08));
     const damagePerSecond = tower.damage * (def.sustainMultiplier || 1);
     const appliedDamage = damagePerSecond * dt;
-    const killed = damageEnemy(target, appliedDamage);
+    const targetX = target.x;
+    const targetY = target.y;
+    const killed = damageEnemyAtIndex(targetIndex, appliedDamage);
     const beamColor = def.beamColor || getProjectileColor(def, tower.level);
     tower.activeBeam = {
         x1: tower.worldX,
         y1: tower.worldY,
-        x2: target.x,
-        y2: target.y,
+        x2: targetX,
+        y2: targetY,
         width: (def.beamWidth || 6) + (tower.level - 1) * 0.35,
         color: beamColor,
         glow: def.beamGlowColor || beamColor,
@@ -1795,7 +1803,7 @@ function handleLaserAttack(tower, dt) {
         playSound('laser');
     }
     if (killed) {
-        spawnImpactEffect(target.x, target.y, 36 + tower.level * 2, def.beamGlowColor || 'rgba(150, 255, 255, 0.4)', {
+        spawnImpactEffect(targetX, targetY, 36 + tower.level * 2, def.beamGlowColor || 'rgba(150, 255, 255, 0.4)', {
             haloColor: '#d4fbff',
             life: 0.4,
             pulse: true
@@ -1865,11 +1873,11 @@ function update(dt) {
     }
 
     for (const tower of towers) {
-        const def = getTowerDefinition(tower.type);
+        const def = tower.def || getTowerDefinition(tower.type);
         tower.flashTimer = Math.max(0, (tower.flashTimer || 0) - dt * 4.6);
         tower.recoil = Math.max(0, (tower.recoil || 0) - dt * (def.recoilRecovery || 3));
         if (def.attackPattern === 'laser') {
-            handleLaserAttack(tower, dt);
+            handleLaserAttack(tower, dt, def);
             continue;
         }
         if (tower.activeBeam) {
@@ -1878,7 +1886,8 @@ function update(dt) {
                 tower.activeBeam = null;
             }
         }
-        let target = findTarget(tower);
+        const result = findTarget(tower);
+        let target = result ? result.enemy : null;
         if (target) {
             const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
             tower.aimAngle = angle;
@@ -1901,7 +1910,7 @@ function update(dt) {
             tower.cooldown = 0;
             continue;
         }
-        performTowerAttack(tower, target);
+        performTowerAttack(tower, target, def);
         tower.cooldown = tower.fireDelay;
     }
 
@@ -2070,8 +2079,7 @@ function drawHexagon(x, y, radius) {
     ctx.closePath();
 }
 
-function drawTowerShape(tower, color, outline, time) {
-    const def = getTowerDefinition(tower.type);
+function drawTowerShape(tower, color, outline, time, def) {
     const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
     const x = tower.worldX;
     const y = tower.worldY;
@@ -2422,7 +2430,7 @@ function drawTowers() {
     const now = performance.now() / 1000;
     ctx.save();
     for (const tower of towers) {
-        const def = getTowerDefinition(tower.type);
+        const def = tower.def || getTowerDefinition(tower.type);
         const color = getTowerColor(def, tower.level);
         const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
         const glowColor = def.glowColor || color;
@@ -2453,7 +2461,7 @@ function drawTowers() {
         ctx.save();
         ctx.shadowColor = applyAlpha(glowColor, 0.6 + (tower.flashTimer || 0) * 0.9);
         ctx.shadowBlur = size * (1.2 + (tower.flashTimer || 0) * 2.1);
-        drawTowerShape(tower, color, def.outline, now);
+        drawTowerShape(tower, color, def.outline, now, def);
         ctx.restore();
     }
     ctx.restore();
@@ -2461,7 +2469,7 @@ function drawTowers() {
 
 
 function drawEnemies() {
-    const time = elapsedTime;
+    const time = performance.now() / 1000;
     ctx.save();
     ctx.lineJoin = 'round';
     for (const enemy of enemies) {
@@ -2918,20 +2926,25 @@ canvas.addEventListener("contextmenu", event => {
 // ── Touch event handlers ────────────────────────────────────────────────────
 
 canvas.addEventListener('touchstart', function(e) {
+    if (e.touches.length > 1) return;
     e.preventDefault();
     const touch = e.touches[0];
+    if (!touch) return;
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
     handlePointerDown(x, y, false);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', function(e) {
+    if (e.touches.length > 1) return;
     e.preventDefault();
     const touch = e.touches[0];
+    if (!touch) return;
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
     handlePointerMove(x, y);
 }, { passive: false });
 
 canvas.addEventListener('touchend', function(e) {
+    if (e.touches.length > 0) return;
     e.preventDefault();
     hoverTile = null;
 }, { passive: false });

@@ -139,6 +139,7 @@ body {
     border-radius: 999px;
     padding: 8px 14px;
     font-size: 14px;
+    min-height: 44px;
     cursor: pointer;
     transition: transform var(--transition), background var(--transition), border var(--transition);
 }
@@ -398,6 +399,7 @@ canvas {
     border-radius: 999px;
     padding: 8px 18px;
     font-size: 15px;
+    min-height: 44px;
     color: var(--text-main);
 }
 
@@ -680,7 +682,7 @@ canvas {
     canvas {
         max-width: 100%;
         height: auto;
-        touch-action: none;
+        touch-action: pinch-zoom;
     }
 
     .stage-area {
@@ -700,8 +702,8 @@ canvas {
     .build-toggle {
         top: -48px;
         right: 12px;
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         border-radius: 10px;
     }
 }
