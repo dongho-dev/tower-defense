@@ -526,6 +526,39 @@ function run() {
     towers.length = 0;
     enemies.length = 0;
 
+    // --- #68: 입력 검증 ---
+    // setGameSpeed 상한 클램핑
+    game.setGameSpeed(100);
+    assertEqual(game.getGameSpeed(), 5, 'setGameSpeed: 상한 100 → 5로 클램핑');
+    // setGameSpeed 무효 값
+    game.setGameSpeed(NaN);
+    assertEqual(game.getGameSpeed(), 1, 'setGameSpeed: NaN → 기본값 1');
+    // setGameSpeed 정상 범위
+    game.setGameSpeed(3);
+    assertEqual(game.getGameSpeed(), 3, 'setGameSpeed: 정상값 3 유지');
+    game.setGameSpeed(1);
+
+    // setGold 상한 클램핑
+    game.setGold(9999999);
+    assertEqual(game.gold(), 999999, 'setGold: 상한 9999999 → 999999로 클램핑');
+    // setGold 무효 값 거부
+    game.setGold(100);
+    game.setGold(NaN);
+    assertEqual(game.gold(), 100, 'setGold: NaN 시 값 변경 없음');
+    // setGold 음수 클램핑
+    game.setGold(-100);
+    assertEqual(game.gold(), 0, 'setGold: 음수 → 0으로 클램핑');
+
+    // setWave 범위 클램핑
+    game.setWave(99999);
+    assertEqual(game.getWave(), 9999, 'setWave: 99999 → WAVE_MAX(9999)로 클램핑');
+    game.setWave(1);
+
+    // setLives 하한 클램핑
+    game.setLives(-5);
+    assertEqual(game.getLives(), 0, 'setLives: -5 → 0으로 클램핑');
+    game.setLives(20);
+
     console.log('Unit tests passed');
 }
 

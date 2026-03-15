@@ -1065,6 +1065,7 @@ function setGameSpeed(multiplier) {
     if (!Number.isFinite(multiplier) || multiplier <= 0) {
         multiplier = 1;
     }
+    multiplier = Math.min(multiplier, 5);
     gameSpeed = multiplier;
     updateSpeedControls();
 }
@@ -3081,7 +3082,7 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
             GOLD_INPUT.value = gold;
             return;
         }
-        gold = Math.max(0, Math.floor(value));
+        gold = Math.max(0, Math.min(999999, Math.floor(value)));
         updateGoldUI();
     };
     GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
@@ -3095,7 +3096,7 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
 GOLD_ADJUST_BUTTONS.forEach(button => {
     button.addEventListener('click', () => {
         const delta = Number(button.dataset.delta) || 0;
-        gold = Math.max(0, gold + delta);
+        gold = Math.min(999999, Math.max(0, gold + delta));
         updateGoldUI();
     });
 });
@@ -3296,7 +3297,12 @@ if (typeof module !== 'undefined') {
         canBuildAt, findTarget, createTowerData, upgradeTower, damageEnemy, damageEnemyAtIndex,
         pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
         projectiles,
-        setGold: (v) => { gold = v; },
+        setGameSpeed,
+        getGameSpeed: () => gameSpeed,
+        setGold: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            gold = Math.max(0, Math.min(999999, Math.floor(v)));
+        },
         getGameOver: () => gameOver,
         setGameOver: (v) => { gameOver = v; },
         getEnemiesToSpawn: () => enemiesToSpawn,
@@ -3313,8 +3319,14 @@ if (typeof module !== 'undefined') {
         getWaveInProgress: () => waveInProgress,
         setWaveInProgress: (v) => { waveInProgress = v; },
         setNextWaveTimer: (v) => { nextWaveTimer = v; },
-        setWave: (v) => { wave = v; },
-        setLives: (v) => { lives = v; }
+        setWave: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            wave = Math.max(1, Math.min(WAVE_MAX, Math.floor(v)));
+        },
+        setLives: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            lives = Math.max(0, Math.floor(v));
+        }
     };
 }
 
