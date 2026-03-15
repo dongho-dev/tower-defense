@@ -146,7 +146,9 @@ function run() {
         handleLaserAttack,
         getWaypoints,
         getWave,
-        getLives
+        getLives,
+        update,
+        spawnEnemy
     } = game;
 
     // --- calculateTowerDamage ---
@@ -444,7 +446,7 @@ function run() {
     // 비보스 조건: 10의 배수지만 enemiesToSpawn !== 1
     game.setEnemiesToSpawn(5);
     const noBoss = pickEnemyType(10);
-    assert(noBoss.id !== 'boss' || true, 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님 (랜덤 가능)');
+    assert(noBoss.id !== 'boss', 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님');
 
     // 웨이브 3 이상: 반환값이 유효한 적 타입
     game.setEnemiesToSpawn(5);
@@ -526,6 +528,7 @@ function run() {
     towers.length = 0;
     enemies.length = 0;
 
+<<<<<<< HEAD
     // --- #73: 후반 웨이브 밸런스 ---
     // 적 속도 웨이브 보정 (웨이브 50)
     const stats50 = getWaveEnemyStats(50);
@@ -638,6 +641,58 @@ function run() {
     // --- #77: prefersReducedMotion 기본값 ---
     // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
     assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
+
+    // --- update: 대기 상태에서 startWave 호출 ---
+    enemies.length = 0;
+    towers.length = 0;
+    projectiles.length = 0;
+    game.setWaveInProgress(false);
+    game.setNextWaveTimer(0);
+    game.setLives(20);
+    game.setGameOver(false);
+    update(0.1);
+    assert(game.getWaveInProgress(), 'update: 대기 상태에서 startWave 호출');
+
+    // --- update: 적 탈출 시 lives 감소 ---
+    enemies.length = 0;
+    towers.length = 0;
+    projectiles.length = 0;
+    const waypoints = getWaypoints();
+    const lastWp = waypoints[waypoints.length - 1];
+    enemies.push({
+        x: lastWp.x, y: lastWp.y, hp: 100, maxHp: 100,
+        speed: 49, waypoint: waypoints.length - 1, reward: 10,
+        waveIndex: 1, heading: 0, style: mockStyle, pulseSeed: 0
+    });
+    game.setLives(5);
+    game.setGameOver(false);
+    update(0.5);
+    assert(getLives() < 5, 'update: 적 탈출 시 lives 감소');
+    enemies.length = 0;
+
+    // --- damageEnemyAtIndex: 유효 인덱스 처치 ---
+    enemies.length = 0;
+    game.setGold(0);
+    enemies.push({ x: 100, y: 100, hp: 10, maxHp: 10, reward: 15,
+        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+    const daiKilled = damageEnemyAtIndex(0, 100);
+    assert(daiKilled === true, 'damageEnemyAtIndex: 처치 시 true 반환');
+    assertEqual(enemies.length, 0, 'damageEnemyAtIndex: 처치 시 배열에서 제거');
+    assertEqual(game.gold(), 15, 'damageEnemyAtIndex: 처치 시 reward 지급');
+
+    // --- damageEnemyAtIndex: 무효 인덱스 ---
+    const invalidResult = damageEnemyAtIndex(99, 10);
+    assert(invalidResult === false, 'damageEnemyAtIndex: 무효 인덱스는 false 반환');
+
+    // --- damageEnemyAtIndex: 피해만 (미처치) ---
+    enemies.length = 0;
+    enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 10,
+        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+    const notKilledDai = damageEnemyAtIndex(0, 30);
+    assert(notKilledDai === false, 'damageEnemyAtIndex: 미처치 시 false 반환');
+    assertEqual(enemies[0].hp, 70, 'damageEnemyAtIndex: hp 감소');
+    assertEqual(enemies.length, 1, 'damageEnemyAtIndex: 미처치 시 배열 유지');
+    enemies.length = 0;
 
     console.log('Unit tests passed');
 }

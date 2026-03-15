@@ -3355,7 +3355,13 @@ if (typeof module !== 'undefined') {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
             lives = Math.max(0, Math.floor(v));
         },
-        getPrefersReducedMotion: () => prefersReducedMotion
+        getPrefersReducedMotion: () => prefersReducedMotion,
+        update,
+        spawnEnemy,
+        handlePointerDown,
+        getPaused: () => paused,
+        setPaused: (v) => { paused = !!v; },
+        getGameSpeed: () => gameSpeed
     };
 }
 
