@@ -895,7 +895,7 @@ function setSelectedTowerButton(typeId) {
         const isSelected = button.dataset.tower === typeId;
         button.classList.toggle('selected', isSelected);
         button.classList.toggle('active', isSelected);
-        button.setAttribute('aria-pressed', String(isSelected));
+        button.setAttribute('aria-checked', String(isSelected));
         button.setAttribute('tabindex', isSelected ? '0' : '-1');
     }
     if (SELECTED_TOWER_INDICATOR) {
@@ -918,9 +918,10 @@ function populateTowerList() {
         }
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'tower-card tower-button';
+        button.className = 'tower-card';
         button.dataset.tower = id;
-        button.setAttribute('aria-pressed', 'false');
+        button.setAttribute('role', 'radio');
+        button.setAttribute('aria-checked', 'false');
         button.setAttribute('tabindex', TOWER_SELECTOR_BUTTONS.length === 0 ? '0' : '-1');
         const cost = typeof def.cost === 'number' ? def.cost : 0;
         const range = typeof def.range === 'number' ? def.range : 0;
@@ -1157,11 +1158,17 @@ function updateTowerStatsFields() {
     if (UPGRADE_TOWER_BUTTON) {
         const atMax = selectedTower.upgradeCost == null;
         UPGRADE_TOWER_BUTTON.disabled = atMax || gameOver;
-        UPGRADE_TOWER_BUTTON.textContent = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(selectedTower.upgradeCost)}G)`;
+        const label = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(selectedTower.upgradeCost)}G)`;
+        UPGRADE_TOWER_BUTTON.textContent = label;
+        UPGRADE_TOWER_BUTTON.setAttribute('aria-label', label);
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
         const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
         TOWER_STATS_FIELDS.sellRefund.textContent = formatNumber(refund);
+    }
+    if (SELL_TOWER_BUTTON) {
+        const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
+        SELL_TOWER_BUTTON.setAttribute('aria-label', `판매 (${refund}G 환급)`);
     }
 }
 
@@ -1287,6 +1294,8 @@ function showTowerStats(tower) {
     selectedTower = tower;
     TOWER_STATS_PANEL.classList.remove("hidden");
     updateTowerStatsFields();
+    const def = getTowerDefinition(tower.type);
+    announce(def.label + ' 포탑 정보');
 }
 
 function showEnemyStats(enemy) {
@@ -1296,6 +1305,8 @@ function showEnemyStats(enemy) {
     selectedEnemy = enemy;
     ENEMY_STATS_PANEL.classList.remove("hidden");
     updateEnemyStatsFields();
+    const typeName = (enemy.enemyType || enemy.style || ENEMY_TYPE_DEFINITIONS[0]).label;
+    announce(typeName + ' 적 정보');
 }
 
 function getTowerAtPoint(px, py) {
@@ -3064,6 +3075,7 @@ SPEED_BUTTONS.forEach(button => {
     button.addEventListener('click', () => {
         const multiplier = Number(button.dataset.speed) || 1;
         setGameSpeed(multiplier);
+        announce(`게임 속도 ${multiplier}배`);
     });
 });
 

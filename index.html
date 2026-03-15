@@ -25,7 +25,7 @@
                         <span class="stat-label">생명력</span>
                         <span class="stat-value" id="lives">20</span>
                     </div>
-                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
+                    <div class="stat-chip">
                         <span class="stat-label">골드</span>
                         <span class="stat-value" id="gold">100</span>
                     </div>
@@ -67,7 +67,7 @@
                 <aside id="build-panel" class="build-panel">
                     <h2>포탑 제작</h2>
                     <p class="build-hint">왼쪽에서 포탑을 선택한 뒤 지형을 클릭하세요.</p>
-                    <div id="tower-list" class="tower-list" role="toolbar" aria-label="포탑 선택"></div>
+                    <div id="tower-list" class="tower-list" role="radiogroup" aria-label="포탑 선택"></div>
                 </aside>
             </div>
 
@@ -78,7 +78,7 @@
             </main>
 
             <aside class="info-column">
-                <div id="wave-preview" class="stats-panel card">
+                <div id="wave-preview" class="stats-panel card" aria-live="polite" aria-atomic="true">
                     <h3>다음 웨이브 정보</h3>
                     <p>상태: <span data-field="preview-status">대기</span></p>
                     <p>웨이브: <span data-field="preview-wave">1</span></p>

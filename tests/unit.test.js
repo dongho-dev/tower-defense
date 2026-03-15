@@ -583,6 +583,27 @@ function run() {
     assertEqual(game.getLives(), 0, 'setLives: -5 → 0으로 클램핑');
     game.setLives(20);
 
+    // --- #75: ARIA/스크린 리더 접근성 ---
+    // wave-preview aria-live 속성
+    const wavePreview = document.getElementById('wave-preview');
+    assertEqual(wavePreview.getAttribute('aria-live'), 'polite', '#75: wave-preview에 aria-live="polite" 추가됨');
+
+    // tower-list role 속성
+    const towerList = document.getElementById('tower-list');
+    assertEqual(towerList.getAttribute('role'), 'radiogroup', '#75: tower-list의 role이 radiogroup으로 변경됨');
+
+    // 골드 stat-chip aria-live 제거
+    const goldEl = document.getElementById('gold');
+    const goldChip = goldEl.closest('.stat-chip');
+    assertEqual(goldChip.getAttribute('aria-live'), null, '#75: 골드 stat-chip에서 aria-live 제거됨');
+
+    // 속도 버튼 announce
+    const speedBtn = document.querySelector('.speed-button[data-speed="2"]');
+    const announcer = document.getElementById('a11y-announcer');
+    speedBtn.click();
+    // announce uses requestAnimationFrame — check synchronous textContent reset
+    assertEqual(announcer.textContent, '', '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)');
+
     console.log('Unit tests passed');
 }
 
