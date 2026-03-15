@@ -511,6 +511,12 @@ let spawnCooldown = 0;
 let nextWaveTimer = 0;
 let paused = false;
 let hoverTile = null;
+let _longPressTimer = null;
+let _longPressFired = false;
+let _touchStartX = 0;
+let _touchStartY = 0;
+const LONG_PRESS_DURATION = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
 let selectedTower = null;
 let selectedEnemy = null;
 let gameSpeed = 1;
@@ -1318,10 +1324,21 @@ function showEnemyStats(enemy) {
     announce(typeName + ' 적 정보');
 }
 
+function getAdjustedPickRadius(baseRadius) {
+    if (!canvas) return baseRadius;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0) return baseRadius;
+    const scale = rect.width / canvas.width;
+    if (scale >= 1) return baseRadius;
+    const minRadiusInCanvas = 22 / scale;
+    return Math.max(baseRadius, minRadiusInCanvas);
+}
+
 function getTowerAtPoint(px, py) {
+    const radius = getAdjustedPickRadius(TOWER_PICK_RADIUS);
     for (let i = towers.length - 1; i >= 0; i--) {
         const tower = towers[i];
-        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= TOWER_PICK_RADIUS) {
+        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= radius) {
             return tower;
         }
     }
@@ -1329,9 +1346,10 @@ function getTowerAtPoint(px, py) {
 }
 
 function getEnemyAtPoint(px, py) {
+    const radius = getAdjustedPickRadius(ENEMY_RADIUS * 1.5);
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        if (Math.hypot(px - enemy.x, py - enemy.y) <= ENEMY_RADIUS) {
+        if (Math.hypot(px - enemy.x, py - enemy.y) <= radius) {
             return enemy;
         }
     }
@@ -3017,7 +3035,14 @@ canvas.addEventListener('touchstart', function(e) {
     const touch = e.touches[0];
     if (!touch) return;
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
-    handlePointerDown(x, y, false);
+    _touchStartX = touch.clientX;
+    _touchStartY = touch.clientY;
+    _longPressFired = false;
+    if (_longPressTimer) clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+        _longPressFired = true;
+        handlePointerDown(x, y, true);
+    }, LONG_PRESS_DURATION);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', function(e) {
@@ -3025,6 +3050,11 @@ canvas.addEventListener('touchmove', function(e) {
     e.preventDefault();
     const touch = e.touches[0];
     if (!touch) return;
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+        if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+    }
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
     handlePointerMove(x, y);
 }, { passive: false });
@@ -3032,6 +3062,15 @@ canvas.addEventListener('touchmove', function(e) {
 canvas.addEventListener('touchend', function(e) {
     if (e.touches.length > 0) return;
     e.preventDefault();
+    if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+    if (!_longPressFired) {
+        const touch = e.changedTouches[0];
+        if (touch) {
+            const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+            handlePointerDown(x, y, false);
+        }
+    }
+    _longPressFired = false;
     hoverTile = null;
 }, { passive: false });
 
@@ -3361,7 +3400,8 @@ if (typeof module !== 'undefined') {
         handlePointerDown,
         getPaused: () => paused,
         setPaused: (v) => { paused = !!v; },
-        getGameSpeed: () => gameSpeed
+        getGameSpeed: () => gameSpeed,
+        getAdjustedPickRadius
     };
 }
 

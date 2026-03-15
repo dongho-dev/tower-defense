@@ -148,7 +148,8 @@ function run() {
         getWave,
         getLives,
         update,
-        spawnEnemy
+        spawnEnemy,
+        getAdjustedPickRadius
     } = game;
 
     // --- calculateTowerDamage ---
@@ -693,6 +694,12 @@ function run() {
     assertEqual(enemies[0].hp, 70, 'damageEnemyAtIndex: hp 감소');
     assertEqual(enemies.length, 1, 'damageEnemyAtIndex: 미처치 시 배열 유지');
     enemies.length = 0;
+
+    // --- getAdjustedPickRadius: scale >= 1 시 기본값 유지 ---
+    // canvas.getBoundingClientRect는 fake context이므로 기본적으로 원본 크기 반환 가정
+    // jsdom 환경에서 rect.width = 0이므로 canvas가 없는 것과 유사 → baseRadius 반환
+    const adjRadius = getAdjustedPickRadius(18);
+    assert(adjRadius >= 18, 'getAdjustedPickRadius: baseRadius 이상 반환');
 
     console.log('Unit tests passed');
 }
