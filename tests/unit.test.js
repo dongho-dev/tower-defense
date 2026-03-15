@@ -514,13 +514,13 @@ function run() {
         reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
     enemies.push(laserEnemy);
     // dt=0.1초 동안 레이저 공격
-    handleLaserAttack(laserTower, 0.1);
+    handleLaserAttack(laserTower, 0.1, laserTower.def);
     assert(laserEnemy.hp < 1000, 'handleLaserAttack: dt 기반 지속 피해 적용');
     assert(laserTower.activeBeam !== null, 'handleLaserAttack: 빔 상태 활성화');
     assert(laserTower.activeBeam.alpha > 0, 'handleLaserAttack: 빔 알파 > 0');
     // 적 제거 후 다시 호출
     enemies.length = 0;
-    handleLaserAttack(laserTower, 0.1);
+    handleLaserAttack(laserTower, 0.1, laserTower.def);
     // 타겟 없으면 aimAngle null
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
