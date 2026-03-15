@@ -575,10 +575,18 @@ let soundMuted = false;
 
 function ensureAudioContext() {
     if (audioContext) {
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().catch(() => {});
+        if (audioContext.state === 'closed') {
+            audioContext = null;
+            masterGain = null;
+            cachedNoiseBuffer = null;
+            cachedNoiseDuration = 0;
+            // fall through to create new context
+        } else {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
+            return audioContext;
         }
-        return audioContext;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) {
@@ -995,7 +1003,8 @@ function setBuildPanelCollapsed(state, options = {}) {
     }
     if (BUILD_TOGGLE) {
         BUILD_TOGGLE.setAttribute('aria-expanded', String(!state));
-        BUILD_TOGGLE.textContent = state ? '▶' : '◀';
+        const arrow = BUILD_TOGGLE.querySelector('.toggle-arrow');
+        if (arrow) arrow.textContent = state ? '▶' : '◀';
         const buildToggleLabel = state ? '포탑 패널 펼치기' : '포탑 패널 접기';
         BUILD_TOGGLE.setAttribute('title', buildToggleLabel);
         BUILD_TOGGLE.setAttribute('aria-label', buildToggleLabel);
@@ -1303,6 +1312,7 @@ function getEnemyAtPoint(px, py) {
 }
 
 function upgradeTower(tower) {
+    if (gameOver) return false;
     ensureTowerMetadata(tower);
     if (tower.level >= TOWER_MAX_LEVEL) {
         return false;
@@ -1476,6 +1486,8 @@ function resetGame() {
     updateWavePreview();
     elapsedTime = 0;
     lastTime = performance.now();
+    cachedNoiseBuffer = null;
+    cachedNoiseDuration = 0;
 }
 
 function startWave() {
@@ -2884,10 +2896,8 @@ function handlePointerMove(canvasX, canvasY) {
  * @param {boolean} isRightClick - true for secondary action (upgrade), false for primary (build/select)
  */
 function handlePointerDown(canvasX, canvasY, isRightClick) {
+    if (gameOver) return;
     if (isRightClick) {
-        if (gameOver) {
-            return;
-        }
         const tower = getTowerAtPoint(canvasX, canvasY);
         if (!tower) {
             return;
@@ -3215,6 +3225,8 @@ document.addEventListener("keydown", event => {
 let elapsedTime = 0;
 let lastTime = performance.now();
 let rafHandle = 0;
+let loopErrorCount = 0;
+const MAX_LOOP_ERRORS = 10;
 function loop(timestamp) {
     try {
         const rawDt = (timestamp - lastTime) / 1000;
@@ -3226,8 +3238,15 @@ function loop(timestamp) {
             update(scaledDt);
         }
         render();
+        loopErrorCount = 0;
     } catch (e) {
-        console.error('Game loop error:', e.message);
+        console.error('Game loop error:', e);
+        loopErrorCount++;
+        if (loopErrorCount >= MAX_LOOP_ERRORS) {
+            console.error(`Game loop halted after ${MAX_LOOP_ERRORS} consecutive errors.`);
+            announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
+            return;
+        }
     }
     rafHandle = requestAnimationFrame(loop);
 }
@@ -3241,6 +3260,7 @@ function stopLoop() {
 
 function startLoop() {
     stopLoop();
+    loopErrorCount = 0;
     lastTime = performance.now();
     rafHandle = requestAnimationFrame(loop);
 }

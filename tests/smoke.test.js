@@ -39,7 +39,10 @@ class FakeAudioContext {
         this.destination = {};
         this.currentTime = 0;
         this.sampleRate = 44100;
+        this.state = 'running';
     }
+    close() { this.state = 'closed'; }
+    resume() { this.state = 'running'; return Promise.resolve(); }
     createGain() { return new FakeGainNode(); }
     createOscillator() { return new FakeOscillator(); }
     createBuffer(channels, length) {
@@ -131,6 +134,21 @@ function run() {
     towerCards[1].click();
     const selectedButtons = Array.from(document.querySelectorAll('.tower-card.selected'));
     assert(selectedButtons.length === 1, 'Selecting a tower card should toggle selected class');
+
+    // #50: setBuildPanelCollapsed가 자식 span을 파괴하지 않는지 검증
+    const buildToggle = document.getElementById('build-toggle');
+    assert(buildToggle, 'build-toggle 버튼이 존재');
+    const arrowBefore = buildToggle.querySelector('.toggle-arrow');
+    const indicatorBefore = document.getElementById('selected-tower-indicator');
+    assert(arrowBefore, 'toggle-arrow span이 초기 상태에서 존재');
+    assert(indicatorBefore, 'selected-tower-indicator span이 초기 상태에서 존재');
+
+    // collapsed 토글 후에도 자식 span이 유지되는지 확인
+    buildToggle.click(); // setBuildPanelCollapsed 호출됨
+    const arrowAfter = buildToggle.querySelector('.toggle-arrow');
+    const indicatorAfter = document.getElementById('selected-tower-indicator');
+    assert(arrowAfter, 'toggle-arrow span이 토글 후에도 유지');
+    assert(indicatorAfter, 'selected-tower-indicator span이 토글 후에도 유지');
 
     console.log('Smoke test passed');
 }
