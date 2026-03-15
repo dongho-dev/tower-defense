@@ -604,6 +604,13 @@ function run() {
     // announce uses requestAnimationFrame — check synchronous textContent reset
     assertEqual(announcer.textContent, '', '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)');
 
+    // --- #80: upgrade-tower-button CSS ---
+    const cssContent = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf-8');
+    assert(cssContent.includes('#upgrade-tower-button'), '#80: style.css에 #upgrade-tower-button 규칙 존재');
+    assert(cssContent.includes('#upgrade-tower-button:focus-visible'), '#80: style.css에 #upgrade-tower-button:focus-visible 존재');
+    const mainJsContent = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf-8');
+    assert(!mainJsContent.includes("'tower-button'") && !mainJsContent.includes('"tower-button"'), '#80: main.js에서 tower-button 클래스 미사용');
+
     // --- #77: prefersReducedMotion 기본값 ---
     // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
     assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
