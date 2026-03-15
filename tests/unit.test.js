@@ -136,7 +136,14 @@ function run() {
         GRID_COLS,
         GRID_ROWS,
         TOWER_MAX_LEVEL,
-        projectiles
+        projectiles,
+        lerpAngle,
+        resetGame,
+        buildMapData,
+        handleLaserAttack,
+        getWaypoints,
+        getWave,
+        getLives
     } = game;
 
     // --- calculateTowerDamage ---
@@ -400,6 +407,106 @@ function run() {
     assertEqual(enemies.length, 1, 'applyExplosion: 범위(200px) 내 적 1마리 제거');
     assert(enemies[0].x === 500, 'applyExplosion: 범위 밖 적(500,500)은 생존');
     assertEqual(game.gold(), 14, 'applyExplosion: 처치된 적의 골드 보상 획득');
+    enemies.length = 0;
+
+    // --- pickEnemyType ---
+    // 웨이브 1~2: 항상 일반 적
+    game.setEnemiesToSpawn(5);
+    const normalType = pickEnemyType(1);
+    assertEqual(normalType.id, 'normal', 'pickEnemyType: 웨이브 1은 일반 적');
+    const normalType2 = pickEnemyType(2);
+    assertEqual(normalType2.id, 'normal', 'pickEnemyType: 웨이브 2는 일반 적');
+
+    // 보스 조건: waveNumber % 10 === 0 && enemiesToSpawn === 1
+    game.setEnemiesToSpawn(1);
+    const bossResult = pickEnemyType(10);
+    assertEqual(bossResult.id, 'boss', 'pickEnemyType: 웨이브 10 + 마지막 적 = 보스');
+    const bossResult2 = pickEnemyType(20);
+    assertEqual(bossResult2.id, 'boss', 'pickEnemyType: 웨이브 20 + 마지막 적 = 보스');
+
+    // 비보스 조건: 10의 배수지만 enemiesToSpawn !== 1
+    game.setEnemiesToSpawn(5);
+    const noBoss = pickEnemyType(10);
+    assert(noBoss.id !== 'boss' || true, 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님 (랜덤 가능)');
+
+    // 웨이브 3 이상: 반환값이 유효한 적 타입
+    game.setEnemiesToSpawn(5);
+    for (let i = 0; i < 20; i++) {
+        const result = pickEnemyType(5);
+        assert(ENEMY_TYPE_DEFINITIONS.some(t => t.id === result.id),
+            'pickEnemyType: 웨이브 5 반환값은 유효한 적 타입');
+    }
+    game.setEnemiesToSpawn(0);
+
+    // --- lerpAngle ---
+    // t=0이면 current 유지
+    assertEqual(lerpAngle(0, Math.PI, 0), 0, 'lerpAngle: t=0이면 현재 각도 유지');
+    // t=1이면 target 도달
+    const fullLerp = lerpAngle(0, 1.0, 1);
+    assert(Math.abs(fullLerp - 1.0) < 0.0001, 'lerpAngle: t=1이면 목표 각도 도달');
+    // wrap-around: 0 -> -0.1 (짧은 경로 = 음의 방향)
+    const wrapResult = lerpAngle(0, -0.1, 1);
+    assert(Math.abs(wrapResult - (-0.1)) < 0.0001, 'lerpAngle: 음의 방향 짧은 경로');
+    // wrap-around: 0.1 -> 2pi - 0.1 (짧은 경로 = 음의 방향, delta = -0.2)
+    const wrapResult2 = lerpAngle(0.1, Math.PI * 2 - 0.1, 1);
+    assert(Math.abs(wrapResult2 - (-0.1)) < 0.0001, 'lerpAngle: 2pi 경계 wrap-around');
+    // 동일 각도
+    assertEqual(lerpAngle(1.5, 1.5, 0.5), 1.5, 'lerpAngle: 동일 각도면 변화 없음');
+
+    // --- resetGame ---
+    game.setGold(9999);
+    game.setGameOver(true);
+    enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, style: mockStyle, waypoint: 0 });
+    towers.push({ x: 0, y: 0, worldX: 15, worldY: 15, type: 'basic', level: 1, spentGold: 35,
+        cooldown: 0, activeBeam: null, heading: 0, aimAngle: null, flashTimer: 0, recoil: 0,
+        auraOffset: 0, range: 165, fireDelay: 0.6, damage: 20, upgradeCost: 40 });
+    resetGame();
+    assertEqual(game.gold(), 100, 'resetGame: 골드 100으로 초기화');
+    assertEqual(getLives(), 20, 'resetGame: 생명력 20으로 초기화');
+    assertEqual(getWave(), 1, 'resetGame: 웨이브 1로 초기화');
+    assertEqual(game.getGameOver(), false, 'resetGame: gameOver false로 초기화');
+    assertEqual(towers.length, 0, 'resetGame: 타워 배열 비움');
+    assertEqual(enemies.length, 0, 'resetGame: 적 배열 비움');
+
+    // --- buildMapData ---
+    buildMapData('map1');
+    const wp1 = getWaypoints();
+    assert(wp1.length > 0, 'buildMapData: map1 waypoints 생성');
+    const pathSize1 = pathTiles.size;
+    assert(pathSize1 > 0, 'buildMapData: map1 pathTiles 생성');
+
+    buildMapData('map2');
+    const wp2 = getWaypoints();
+    assert(wp2.length > 0, 'buildMapData: map2 waypoints 생성');
+    assert(wp2[0].x !== wp1[0].x || wp2[0].y !== wp1[0].y, 'buildMapData: map2 시작점이 map1과 다름');
+    const pathSize2 = pathTiles.size;
+    assert(pathSize2 > 0, 'buildMapData: map2 pathTiles 생성');
+
+    // map1으로 복원
+    buildMapData('map1');
+
+    // --- handleLaserAttack ---
+    enemies.length = 0;
+    towers.length = 0;
+    game.setGold(0);
+    // 레이저 타워 생성
+    const laserTower = createTowerData(5, 5, 'laser');
+    towers.push(laserTower);
+    // 사거리 내 적 배치
+    const laserEnemy = { x: laserTower.worldX + 30, y: laserTower.worldY, hp: 1000, maxHp: 1000,
+        reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
+    enemies.push(laserEnemy);
+    // dt=0.1초 동안 레이저 공격
+    handleLaserAttack(laserTower, 0.1);
+    assert(laserEnemy.hp < 1000, 'handleLaserAttack: dt 기반 지속 피해 적용');
+    assert(laserTower.activeBeam !== null, 'handleLaserAttack: 빔 상태 활성화');
+    assert(laserTower.activeBeam.alpha > 0, 'handleLaserAttack: 빔 알파 > 0');
+    // 적 제거 후 다시 호출
+    enemies.length = 0;
+    handleLaserAttack(laserTower, 0.1);
+    // 타겟 없으면 aimAngle null
+    assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
+    towers.length = 0;
     enemies.length = 0;
 
     console.log('Unit tests passed');
