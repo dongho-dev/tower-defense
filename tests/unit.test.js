@@ -611,6 +611,30 @@ function run() {
     const mainJsContent = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf-8');
     assert(!mainJsContent.includes("'tower-button'") && !mainJsContent.includes('"tower-button"'), '#80: main.js에서 tower-button 클래스 미사용');
 
+    // --- #81: Google Fonts 로컬 전환 + CSP ---
+    const htmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf-8');
+    assert(!htmlContent.includes('googleapis.com'), '#81: index.html에 googleapis.com 참조 없음');
+    assert(!htmlContent.includes('gstatic.com'), '#81: index.html에 gstatic.com 참조 없음');
+
+    // CSP style-src self만 허용
+    const cspMatch = htmlContent.match(/style-src\s+([^;]+)/);
+    assert(cspMatch, '#81: CSP에 style-src 지시어 존재');
+    assert(!cspMatch[1].includes('https://'), '#81: CSP style-src에 외부 도메인 없음');
+
+    // CSP font-src self만 허용
+    const fontSrcMatch = htmlContent.match(/font-src\s+([^;]+)/);
+    assert(fontSrcMatch, '#81: CSP에 font-src 지시어 존재');
+    assert(!fontSrcMatch[1].includes('https://'), '#81: CSP font-src에 외부 도메인 없음');
+
+    // 폰트 파일 존재
+    assert(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Regular.woff2')), '#81: NotoSansKR-Regular.woff2 존재');
+    assert(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Bold.woff2')), '#81: NotoSansKR-Bold.woff2 존재');
+
+    // style.css에 @font-face 선언 존재
+    assert(cssContent.includes("@font-face"), '#81: style.css에 @font-face 선언 존재');
+    assert(cssContent.includes("NotoSansKR-Regular.woff2"), '#81: style.css에 Regular 폰트 참조');
+    assert(cssContent.includes("NotoSansKR-Bold.woff2"), '#81: style.css에 Bold 폰트 참조');
+
     // --- #77: prefersReducedMotion 기본값 ---
     // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
     assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');

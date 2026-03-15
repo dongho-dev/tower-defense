@@ -1,4 +1,21 @@
-﻿/* ── Accessibility utilities ── */
+﻿/* ── Local font hosting ── */
+@font-face {
+    font-family: 'Noto Sans KR';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('fonts/NotoSansKR-Regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Noto Sans KR';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('fonts/NotoSansKR-Bold.woff2') format('woff2');
+}
+
+/* ── Accessibility utilities ── */
 .sr-only {
     position: absolute;
     width: 1px;
