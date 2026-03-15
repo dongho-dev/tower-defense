@@ -211,14 +211,14 @@ function run() {
     const armoredType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored');
     const armoredStats = getWaveEnemyStats(1, armoredType);
     assertEqual(armoredStats.hp, Math.round(78 * 3.0), 'getWaveEnemyStats: 장갑 웨이브 1 체력 = 78 * 3.0');
-    assertEqual(armoredStats.speed, Math.round(49 * 0.6), 'getWaveEnemyStats: 장갑 속도 = 49 * 0.6');
+    assertEqual(armoredStats.speed, Math.round(49 * 0.6 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 장갑 웨이브 1 속도 = 49 * 0.6 * speedBonus');
     assertEqual(armoredStats.reward, Math.round((14 + 1 * 1.5) * 2.0), 'getWaveEnemyStats: 장갑 보상 = base * 2.0');
 
     // --- getWaveEnemyStats: fast type ---
     const fastType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast');
     const fastStats = getWaveEnemyStats(1, fastType);
     assertEqual(fastStats.hp, Math.round(78 * 0.4), 'getWaveEnemyStats: 고속 웨이브 1 체력 = 78 * 0.4');
-    assertEqual(fastStats.speed, Math.round(49 * 2.5), 'getWaveEnemyStats: 고속 속도 = 49 * 2.5');
+    assertEqual(fastStats.speed, Math.round(49 * 2.5 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 고속 웨이브 1 속도 = 49 * 2.5 * speedBonus');
 
     // --- getWaveEnemyStats: boss type ---
     const bossType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss');
@@ -525,6 +525,63 @@ function run() {
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
     enemies.length = 0;
+
+    // --- #73: 후반 웨이브 밸런스 ---
+    // 적 속도 웨이브 보정 (웨이브 50)
+    const stats50 = getWaveEnemyStats(50);
+    assertEqual(stats50.speed, Math.round(49 * (1 + Math.min(50 * 0.005, 0.5))), 'getWaveEnemyStats: 웨이브 50 속도 보정 (1.25배)');
+    assert(stats50.speed > 49, 'getWaveEnemyStats: 웨이브 50 속도 > 기본 속도');
+    // 적 속도 상한 (웨이브 200)
+    const stats200 = getWaveEnemyStats(200);
+    assertEqual(stats200.speed, Math.round(49 * 1.5), 'getWaveEnemyStats: 웨이브 200 속도 캡 (1.5배)');
+    // 웨이브 9999에서도 캡 유지
+    const stats9999speed = getWaveEnemyStats(9999);
+    assertEqual(stats9999speed.speed, Math.round(49 * 1.5), 'getWaveEnemyStats: 웨이브 9999 속도 캡 유지');
+
+    // --- #69: buildStaticLayer offCtx null 안전 ---
+    const origGetContext = window.HTMLCanvasElement.prototype.getContext;
+    window.HTMLCanvasElement.prototype.getContext = () => null;
+    let buildStaticLayerError = false;
+    try {
+        game.buildStaticLayer();
+    } catch (e) {
+        buildStaticLayerError = true;
+    }
+    assertEqual(buildStaticLayerError, false, 'buildStaticLayer: offCtx null 시 크래시 없음');
+    window.HTMLCanvasElement.prototype.getContext = origGetContext;
+
+    // --- #68: 입력 검증 ---
+    // setGameSpeed 상한 클램핑
+    game.setGameSpeed(100);
+    assertEqual(game.getGameSpeed(), 5, 'setGameSpeed: 상한 100 → 5로 클램핑');
+    // setGameSpeed 무효 값
+    game.setGameSpeed(NaN);
+    assertEqual(game.getGameSpeed(), 1, 'setGameSpeed: NaN → 기본값 1');
+    // setGameSpeed 정상 범위
+    game.setGameSpeed(3);
+    assertEqual(game.getGameSpeed(), 3, 'setGameSpeed: 정상값 3 유지');
+    game.setGameSpeed(1);
+
+    // setGold 상한 클램핑
+    game.setGold(9999999);
+    assertEqual(game.gold(), 999999, 'setGold: 상한 9999999 → 999999로 클램핑');
+    // setGold 무효 값 거부
+    game.setGold(100);
+    game.setGold(NaN);
+    assertEqual(game.gold(), 100, 'setGold: NaN 시 값 변경 없음');
+    // setGold 음수 클램핑
+    game.setGold(-100);
+    assertEqual(game.gold(), 0, 'setGold: 음수 → 0으로 클램핑');
+
+    // setWave 범위 클램핑
+    game.setWave(99999);
+    assertEqual(game.getWave(), 9999, 'setWave: 99999 → WAVE_MAX(9999)로 클램핑');
+    game.setWave(1);
+
+    // setLives 하한 클램핑
+    game.setLives(-5);
+    assertEqual(game.getLives(), 0, 'setLives: -5 → 0으로 클램핑');
+    game.setLives(20);
 
     console.log('Unit tests passed');
 }

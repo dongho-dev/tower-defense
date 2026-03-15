@@ -1,8 +1,11 @@
 ﻿const canvas = document.getElementById("game");
 if (!canvas) {
-    console.error('Canvas element not found');
+    throw new Error('Canvas element #game not found');
 }
-const ctx = canvas ? canvas.getContext("2d") : null;
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+    throw new Error('Failed to get 2D rendering context');
+}
 
 let staticLayer = null;
 
@@ -1019,7 +1022,8 @@ function getWaveEnemyCount(waveNumber) {
 function getWaveEnemyStats(waveNumber, enemyType = ENEMY_TYPE_DEFINITIONS[0]) {
     const growth = Math.pow(ENEMY_HP_GROWTH_RATE, Math.max(0, waveNumber - 1));
     const hp = Math.round(Math.min(ENEMY_BASE_HP * growth * enemyType.hpMult, Number.MAX_SAFE_INTEGER));
-    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult);
+    const speedBonus = 1 + Math.min(waveNumber * 0.005, 0.5);
+    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult * speedBonus);
     const reward = Math.round((ENEMY_BASE_REWARD + waveNumber * 1.5) * enemyType.rewardMult);
     const count = getWaveEnemyCount(waveNumber);
     return { hp, speed, reward, count };
@@ -1065,6 +1069,7 @@ function setGameSpeed(multiplier) {
     if (!Number.isFinite(multiplier) || multiplier <= 0) {
         multiplier = 1;
     }
+    multiplier = Math.min(multiplier, 5);
     gameSpeed = multiplier;
     updateSpeedControls();
 }
@@ -1880,7 +1885,8 @@ function update(dt) {
             if (spawnCooldown <= 0) {
                 spawnEnemy();
                 enemiesToSpawn--;
-                spawnCooldown = Math.max(0.6 - wave * 0.02, 0.25);
+                const minCooldown = wave < 30 ? 0.25 : wave < 60 ? 0.18 : 0.12;
+                spawnCooldown = Math.max(0.6 - wave * 0.02, minCooldown);
             }
         } else if (enemies.length === 0) {
             waveInProgress = false;
@@ -2092,6 +2098,10 @@ function buildStaticLayer() {
     offscreen.width = canvas.width;
     offscreen.height = canvas.height;
     const offCtx = offscreen.getContext('2d');
+    if (!offCtx) {
+        console.error('Failed to get offscreen 2D context');
+        return;
+    }
 
     // drawGrid 로직
     offCtx.strokeStyle = "#2a333d";
@@ -2851,6 +2861,7 @@ function drawState() {
 }
 
 function render() {
+    if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (staticLayer) {
         ctx.drawImage(staticLayer, 0, 0);
@@ -3081,7 +3092,7 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
             GOLD_INPUT.value = gold;
             return;
         }
-        gold = Math.max(0, Math.floor(value));
+        gold = Math.max(0, Math.min(999999, Math.floor(value)));
         updateGoldUI();
     };
     GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
@@ -3095,7 +3106,7 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
 GOLD_ADJUST_BUTTONS.forEach(button => {
     button.addEventListener('click', () => {
         const delta = Number(button.dataset.delta) || 0;
-        gold = Math.max(0, gold + delta);
+        gold = Math.min(999999, Math.max(0, gold + delta));
         updateGoldUI();
     });
 });
@@ -3179,11 +3190,7 @@ if (MAP_SELECT_OVERLAY) {
     MAP_SELECT_OVERLAY.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
             event.preventDefault();
-            hideMapSelectOverlay();
-            resetGame();
-            buildStaticLayer();
-            paused = false;
-            startLoop();
+            // 맵 선택은 필수 단계이므로 Escape 무시
             return;
         }
         if (event.key !== 'Tab') return;
@@ -3296,13 +3303,19 @@ if (typeof module !== 'undefined') {
         canBuildAt, findTarget, createTowerData, upgradeTower, damageEnemy, damageEnemyAtIndex,
         pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
         projectiles,
-        setGold: (v) => { gold = v; },
+        setGameSpeed,
+        getGameSpeed: () => gameSpeed,
+        setGold: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            gold = Math.max(0, Math.min(999999, Math.floor(v)));
+        },
         getGameOver: () => gameOver,
         setGameOver: (v) => { gameOver = v; },
         getEnemiesToSpawn: () => enemiesToSpawn,
         setEnemiesToSpawn: (v) => { enemiesToSpawn = v; },
         lerpAngle,
         resetGame,
+        buildStaticLayer,
         buildMapData,
         startWave,
         handleLaserAttack,
@@ -3313,8 +3326,14 @@ if (typeof module !== 'undefined') {
         getWaveInProgress: () => waveInProgress,
         setWaveInProgress: (v) => { waveInProgress = v; },
         setNextWaveTimer: (v) => { nextWaveTimer = v; },
-        setWave: (v) => { wave = v; },
-        setLives: (v) => { lives = v; }
+        setWave: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            wave = Math.max(1, Math.min(WAVE_MAX, Math.floor(v)));
+        },
+        setLives: (v) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return;
+            lives = Math.max(0, Math.floor(v));
+        }
     };
 }
 
