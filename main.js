@@ -1334,12 +1334,19 @@ function hideDefeatDialog() {
     }
 }
 
+let _mapSelectPreviousFocus = null;
+
 function showMapSelectOverlay() {
     if (!MAP_SELECT_OVERLAY) {
         return;
     }
+    _mapSelectPreviousFocus = document.activeElement;
     paused = true;
     MAP_SELECT_OVERLAY.classList.remove('hidden');
+    const firstFocusable = MAP_SELECT_OVERLAY.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (firstFocusable) {
+        firstFocusable.focus();
+    }
 }
 
 function hideMapSelectOverlay() {
@@ -1347,6 +1354,10 @@ function hideMapSelectOverlay() {
         return;
     }
     MAP_SELECT_OVERLAY.classList.add('hidden');
+    if (_mapSelectPreviousFocus && typeof _mapSelectPreviousFocus.focus === 'function') {
+        _mapSelectPreviousFocus.focus();
+        _mapSelectPreviousFocus = null;
+    }
 }
 
 function populateMapList() {
@@ -1368,11 +1379,16 @@ function populateMapList() {
         diffEl.className = 'map-card-difficulty';
         diffEl.textContent = '난이도: ' + mapDef.difficulty;
 
+        card.setAttribute('aria-pressed', String(mapDef.id === activeMapId));
         card.append(nameEl, diffEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
             const allCards = MAP_LIST_CONTAINER.querySelectorAll('.map-card');
-            allCards.forEach(c => c.classList.toggle('selected', c.dataset.mapId === activeMapId));
+            allCards.forEach(c => {
+                const isSelected = c.dataset.mapId === activeMapId;
+                c.classList.toggle('selected', isSelected);
+                c.setAttribute('aria-pressed', String(isSelected));
+            });
         });
         MAP_LIST_CONTAINER.appendChild(card);
     }
@@ -3048,9 +3064,37 @@ if (DEFEAT_OVERLAY) {
     });
 
     DEFEAT_OVERLAY.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            hideDefeatDialog();
+            return;
+        }
         if (event.key !== 'Tab') return;
         const focusable = Array.from(
             DEFEAT_OVERLAY.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ).filter(el => !el.disabled);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey) {
+            if (document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            }
+        } else {
+            if (document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+}
+
+if (MAP_SELECT_OVERLAY) {
+    MAP_SELECT_OVERLAY.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const focusable = Array.from(
+            MAP_SELECT_OVERLAY.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
         ).filter(el => !el.disabled);
         if (focusable.length === 0) return;
         const first = focusable[0];
@@ -3129,7 +3173,18 @@ showMapSelectOverlay();
 requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
-    module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold };
+    module.exports = {
+        calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats,
+        applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold,
+        canBuildAt, findTarget, createTowerData, upgradeTower, damageEnemy, damageEnemyAtIndex,
+        pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
+        projectiles,
+        setGold: (v) => { gold = v; },
+        getGameOver: () => gameOver,
+        setGameOver: (v) => { gameOver = v; },
+        getEnemiesToSpawn: () => enemiesToSpawn,
+        setEnemiesToSpawn: (v) => { enemiesToSpawn = v; }
+    };
 }
 
 
