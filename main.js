@@ -760,7 +760,14 @@ function hexToRgba(hex, alpha) {
         return `rgba(255, 255, 255, ${alpha})`;
     }
     const sanitized = hex.replace('#', '');
-    const normalized = sanitized.length === 3 ? sanitized.split('').map(ch => ch + ch).join('') : sanitized.padEnd(6, '0');
+    let normalized;
+    if (sanitized.length === 3) {
+        normalized = sanitized.split('').map(ch => ch + ch).join('');
+    } else if (sanitized.length > 6) {
+        normalized = sanitized.substring(0, 6);
+    } else {
+        normalized = sanitized.padEnd(6, '0');
+    }
     const value = parseInt(normalized, 16);
     const r = (value >> 16) & 255;
     const g = (value >> 8) & 255;
@@ -1132,7 +1139,7 @@ function damageEnemyAtIndex(index, amount) {
     }
     enemy.hp -= amount;
     if (enemy.hp <= 0) {
-        const style = enemy.style || ENEMY_STYLES[0];
+        const style = enemy.style || ENEMY_TYPE_DEFINITIONS[0];
         spawnImpactEffect(enemy.x, enemy.y, ENEMY_RADIUS * 1.9, style.core || 'rgba(255, 220, 190, 0.7)', {
             haloColor: style.halo || style.body,
             stroke: style.outline || 'rgba(20, 16, 26, 0.7)',
@@ -1460,12 +1467,12 @@ function createTowerData(x, y, typeId) {
 
 function pickEnemyType(waveNumber) {
     if (waveNumber % 10 === 0 && enemiesToSpawn === 1) {
-        return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss');
+        return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss') || ENEMY_TYPE_DEFINITIONS[0];
     }
     if (waveNumber >= 3) {
         const roll = Math.random();
-        if (roll < 0.20) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored');
-        if (roll < 0.50) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast');
+        if (roll < 0.20) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored') || ENEMY_TYPE_DEFINITIONS[0];
+        if (roll < 0.50) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast') || ENEMY_TYPE_DEFINITIONS[0];
     }
     return ENEMY_TYPE_DEFINITIONS[0];
 }
@@ -1798,7 +1805,7 @@ function update(dt) {
         } else if (enemies.length === 0) {
             waveInProgress = false;
             nextWaveTimer = 4;
-            wave += 1;
+            wave = Math.min(wave + 1, WAVE_MAX);
             if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
             if (WAVE_INPUT) {
                 WAVE_INPUT.value = wave;
@@ -2755,7 +2762,7 @@ function drawState() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#f5f5f5";
-    ctx.font = "48px Segoe UI";
+    ctx.font = "48px 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = gameOver ? "패배" : "일시 정지";
