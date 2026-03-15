@@ -424,38 +424,65 @@ const TOWER_ORDER = [
     'mortar'
 ];
 
-const waypoints = [
-    { x: -2, y: 8 },
-    { x: 2, y: 8 },
-    { x: 2, y: 4 },
-    { x: 10, y: 4 },
-    { x: 10, y: 12 },
-    { x: 18, y: 12 },
-    { x: 18, y: 6 },
-    { x: 26, y: 6 },
-    { x: 26, y: 14 },
-    { x: GRID_COLS + 1, y: 14 }
-].map(point => ({
-    x: point.x * TILE_SIZE + TILE_CENTER_OFFSET,
-    y: point.y * TILE_SIZE + TILE_CENTER_OFFSET
-}));
+const MAP_DEFINITIONS = {
+    map1: {
+        id: 'map1', name: '기본 맵', difficulty: '보통',
+        rawWaypoints: [
+            { x: -2, y: 8 }, { x: 2, y: 8 }, { x: 2, y: 4 },
+            { x: 10, y: 4 }, { x: 10, y: 12 }, { x: 18, y: 12 },
+            { x: 18, y: 6 }, { x: 26, y: 6 }, { x: 26, y: 14 },
+            { x: GRID_COLS + 1, y: 14 }
+        ]
+    },
+    map2: {
+        id: 'map2', name: 'S자 맵', difficulty: '어려움',
+        rawWaypoints: [
+            { x: -2, y: 3 }, { x: 8, y: 3 }, { x: 8, y: 17 },
+            { x: 16, y: 17 }, { x: 16, y: 3 }, { x: 24, y: 3 },
+            { x: 24, y: 17 }, { x: GRID_COLS + 1, y: 17 }
+        ]
+    },
+    map3: {
+        id: 'map3', name: '나선 맵', difficulty: '쉬움',
+        rawWaypoints: [
+            { x: -2, y: 10 }, { x: 4, y: 10 }, { x: 4, y: 2 },
+            { x: 26, y: 2 }, { x: 26, y: 18 }, { x: 4, y: 18 },
+            { x: 4, y: 12 }, { x: 20, y: 12 }, { x: 20, y: 6 },
+            { x: GRID_COLS + 1, y: 6 }
+        ]
+    }
+};
 
-const pathTiles = new Set();
-for (let i = 0; i < waypoints.length - 1; i++) {
-    const a = gridFromPosition(waypoints[i]);
-    const b = gridFromPosition(waypoints[i + 1]);
-    if (a.x === b.x) {
-        const step = Math.sign(b.y - a.y) || 1;
-        for (let y = a.y; y !== b.y + step; y += step) {
-            pathTiles.add(`${a.x},${y}`);
-        }
-    } else if (a.y === b.y) {
-        const step = Math.sign(b.x - a.x) || 1;
-        for (let x = a.x; x !== b.x + step; x += step) {
-            pathTiles.add(`${x},${a.y}`);
+let activeMapId = 'map1';
+let waypoints = [];
+let pathTiles = new Set();
+
+function buildMapData(mapId) {
+    const mapDef = MAP_DEFINITIONS[mapId] || MAP_DEFINITIONS['map1'];
+    waypoints = mapDef.rawWaypoints.map(point => ({
+        x: point.x * TILE_SIZE + TILE_CENTER_OFFSET,
+        y: point.y * TILE_SIZE + TILE_CENTER_OFFSET
+    }));
+    pathTiles = new Set();
+    for (let i = 0; i < waypoints.length - 1; i++) {
+        const a = gridFromPosition(waypoints[i]);
+        const b = gridFromPosition(waypoints[i + 1]);
+        if (a.x === b.x) {
+            const step = Math.sign(b.y - a.y) || 1;
+            for (let y = a.y; y !== b.y + step; y += step) {
+                pathTiles.add(`${a.x},${y}`);
+            }
+        } else if (a.y === b.y) {
+            const step = Math.sign(b.x - a.x) || 1;
+            for (let x = a.x; x !== b.x + step; x += step) {
+                pathTiles.add(`${x},${a.y}`);
+            }
         }
     }
+    staticLayer = null;
 }
+
+buildMapData(activeMapId);
 
 const towers = [];
 const enemies = [];
@@ -523,6 +550,9 @@ const WAVE_PREVIEW_FIELDS = WAVE_PREVIEW_PANEL ? {
 const DEFEAT_OVERLAY = document.getElementById('defeat-overlay');
 const RETRY_BUTTON = document.getElementById('retry-button');
 const CANCEL_RETRY_BUTTON = document.getElementById('cancel-retry-button');
+const MAP_SELECT_OVERLAY = document.getElementById('map-select-overlay');
+const MAP_LIST_CONTAINER = document.getElementById('map-list');
+const START_GAME_BUTTON = document.getElementById('start-game-button');
 const BUILD_PANEL = document.getElementById('build-panel');
 const BUILD_TOGGLE = document.getElementById('build-toggle');
 const BUILD_CONTAINER = document.querySelector('.build-shell');
@@ -1275,7 +1305,53 @@ function hideDefeatDialog() {
     DEFEAT_OVERLAY.classList.add('hidden');
 }
 
+function showMapSelectOverlay() {
+    if (!MAP_SELECT_OVERLAY) {
+        return;
+    }
+    paused = true;
+    MAP_SELECT_OVERLAY.classList.remove('hidden');
+}
+
+function hideMapSelectOverlay() {
+    if (!MAP_SELECT_OVERLAY) {
+        return;
+    }
+    MAP_SELECT_OVERLAY.classList.add('hidden');
+}
+
+function populateMapList() {
+    if (!MAP_LIST_CONTAINER) {
+        return;
+    }
+    MAP_LIST_CONTAINER.innerHTML = '';
+    for (const mapDef of Object.values(MAP_DEFINITIONS)) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'map-card' + (mapDef.id === activeMapId ? ' selected' : '');
+        card.dataset.mapId = mapDef.id;
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'map-card-name';
+        nameEl.textContent = mapDef.name;
+
+        const diffEl = document.createElement('span');
+        diffEl.className = 'map-card-difficulty';
+        diffEl.textContent = '난이도: ' + mapDef.difficulty;
+
+        card.append(nameEl, diffEl);
+        card.addEventListener('click', () => {
+            activeMapId = mapDef.id;
+            const allCards = MAP_LIST_CONTAINER.querySelectorAll('.map-card');
+            allCards.forEach(c => c.classList.toggle('selected', c.dataset.mapId === activeMapId));
+        });
+        MAP_LIST_CONTAINER.appendChild(card);
+    }
+}
+
 function resetGame() {
+    buildMapData(activeMapId);
+    staticLayer = null;
     gold = 100;
     lives = 20;
     wave = 1;
@@ -2854,13 +2930,25 @@ if (SELL_TOWER_BUTTON) {
 
 if (RETRY_BUTTON) {
     RETRY_BUTTON.addEventListener('click', () => {
+        hideDefeatDialog();
         resetGame();
+        populateMapList();
+        showMapSelectOverlay();
     });
 }
 
 if (CANCEL_RETRY_BUTTON) {
     CANCEL_RETRY_BUTTON.addEventListener('click', () => {
         hideDefeatDialog();
+    });
+}
+
+if (START_GAME_BUTTON) {
+    START_GAME_BUTTON.addEventListener('click', () => {
+        hideMapSelectOverlay();
+        resetGame();
+        buildStaticLayer();
+        paused = false;
     });
 }
 
@@ -2909,7 +2997,8 @@ if (WAVE_INPUT) {
     WAVE_INPUT.value = wave;
 }
 
-buildStaticLayer();
+populateMapList();
+showMapSelectOverlay();
 requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
