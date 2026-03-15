@@ -39,7 +39,10 @@ class FakeAudioContext {
         this.destination = {};
         this.currentTime = 0;
         this.sampleRate = 44100;
+        this.state = 'running';
     }
+    close() { this.state = 'closed'; }
+    resume() { this.state = 'running'; return Promise.resolve(); }
     createGain() { return new FakeGainNode(); }
     createOscillator() { return new FakeOscillator(); }
     createBuffer(channels, length) {
@@ -338,6 +341,19 @@ function run() {
     const upgMax = upgradeTower(upgTower);
     assertEqual(upgMax, false, 'upgradeTower: 최대 레벨에서 업그레이드 불가');
     assertEqual(upgTower.level, TOWER_MAX_LEVEL, 'upgradeTower: 최대 레벨 유지');
+    towers.length = 0;
+
+    // upgradeTower: gameOver 시 업그레이드 불가
+    enemies.length = 0;
+    towers.length = 0;
+    game.setGold(10000);
+    const upgTowerGO = createTowerData(5, 5, 'basic');
+    towers.push(upgTowerGO);
+    game.setGameOver(true);
+    const upgGameOver = upgradeTower(upgTowerGO);
+    assertEqual(upgGameOver, false, 'upgradeTower: gameOver 상태에서 업그레이드 불가');
+    assertEqual(upgTowerGO.level, 1, 'upgradeTower: gameOver 시 레벨 유지');
+    game.setGameOver(false);
     towers.length = 0;
 
     // --- findTarget ---
