@@ -146,7 +146,13 @@ function run() {
         handleLaserAttack,
         getWaypoints,
         getWave,
-        getLives
+        getLives,
+        update,
+        spawnEnemy,
+        getAdjustedPickRadius,
+        getGameLoopHalted,
+        towerPositionSet,
+        getRenderDirty
     } = game;
 
     // --- calculateTowerDamage ---
@@ -251,6 +257,7 @@ function run() {
     // 정상 판매
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     const mockTower = {
         x: 0, y: 0, worldX: 15, worldY: 15,
         type: 'basic', level: 1, spentGold: 100,
@@ -260,6 +267,7 @@ function run() {
         damage: 20, upgradeCost: 40
     };
     towers.push(mockTower);
+    towerPositionSet.add('0,0');
     game.setGold(500);
     const goldBefore = game.gold();
     const soldResult = sellTower(mockTower);
@@ -271,6 +279,7 @@ function run() {
     // sellTower: gameOver 시 판매 불가
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     const mockTower2 = {
         x: 1, y: 1, worldX: 45, worldY: 45,
         type: 'basic', level: 1, spentGold: 100,
@@ -280,6 +289,7 @@ function run() {
         damage: 20, upgradeCost: 40
     };
     towers.push(mockTower2);
+    towerPositionSet.add('1,1');
     game.setGameOver(true);
     const sellWhenOver = sellTower(mockTower2);
     assertEqual(sellWhenOver, false, 'sellTower: gameOver 상태에서 판매 불가');
@@ -303,8 +313,10 @@ function run() {
 
     // 타워 위 건설 불가
     towers.push({ x: 3, y: 3 });
+    towerPositionSet.add('3,3');
     assertEqual(canBuildAt(3, 3), false, 'canBuildAt: 기존 타워 위에 건설 불가');
     towers.length = 0;
+    towerPositionSet.clear();
 
     // 빈 타일에 건설 가능 (경로 및 타워 없는 좌표)
     pathTiles.delete('1,1');
@@ -329,9 +341,11 @@ function run() {
     // --- upgradeTower ---
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(10000);
     const upgTower = createTowerData(4, 4, 'basic');
     towers.push(upgTower);
+    towerPositionSet.add('4,4');
     const upgResult = upgradeTower(upgTower);
     assertEqual(upgResult, true, 'upgradeTower: 골드 충분 시 업그레이드 성공');
     assertEqual(upgTower.level, 2, 'upgradeTower: 업그레이드 후 레벨 2');
@@ -349,19 +363,23 @@ function run() {
     assertEqual(upgMax, false, 'upgradeTower: 최대 레벨에서 업그레이드 불가');
     assertEqual(upgTower.level, TOWER_MAX_LEVEL, 'upgradeTower: 최대 레벨 유지');
     towers.length = 0;
+    towerPositionSet.clear();
 
     // upgradeTower: gameOver 시 업그레이드 불가
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(10000);
     const upgTowerGO = createTowerData(5, 5, 'basic');
     towers.push(upgTowerGO);
+    towerPositionSet.add('5,5');
     game.setGameOver(true);
     const upgGameOver = upgradeTower(upgTowerGO);
     assertEqual(upgGameOver, false, 'upgradeTower: gameOver 상태에서 업그레이드 불가');
     assertEqual(upgTowerGO.level, 1, 'upgradeTower: gameOver 시 레벨 유지');
     game.setGameOver(false);
     towers.length = 0;
+    towerPositionSet.clear();
 
     // --- findTarget ---
     enemies.length = 0;
@@ -444,7 +462,7 @@ function run() {
     // 비보스 조건: 10의 배수지만 enemiesToSpawn !== 1
     game.setEnemiesToSpawn(5);
     const noBoss = pickEnemyType(10);
-    assert(noBoss.id !== 'boss' || true, 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님 (랜덤 가능)');
+    assert(noBoss.id !== 'boss', 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님');
 
     // 웨이브 3 이상: 반환값이 유효한 적 타입
     game.setEnemiesToSpawn(5);
@@ -471,6 +489,7 @@ function run() {
     assertEqual(lerpAngle(1.5, 1.5, 0.5), 1.5, 'lerpAngle: 동일 각도면 변화 없음');
 
     // --- resetGame ---
+    towerPositionSet.clear();
     game.setGold(9999);
     game.setGameOver(true);
     enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, style: mockStyle, waypoint: 0 });
@@ -505,10 +524,12 @@ function run() {
     // --- handleLaserAttack ---
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(0);
     // 레이저 타워 생성
     const laserTower = createTowerData(5, 5, 'laser');
     towers.push(laserTower);
+    towerPositionSet.add('5,5');
     // 사거리 내 적 배치
     const laserEnemy = { x: laserTower.worldX + 30, y: laserTower.worldY, hp: 1000, maxHp: 1000,
         reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
@@ -524,6 +545,7 @@ function run() {
     // 타겟 없으면 aimAngle null
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
+    towerPositionSet.clear();
     enemies.length = 0;
 
     // --- #73: 후반 웨이브 밸런스 ---
@@ -638,6 +660,81 @@ function run() {
     // --- #77: prefersReducedMotion 기본값 ---
     // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
     assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
+
+    // --- update: 대기 상태에서 startWave 호출 ---
+    enemies.length = 0;
+    towers.length = 0;
+    projectiles.length = 0;
+    game.setWaveInProgress(false);
+    game.setNextWaveTimer(0);
+    game.setLives(20);
+    game.setGameOver(false);
+    update(0.1);
+    assert(game.getWaveInProgress(), 'update: 대기 상태에서 startWave 호출');
+
+    // --- update: 적 탈출 시 lives 감소 ---
+    enemies.length = 0;
+    towers.length = 0;
+    projectiles.length = 0;
+    const waypoints = getWaypoints();
+    const lastWp = waypoints[waypoints.length - 1];
+    enemies.push({
+        x: lastWp.x, y: lastWp.y, hp: 100, maxHp: 100,
+        speed: 49, waypoint: waypoints.length - 1, reward: 10,
+        waveIndex: 1, heading: 0, style: mockStyle, pulseSeed: 0
+    });
+    game.setLives(5);
+    game.setGameOver(false);
+    update(0.5);
+    assert(getLives() < 5, 'update: 적 탈출 시 lives 감소');
+    enemies.length = 0;
+
+    // --- damageEnemyAtIndex: 유효 인덱스 처치 ---
+    enemies.length = 0;
+    game.setGold(0);
+    enemies.push({ x: 100, y: 100, hp: 10, maxHp: 10, reward: 15,
+        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+    const daiKilled = damageEnemyAtIndex(0, 100);
+    assert(daiKilled === true, 'damageEnemyAtIndex: 처치 시 true 반환');
+    assertEqual(enemies.length, 0, 'damageEnemyAtIndex: 처치 시 배열에서 제거');
+    assertEqual(game.gold(), 15, 'damageEnemyAtIndex: 처치 시 reward 지급');
+
+    // --- damageEnemyAtIndex: 무효 인덱스 ---
+    const invalidResult = damageEnemyAtIndex(99, 10);
+    assert(invalidResult === false, 'damageEnemyAtIndex: 무효 인덱스는 false 반환');
+
+    // --- damageEnemyAtIndex: 피해만 (미처치) ---
+    enemies.length = 0;
+    enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 10,
+        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+    const notKilledDai = damageEnemyAtIndex(0, 30);
+    assert(notKilledDai === false, 'damageEnemyAtIndex: 미처치 시 false 반환');
+    assertEqual(enemies[0].hp, 70, 'damageEnemyAtIndex: hp 감소');
+    assertEqual(enemies.length, 1, 'damageEnemyAtIndex: 미처치 시 배열 유지');
+    enemies.length = 0;
+
+    // --- getAdjustedPickRadius: scale >= 1 시 기본값 유지 ---
+    // canvas.getBoundingClientRect는 fake context이므로 기본적으로 원본 크기 반환 가정
+    // jsdom 환경에서 rect.width = 0이므로 canvas가 없는 것과 유사 → baseRadius 반환
+    const adjRadius = getAdjustedPickRadius(18);
+    assert(adjRadius >= 18, 'getAdjustedPickRadius: baseRadius 이상 반환');
+
+    // --- gameLoopHalted 초기값 ---
+    assertEqual(getGameLoopHalted(), false, 'gameLoopHalted: 초기값 false');
+
+    // --- canBuildAt towerPositionSet ---
+    enemies.length = 0;
+    towers.length = 0;
+    towerPositionSet.clear();
+    towerPositionSet.add('3,3');
+    assertEqual(canBuildAt(3, 3), false, 'canBuildAt towerPositionSet: Set에 있으면 건설 불가');
+    towerPositionSet.delete('3,3');
+    pathTiles.delete('3,3');
+    assertEqual(canBuildAt(3, 3), true, 'canBuildAt towerPositionSet: Set에 없으면 건설 가능');
+    towerPositionSet.clear();
+
+    // --- renderDirty 초기값 ---
+    assert(getRenderDirty() !== undefined, 'renderDirty: 값이 정의되어 있음');
 
     console.log('Unit tests passed');
 }

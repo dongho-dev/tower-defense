@@ -725,7 +725,7 @@ canvas {
     canvas {
         max-width: 100%;
         height: auto;
-        touch-action: pinch-zoom;
+        touch-action: none;
     }
 
     .stage-area {
