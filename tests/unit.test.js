@@ -149,7 +149,8 @@ function run() {
         getLives,
         update,
         spawnEnemy,
-        getAdjustedPickRadius
+        getAdjustedPickRadius,
+        getGameLoopHalted
     } = game;
 
     // --- calculateTowerDamage ---
@@ -700,6 +701,9 @@ function run() {
     // jsdom 환경에서 rect.width = 0이므로 canvas가 없는 것과 유사 → baseRadius 반환
     const adjRadius = getAdjustedPickRadius(18);
     assert(adjRadius >= 18, 'getAdjustedPickRadius: baseRadius 이상 반환');
+
+    // --- gameLoopHalted 초기값 ---
+    assertEqual(getGameLoopHalted(), false, 'gameLoopHalted: 초기값 false');
 
     console.log('Unit tests passed');
 }

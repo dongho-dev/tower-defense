@@ -521,6 +521,8 @@ let selectedTower = null;
 let selectedEnemy = null;
 let gameSpeed = 1;
 let gameOver = false;
+let gameLoopHalted = false;
+let buildFailFlash = null;
 let selectedTowerType = DEFAULT_TOWER_TYPE;
 
 const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
@@ -1911,6 +1913,10 @@ function handleLaserAttack(tower, dt, def) {
 }
 
 function update(dt) {
+    if (buildFailFlash) {
+        buildFailFlash.timer -= dt;
+        if (buildFailFlash.timer <= 0) buildFailFlash = null;
+    }
     if (gameOver) {
         return;
     }
@@ -2883,6 +2889,21 @@ function drawHover() {
 }
 
 function drawState() {
+    if (gameLoopHalted) {
+        ctx.save();
+        ctx.fillStyle = "rgba(80, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ff6b6b";
+        ctx.font = "36px 'Noto Sans KR', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("오류 발생", canvas.width / 2, canvas.height / 2 - 30);
+        ctx.fillStyle = "#f5f5f5";
+        ctx.font = "20px 'Noto Sans KR', sans-serif";
+        ctx.fillText("페이지를 새로고침 해주세요", canvas.width / 2, canvas.height / 2 + 20);
+        ctx.restore();
+        return;
+    }
     if (!paused) {
         return;
     }
@@ -2908,6 +2929,11 @@ function render() {
         drawPath();
     }
     drawHover();
+    if (buildFailFlash && buildFailFlash.timer > 0) {
+        const alpha = Math.min(1, buildFailFlash.timer * 3);
+        ctx.fillStyle = `rgba(255, 80, 80, ${(0.45 * alpha).toFixed(2)})`;
+        ctx.fillRect(buildFailFlash.x * TILE_SIZE, buildFailFlash.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
     drawTowers();
     drawEnemies();
     drawMuzzleFlashes();
@@ -2985,6 +3011,8 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     }
 
     if (!canBuildAt(x, y)) {
+        announce('해당 위치에 설치할 수 없습니다');
+        buildFailFlash = { x, y, timer: 0.3 };
         hideAllStats();
         return;
     }
@@ -3320,11 +3348,13 @@ function loop(timestamp) {
         render();
         loopErrorCount = 0;
     } catch (e) {
-        console.error('Game loop error:', e);
+        console.error('Game loop error:', e.message || e);
         loopErrorCount++;
         if (loopErrorCount >= MAX_LOOP_ERRORS) {
-            console.error(`Game loop halted after ${MAX_LOOP_ERRORS} consecutive errors.`);
+            console.error('Game loop halted after repeated errors.');
+            gameLoopHalted = true;
             announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
+            try { render(); } catch (_) {}
             return;
         }
     }
@@ -3401,7 +3431,8 @@ if (typeof module !== 'undefined') {
         getPaused: () => paused,
         setPaused: (v) => { paused = !!v; },
         getGameSpeed: () => gameSpeed,
-        getAdjustedPickRadius
+        getAdjustedPickRadius,
+        getGameLoopHalted: () => gameLoopHalted
     };
 }
 
