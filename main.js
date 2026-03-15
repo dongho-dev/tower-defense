@@ -598,7 +598,7 @@ function ensureAudioContext() {
         masterGain.connect(audioContext.destination);
         return audioContext;
     } catch (e) {
-        console.warn('AudioContext 생성 실패:', e);
+        console.warn('AudioContext 생성 실패:', e.message);
         audioContext = null;
         masterGain = null;
         return null;
@@ -722,7 +722,7 @@ function playSound(name) {
     try {
         player();
     } catch (error) {
-        console.warn('사운드 재생 실패:', error);
+        console.warn('사운드 재생 실패:', error.message);
     }
 }
 
@@ -865,7 +865,7 @@ function hideAllStats() {
     hideEnemyStats();
 }
 
-﻿function setSelectedTowerButton(typeId) {
+function setSelectedTowerButton(typeId) {
     if (!TOWER_SELECTOR_BUTTONS || TOWER_SELECTOR_BUTTONS.length === 0) {
         return;
     }
@@ -1055,8 +1055,6 @@ function setWave(targetWave) {
     const desiredWave = Math.max(1, Math.min(WAVE_MAX, Math.floor(targetWave)));
     clearCurrentWave();
     hideTowerStats();
-    selectedTowerType = DEFAULT_TOWER_TYPE;
-    setSelectedTowerButton(selectedTowerType);
     wave = desiredWave;
     if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
     if (WAVE_INPUT) {
@@ -1309,6 +1307,8 @@ function showDefeatDialog() {
     }
     gameOver = true;
     paused = true;
+    render();
+    stopLoop();
     clearCurrentWave();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
@@ -3037,6 +3037,7 @@ if (START_GAME_BUTTON) {
         resetGame();
         buildStaticLayer();
         paused = false;
+        startLoop();
     });
 }
 
@@ -3099,6 +3100,7 @@ document.addEventListener("keydown", event => {
 
 let elapsedTime = 0;
 let lastTime = performance.now();
+let rafHandle = 0;
 function loop(timestamp) {
     try {
         const rawDt = (timestamp - lastTime) / 1000;
@@ -3111,11 +3113,23 @@ function loop(timestamp) {
         }
         render();
     } catch (e) {
-        console.error('Game loop error:', e);
+        console.error('Game loop error:', e.message);
     }
-    requestAnimationFrame(loop);
+    rafHandle = requestAnimationFrame(loop);
 }
 
+function stopLoop() {
+    if (rafHandle) {
+        cancelAnimationFrame(rafHandle);
+        rafHandle = 0;
+    }
+}
+
+function startLoop() {
+    stopLoop();
+    lastTime = performance.now();
+    rafHandle = requestAnimationFrame(loop);
+}
 
 updateSpeedControls();
 updateWavePreview();
@@ -3126,7 +3140,7 @@ if (WAVE_INPUT) {
 
 populateMapList();
 showMapSelectOverlay();
-requestAnimationFrame(loop);
+rafHandle = requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
     module.exports = { calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats, applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold };
