@@ -497,6 +497,7 @@ function buildMapData(mapId) {
 buildMapData(activeMapId);
 
 const towers = [];
+const towerPositionSet = new Set();
 const enemies = [];
 const projectiles = [];
 const impactEffects = [];
@@ -830,7 +831,10 @@ function applyAlpha(color, alpha) {
         result = color;
     }
 
-    if (alphaCache.size >= ALPHA_CACHE_MAX) alphaCache.clear();
+    if (alphaCache.size >= ALPHA_CACHE_MAX) {
+        const keys = Array.from(alphaCache.keys()).slice(0, ALPHA_CACHE_MAX >> 1);
+        for (let i = 0; i < keys.length; i++) alphaCache.delete(keys[i]);
+    }
     alphaCache.set(key, result);
     return result;
 }
@@ -1388,6 +1392,7 @@ function sellTower(tower) {
     if (idx === -1) return false;
     const refund = Math.floor((tower.spentGold || 0) * 0.5);
     towers.splice(idx, 1);
+    towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
     gold += refund;
     updateGoldUI();
     if (selectedTower === tower) hideTowerStats();
@@ -1513,6 +1518,7 @@ function resetGame() {
     hoverTile = null;
     hideAllStats();
     towers.length = 0;
+    towerPositionSet.clear();
     clearCurrentWave();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
@@ -1556,7 +1562,7 @@ function canBuildAt(x, y) {
     if (pathTiles.has(keyFromGrid(x, y))) {
         return false;
     }
-    return !towers.some(t => t.x === x && t.y === y);
+    return !towerPositionSet.has(keyFromGrid(x, y));
 }
 
 function createTowerData(x, y, typeId) {
@@ -2947,8 +2953,12 @@ function render() {
  * Convert a client-space point to canvas-space coordinates,
  * accounting for any CSS scaling applied to the canvas element.
  */
+let _cachedCanvasRect = null;
+function updateCanvasRect() {
+    if (canvas) _cachedCanvasRect = canvas.getBoundingClientRect();
+}
 function getCanvasCoords(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
+    const rect = _cachedCanvasRect || canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
@@ -2962,14 +2972,18 @@ function getCanvasCoords(clientX, clientY) {
  * @param {number} canvasX - Canvas-space X coordinate
  * @param {number} canvasY - Canvas-space Y coordinate
  */
+const _hoverTileObj = { x: 0, y: 0 };
 function handlePointerMove(canvasX, canvasY) {
     const tileX = Math.floor(canvasX / TILE_SIZE);
     const tileY = Math.floor(canvasY / TILE_SIZE);
     if (tileX >= 0 && tileX < GRID_COLS && tileY >= 0 && tileY < GRID_ROWS) {
-        hoverTile = { x: tileX, y: tileY };
+        _hoverTileObj.x = tileX;
+        _hoverTileObj.y = tileY;
+        hoverTile = _hoverTileObj;
     } else {
         hoverTile = null;
     }
+    renderDirty = true;
 }
 
 /**
@@ -3028,6 +3042,7 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     updateGoldUI();
     const towerData = createTowerData(x, y, towerDef.id);
     towers.push(towerData);
+    towerPositionSet.add(keyFromGrid(x, y));
     playSound('build');
     showTowerStats(towerData);
     announce(towerDef.label + ' 설치 완료');
@@ -3124,10 +3139,12 @@ if (typeof window !== 'undefined') {
     autoCollapse();
     let resizeRaf = 0;
     window.addEventListener('resize', () => {
+        updateCanvasRect();
         if (buildPanelUserOverride) return;
         cancelAnimationFrame(resizeRaf);
         resizeRaf = requestAnimationFrame(autoCollapse);
     });
+    updateCanvasRect();
 } else {
     setBuildPanelCollapsed(false);
 }
@@ -3311,6 +3328,7 @@ document.addEventListener("keydown", event => {
             return;
         }
         paused = !paused;
+        renderDirty = true;
         announce(paused ? '일시 정지' : '게임 재개');
         event.preventDefault();
         return;
@@ -3334,6 +3352,8 @@ let elapsedTime = 0;
 let lastTime = performance.now();
 let rafHandle = 0;
 let loopErrorCount = 0;
+let renderDirty = true;
+function markRenderDirty() { renderDirty = true; }
 const MAX_LOOP_ERRORS = 10;
 function loop(timestamp) {
     try {
@@ -3344,8 +3364,11 @@ function loop(timestamp) {
             const scaledDt = dt * gameSpeed;
             elapsedTime += scaledDt;
             update(scaledDt);
+            render();
+        } else if (renderDirty) {
+            render();
+            renderDirty = false;
         }
-        render();
         loopErrorCount = 0;
     } catch (e) {
         console.error('Game loop error:', e.message || e);
@@ -3432,7 +3455,10 @@ if (typeof module !== 'undefined') {
         setPaused: (v) => { paused = !!v; },
         getGameSpeed: () => gameSpeed,
         getAdjustedPickRadius,
-        getGameLoopHalted: () => gameLoopHalted
+        getGameLoopHalted: () => gameLoopHalted,
+        towerPositionSet,
+        markRenderDirty,
+        getRenderDirty: () => renderDirty
     };
 }
 

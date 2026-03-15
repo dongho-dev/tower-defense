@@ -150,7 +150,9 @@ function run() {
         update,
         spawnEnemy,
         getAdjustedPickRadius,
-        getGameLoopHalted
+        getGameLoopHalted,
+        towerPositionSet,
+        getRenderDirty
     } = game;
 
     // --- calculateTowerDamage ---
@@ -255,6 +257,7 @@ function run() {
     // 정상 판매
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     const mockTower = {
         x: 0, y: 0, worldX: 15, worldY: 15,
         type: 'basic', level: 1, spentGold: 100,
@@ -264,6 +267,7 @@ function run() {
         damage: 20, upgradeCost: 40
     };
     towers.push(mockTower);
+    towerPositionSet.add('0,0');
     game.setGold(500);
     const goldBefore = game.gold();
     const soldResult = sellTower(mockTower);
@@ -275,6 +279,7 @@ function run() {
     // sellTower: gameOver 시 판매 불가
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     const mockTower2 = {
         x: 1, y: 1, worldX: 45, worldY: 45,
         type: 'basic', level: 1, spentGold: 100,
@@ -284,6 +289,7 @@ function run() {
         damage: 20, upgradeCost: 40
     };
     towers.push(mockTower2);
+    towerPositionSet.add('1,1');
     game.setGameOver(true);
     const sellWhenOver = sellTower(mockTower2);
     assertEqual(sellWhenOver, false, 'sellTower: gameOver 상태에서 판매 불가');
@@ -307,8 +313,10 @@ function run() {
 
     // 타워 위 건설 불가
     towers.push({ x: 3, y: 3 });
+    towerPositionSet.add('3,3');
     assertEqual(canBuildAt(3, 3), false, 'canBuildAt: 기존 타워 위에 건설 불가');
     towers.length = 0;
+    towerPositionSet.clear();
 
     // 빈 타일에 건설 가능 (경로 및 타워 없는 좌표)
     pathTiles.delete('1,1');
@@ -333,9 +341,11 @@ function run() {
     // --- upgradeTower ---
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(10000);
     const upgTower = createTowerData(4, 4, 'basic');
     towers.push(upgTower);
+    towerPositionSet.add('4,4');
     const upgResult = upgradeTower(upgTower);
     assertEqual(upgResult, true, 'upgradeTower: 골드 충분 시 업그레이드 성공');
     assertEqual(upgTower.level, 2, 'upgradeTower: 업그레이드 후 레벨 2');
@@ -353,19 +363,23 @@ function run() {
     assertEqual(upgMax, false, 'upgradeTower: 최대 레벨에서 업그레이드 불가');
     assertEqual(upgTower.level, TOWER_MAX_LEVEL, 'upgradeTower: 최대 레벨 유지');
     towers.length = 0;
+    towerPositionSet.clear();
 
     // upgradeTower: gameOver 시 업그레이드 불가
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(10000);
     const upgTowerGO = createTowerData(5, 5, 'basic');
     towers.push(upgTowerGO);
+    towerPositionSet.add('5,5');
     game.setGameOver(true);
     const upgGameOver = upgradeTower(upgTowerGO);
     assertEqual(upgGameOver, false, 'upgradeTower: gameOver 상태에서 업그레이드 불가');
     assertEqual(upgTowerGO.level, 1, 'upgradeTower: gameOver 시 레벨 유지');
     game.setGameOver(false);
     towers.length = 0;
+    towerPositionSet.clear();
 
     // --- findTarget ---
     enemies.length = 0;
@@ -475,6 +489,7 @@ function run() {
     assertEqual(lerpAngle(1.5, 1.5, 0.5), 1.5, 'lerpAngle: 동일 각도면 변화 없음');
 
     // --- resetGame ---
+    towerPositionSet.clear();
     game.setGold(9999);
     game.setGameOver(true);
     enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, style: mockStyle, waypoint: 0 });
@@ -509,10 +524,12 @@ function run() {
     // --- handleLaserAttack ---
     enemies.length = 0;
     towers.length = 0;
+    towerPositionSet.clear();
     game.setGold(0);
     // 레이저 타워 생성
     const laserTower = createTowerData(5, 5, 'laser');
     towers.push(laserTower);
+    towerPositionSet.add('5,5');
     // 사거리 내 적 배치
     const laserEnemy = { x: laserTower.worldX + 30, y: laserTower.worldY, hp: 1000, maxHp: 1000,
         reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
@@ -528,9 +545,9 @@ function run() {
     // 타겟 없으면 aimAngle null
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
+    towerPositionSet.clear();
     enemies.length = 0;
 
-<<<<<<< HEAD
     // --- #73: 후반 웨이브 밸런스 ---
     // 적 속도 웨이브 보정 (웨이브 50)
     const stats50 = getWaveEnemyStats(50);
@@ -704,6 +721,20 @@ function run() {
 
     // --- gameLoopHalted 초기값 ---
     assertEqual(getGameLoopHalted(), false, 'gameLoopHalted: 초기값 false');
+
+    // --- canBuildAt towerPositionSet ---
+    enemies.length = 0;
+    towers.length = 0;
+    towerPositionSet.clear();
+    towerPositionSet.add('3,3');
+    assertEqual(canBuildAt(3, 3), false, 'canBuildAt towerPositionSet: Set에 있으면 건설 불가');
+    towerPositionSet.delete('3,3');
+    pathTiles.delete('3,3');
+    assertEqual(canBuildAt(3, 3), true, 'canBuildAt towerPositionSet: Set에 없으면 건설 가능');
+    towerPositionSet.clear();
+
+    // --- renderDirty 초기값 ---
+    assert(getRenderDirty() !== undefined, 'renderDirty: 값이 정의되어 있음');
 
     console.log('Unit tests passed');
 }
