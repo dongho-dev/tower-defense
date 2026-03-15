@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
     <title>타워 디펜스 커맨드</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,15 +16,15 @@
             <div class="bar-left">
                 <h1 class="brand">타워 디펜스 커맨드</h1>
                 <div class="stat-block">
-                    <div class="stat-chip">
+                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
                         <span class="stat-label">웨이브</span>
                         <span class="stat-value" id="wave">1</span>
                     </div>
-                    <div class="stat-chip">
+                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
                         <span class="stat-label">생명력</span>
                         <span class="stat-value" id="lives">20</span>
                     </div>
-                    <div class="stat-chip">
+                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
                         <span class="stat-label">골드</span>
                         <span class="stat-value" id="gold">100</span>
                     </div>
@@ -47,7 +50,7 @@
                     <button type="button" id="wave-apply">이동</button>
                 </div>
                 <div class="control-row sound-control">
-                    <button type="button" id="sound-toggle" class="icon-button" aria-pressed="true" title="사운드 끄기">🔊</button>
+                    <button type="button" id="sound-toggle" class="icon-button" aria-pressed="true" aria-label="사운드 켜기/끄기" title="사운드 끄기">🔊</button>
                 </div>
             </div>
         </header>
@@ -69,7 +72,7 @@
 
             <main class="stage-area">
                 <div class="canvas-wrapper">
-                    <canvas id="game" width="900" height="600" aria-label="타워 디펜스 전장"></canvas>
+                    <canvas id="game" width="900" height="600" role="img" aria-label="타워 디펜스 게임 화면"></canvas>
                 </div>
             </main>
 
@@ -124,6 +127,8 @@
             </div>
         </div>
     </div>
+
+    <div id="a11y-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
     <script src="main.js"></script>
 </body>
