@@ -24,11 +24,11 @@ const TOWER_MAX_LEVEL = 15;
 const WAVE_MAX = 9999;
 const DEFAULT_TOWER_TYPE = "basic";
 
-const ENEMY_STYLES = [
-    { body: "#d65a57", core: "#ffe6c2", outline: "#321816", thruster: "#ff9a6d", halo: "rgba(214, 90, 87, 0.55)" },
-    { body: "#5d7dff", core: "#d8e1ff", outline: "#19224f", thruster: "#8aa8ff", halo: "rgba(93, 125, 255, 0.55)" },
-    { body: "#58d6a4", core: "#d4ffe7", outline: "#12392a", thruster: "#7ef2c9", halo: "rgba(88, 214, 164, 0.55)" },
-    { body: "#c95de9", core: "#f5d1ff", outline: "#3d1649", thruster: "#ff96f3", halo: "rgba(201, 93, 233, 0.55)" }
+const ENEMY_TYPE_DEFINITIONS = [
+    { id: 'normal',  label: '일반', hpMult: 1.0,  speedMult: 1.0, rewardMult: 1.0, body: "#d65a57", core: "#ffe6c2", outline: "#321816", thruster: "#ff9a6d", halo: "rgba(214, 90, 87, 0.55)" },
+    { id: 'armored', label: '장갑', hpMult: 3.0,  speedMult: 0.6, rewardMult: 2.0, body: "#5d7dff", core: "#d8e1ff", outline: "#19224f", thruster: "#8aa8ff", halo: "rgba(93, 125, 255, 0.55)" },
+    { id: 'fast',    label: '고속', hpMult: 0.4,  speedMult: 2.5, rewardMult: 1.5, body: "#58d6a4", core: "#d4ffe7", outline: "#12392a", thruster: "#7ef2c9", halo: "rgba(88, 214, 164, 0.55)" },
+    { id: 'boss',    label: '보스', hpMult: 12.0, speedMult: 0.7, rewardMult: 8.0, body: "#c95de9", core: "#f5d1ff", outline: "#3d1649", thruster: "#ff96f3", halo: "rgba(201, 93, 233, 0.55)" }
 ];
 
 const TOWER_TYPES = {
@@ -918,11 +918,11 @@ function getWaveEnemyCount(waveNumber) {
     return 8 + Math.floor(waveNumber * 1.5);
 }
 
-function getWaveEnemyStats(waveNumber) {
+function getWaveEnemyStats(waveNumber, enemyType = ENEMY_TYPE_DEFINITIONS[0]) {
     const growth = Math.pow(ENEMY_HP_GROWTH_RATE, Math.max(0, waveNumber - 1));
-    const hp = Math.round(Math.min(ENEMY_BASE_HP * growth, Number.MAX_SAFE_INTEGER));
-    const speed = ENEMY_SPEED;
-    const reward = Math.round(ENEMY_BASE_REWARD + waveNumber * 1.5);
+    const hp = Math.round(Math.min(ENEMY_BASE_HP * growth * enemyType.hpMult, Number.MAX_SAFE_INTEGER));
+    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult);
+    const reward = Math.round((ENEMY_BASE_REWARD + waveNumber * 1.5) * enemyType.rewardMult);
     const count = getWaveEnemyCount(waveNumber);
     return { hp, speed, reward, count };
 }
@@ -1353,10 +1353,22 @@ function createTowerData(x, y, typeId) {
 }
 
 
+function pickEnemyType(waveNumber) {
+    if (waveNumber % 10 === 0 && enemiesToSpawn === 1) {
+        return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss');
+    }
+    if (waveNumber >= 3) {
+        const roll = Math.random();
+        if (roll < 0.20) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored');
+        if (roll < 0.50) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast');
+    }
+    return ENEMY_TYPE_DEFINITIONS[0];
+}
+
 function spawnEnemy() {
     const start = waypoints[0];
-    const stats = getWaveEnemyStats(wave);
-    const style = ENEMY_STYLES[(wave - 1) % ENEMY_STYLES.length];
+    const enemyType = pickEnemyType(wave);
+    const stats = getWaveEnemyStats(wave, enemyType);
     enemies.push({
         x: start.x,
         y: start.y,
@@ -1367,7 +1379,8 @@ function spawnEnemy() {
         reward: stats.reward,
         waveIndex: wave,
         heading: 0,
-        style,
+        style: enemyType,
+        enemyType,
         pulseSeed: Math.random() * Math.PI * 2
     });
 }
@@ -2324,10 +2337,10 @@ function drawEnemies() {
     ctx.save();
     ctx.lineJoin = 'round';
     for (const enemy of enemies) {
-        const style = enemy.style || ENEMY_STYLES[0];
+        const style = enemy.style || ENEMY_TYPE_DEFINITIONS[0];
         const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
         const pulse = Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
-        const size = ENEMY_RADIUS;
+        const size = (enemy.enemyType && enemy.enemyType.id === 'boss') ? ENEMY_RADIUS * 1.5 : ENEMY_RADIUS;
 
         ctx.save();
         ctx.translate(enemy.x, enemy.y);
