@@ -211,14 +211,14 @@ function run() {
     const armoredType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored');
     const armoredStats = getWaveEnemyStats(1, armoredType);
     assertEqual(armoredStats.hp, Math.round(78 * 3.0), 'getWaveEnemyStats: 장갑 웨이브 1 체력 = 78 * 3.0');
-    assertEqual(armoredStats.speed, Math.round(49 * 0.6), 'getWaveEnemyStats: 장갑 속도 = 49 * 0.6');
+    assertEqual(armoredStats.speed, Math.round(49 * 0.6 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 장갑 웨이브 1 속도 = 49 * 0.6 * speedBonus');
     assertEqual(armoredStats.reward, Math.round((14 + 1 * 1.5) * 2.0), 'getWaveEnemyStats: 장갑 보상 = base * 2.0');
 
     // --- getWaveEnemyStats: fast type ---
     const fastType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast');
     const fastStats = getWaveEnemyStats(1, fastType);
     assertEqual(fastStats.hp, Math.round(78 * 0.4), 'getWaveEnemyStats: 고속 웨이브 1 체력 = 78 * 0.4');
-    assertEqual(fastStats.speed, Math.round(49 * 2.5), 'getWaveEnemyStats: 고속 속도 = 49 * 2.5');
+    assertEqual(fastStats.speed, Math.round(49 * 2.5 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 고속 웨이브 1 속도 = 49 * 2.5 * speedBonus');
 
     // --- getWaveEnemyStats: boss type ---
     const bossType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss');
@@ -525,6 +525,18 @@ function run() {
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
     enemies.length = 0;
+
+    // --- #73: 후반 웨이브 밸런스 ---
+    // 적 속도 웨이브 보정 (웨이브 50)
+    const stats50 = getWaveEnemyStats(50);
+    assertEqual(stats50.speed, Math.round(49 * (1 + Math.min(50 * 0.005, 0.5))), 'getWaveEnemyStats: 웨이브 50 속도 보정 (1.25배)');
+    assert(stats50.speed > 49, 'getWaveEnemyStats: 웨이브 50 속도 > 기본 속도');
+    // 적 속도 상한 (웨이브 200)
+    const stats200 = getWaveEnemyStats(200);
+    assertEqual(stats200.speed, Math.round(49 * 1.5), 'getWaveEnemyStats: 웨이브 200 속도 캡 (1.5배)');
+    // 웨이브 9999에서도 캡 유지
+    const stats9999speed = getWaveEnemyStats(9999);
+    assertEqual(stats9999speed.speed, Math.round(49 * 1.5), 'getWaveEnemyStats: 웨이브 9999 속도 캡 유지');
 
     // --- #69: buildStaticLayer offCtx null 안전 ---
     const origGetContext = window.HTMLCanvasElement.prototype.getContext;

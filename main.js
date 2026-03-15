@@ -1022,7 +1022,8 @@ function getWaveEnemyCount(waveNumber) {
 function getWaveEnemyStats(waveNumber, enemyType = ENEMY_TYPE_DEFINITIONS[0]) {
     const growth = Math.pow(ENEMY_HP_GROWTH_RATE, Math.max(0, waveNumber - 1));
     const hp = Math.round(Math.min(ENEMY_BASE_HP * growth * enemyType.hpMult, Number.MAX_SAFE_INTEGER));
-    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult);
+    const speedBonus = 1 + Math.min(waveNumber * 0.005, 0.5);
+    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult * speedBonus);
     const reward = Math.round((ENEMY_BASE_REWARD + waveNumber * 1.5) * enemyType.rewardMult);
     const count = getWaveEnemyCount(waveNumber);
     return { hp, speed, reward, count };
@@ -1884,7 +1885,8 @@ function update(dt) {
             if (spawnCooldown <= 0) {
                 spawnEnemy();
                 enemiesToSpawn--;
-                spawnCooldown = Math.max(0.6 - wave * 0.02, 0.25);
+                const minCooldown = wave < 30 ? 0.25 : wave < 60 ? 0.18 : 0.12;
+                spawnCooldown = Math.max(0.6 - wave * 0.02, minCooldown);
             }
         } else if (enemies.length === 0) {
             waveInProgress = false;
