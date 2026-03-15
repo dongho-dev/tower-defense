@@ -371,15 +371,16 @@ function run() {
 
     // 사거리 내 적
     enemies.push({ x: 120, y: 120, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, style: mockStyle, waypoint: 2 });
-    const target = findTarget(testTower);
-    assert(target !== null, 'findTarget: 사거리 내 적 발견');
-    assertEqual(target.x, 120, 'findTarget: 올바른 적 반환');
+    const result = findTarget(testTower);
+    assert(result !== null, 'findTarget: 사거리 내 적 발견');
+    assertEqual(result.enemy.x, 120, 'findTarget: 올바른 적 반환');
+    assertEqual(result.index, 0, 'findTarget: 올바른 인덱스 반환');
 
     // 사거리 밖 적만 존재
     enemies.length = 0;
     enemies.push({ x: 900, y: 900, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, style: mockStyle, waypoint: 0 });
-    const noTarget = findTarget(testTower);
-    assertEqual(noTarget, null, 'findTarget: 사거리 밖 적은 타겟 안됨');
+    const noResult = findTarget(testTower);
+    assertEqual(noResult, null, 'findTarget: 사거리 밖 적은 타겟 안됨');
     enemies.length = 0;
 
     // --- damageEnemy: kill ---
@@ -513,13 +514,13 @@ function run() {
         reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
     enemies.push(laserEnemy);
     // dt=0.1초 동안 레이저 공격
-    handleLaserAttack(laserTower, 0.1);
+    handleLaserAttack(laserTower, 0.1, laserTower.def);
     assert(laserEnemy.hp < 1000, 'handleLaserAttack: dt 기반 지속 피해 적용');
     assert(laserTower.activeBeam !== null, 'handleLaserAttack: 빔 상태 활성화');
     assert(laserTower.activeBeam.alpha > 0, 'handleLaserAttack: 빔 알파 > 0');
     // 적 제거 후 다시 호출
     enemies.length = 0;
-    handleLaserAttack(laserTower, 0.1);
+    handleLaserAttack(laserTower, 0.1, laserTower.def);
     // 타겟 없으면 aimAngle null
     assertEqual(laserTower.aimAngle, null, 'handleLaserAttack: 타겟 없으면 aimAngle null');
     towers.length = 0;
