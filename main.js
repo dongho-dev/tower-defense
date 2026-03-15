@@ -576,10 +576,18 @@ let soundMuted = false;
 
 function ensureAudioContext() {
     if (audioContext) {
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().catch(() => {});
+        if (audioContext.state === 'closed') {
+            audioContext = null;
+            masterGain = null;
+            cachedNoiseBuffer = null;
+            cachedNoiseDuration = 0;
+            // fall through to create new context
+        } else {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
+            return audioContext;
         }
-        return audioContext;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) {
@@ -695,7 +703,9 @@ function updateSoundToggle() {
     }
     SOUND_TOGGLE.textContent = soundMuted ? '🔇' : '🔊';
     SOUND_TOGGLE.setAttribute('aria-pressed', String(!soundMuted));
-    SOUND_TOGGLE.title = soundMuted ? '사운드 켜기' : '사운드 끄기';
+    const soundLabel = soundMuted ? '사운드 켜기' : '사운드 끄기';
+    SOUND_TOGGLE.title = soundLabel;
+    SOUND_TOGGLE.setAttribute('aria-label', soundLabel);
 }
 
 function setSoundMuted(state) {
@@ -883,6 +893,7 @@ function setSelectedTowerButton(typeId) {
         button.classList.toggle('selected', isSelected);
         button.classList.toggle('active', isSelected);
         button.setAttribute('aria-pressed', String(isSelected));
+        button.setAttribute('tabindex', isSelected ? '0' : '-1');
     }
     if (SELECTED_TOWER_INDICATOR) {
         const def = getTowerDefinition(typeId);
@@ -907,6 +918,7 @@ function populateTowerList() {
         button.className = 'tower-card tower-button';
         button.dataset.tower = id;
         button.setAttribute('aria-pressed', 'false');
+        button.setAttribute('tabindex', TOWER_SELECTOR_BUTTONS.length === 0 ? '0' : '-1');
         const cost = typeof def.cost === 'number' ? def.cost : 0;
         const range = typeof def.range === 'number' ? def.range : 0;
         const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
@@ -942,6 +954,35 @@ function populateTowerList() {
     setSelectedTowerButton(selectedTowerType);
 }
 
+if (TOWER_LIST_CONTAINER) {
+    TOWER_LIST_CONTAINER.addEventListener('keydown', (event) => {
+        if (!TOWER_SELECTOR_BUTTONS || TOWER_SELECTOR_BUTTONS.length === 0) return;
+        const currentIndex = TOWER_SELECTOR_BUTTONS.indexOf(document.activeElement);
+        if (currentIndex === -1) return;
+
+        let nextIndex = -1;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            nextIndex = (currentIndex + 1) % TOWER_SELECTOR_BUTTONS.length;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            nextIndex = (currentIndex - 1 + TOWER_SELECTOR_BUTTONS.length) % TOWER_SELECTOR_BUTTONS.length;
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            nextIndex = 0;
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            nextIndex = TOWER_SELECTOR_BUTTONS.length - 1;
+        }
+
+        if (nextIndex !== -1) {
+            TOWER_SELECTOR_BUTTONS[currentIndex].setAttribute('tabindex', '-1');
+            TOWER_SELECTOR_BUTTONS[nextIndex].setAttribute('tabindex', '0');
+            TOWER_SELECTOR_BUTTONS[nextIndex].focus();
+        }
+    });
+}
+
 let buildPanelCollapsed = false;
 let buildPanelUserOverride = false;
 
@@ -963,8 +1004,11 @@ function setBuildPanelCollapsed(state, options = {}) {
     }
     if (BUILD_TOGGLE) {
         BUILD_TOGGLE.setAttribute('aria-expanded', String(!state));
-        BUILD_TOGGLE.textContent = state ? '▶' : '◀';
-        BUILD_TOGGLE.setAttribute('title', state ? '포탑 패널 펼치기' : '포탑 패널 접기');
+        const arrow = BUILD_TOGGLE.querySelector('.toggle-arrow');
+        if (arrow) arrow.textContent = state ? '▶' : '◀';
+        const buildToggleLabel = state ? '포탑 패널 펼치기' : '포탑 패널 접기';
+        BUILD_TOGGLE.setAttribute('title', buildToggleLabel);
+        BUILD_TOGGLE.setAttribute('aria-label', buildToggleLabel);
     }
 }
 
@@ -1104,6 +1148,11 @@ function updateTowerStatsFields() {
     if (TOWER_STATS_FIELDS.upgradeCost) {
         const cost = selectedTower.upgradeCost;
         TOWER_STATS_FIELDS.upgradeCost.textContent = cost == null ? 'MAX' : formatNumber(cost);
+    }
+    if (UPGRADE_TOWER_BUTTON) {
+        const atMax = selectedTower.upgradeCost == null;
+        UPGRADE_TOWER_BUTTON.disabled = atMax || gameOver;
+        UPGRADE_TOWER_BUTTON.textContent = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(selectedTower.upgradeCost)}G)`;
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
         const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
@@ -1265,6 +1314,7 @@ function getEnemyAtPoint(px, py) {
 }
 
 function upgradeTower(tower) {
+    if (gameOver) return false;
     ensureTowerMetadata(tower);
     if (tower.level >= TOWER_MAX_LEVEL) {
         return false;
@@ -1282,6 +1332,8 @@ function upgradeTower(tower) {
     if (selectedTower === tower) {
         updateTowerStatsFields();
     }
+    const upgDef = getTowerDefinition(tower.type);
+    announce(upgDef.label + ' 레벨 ' + tower.level + '로 업그레이드');
     return true;
 }
 
@@ -1295,6 +1347,8 @@ function sellTower(tower) {
     updateGoldUI();
     if (selectedTower === tower) hideTowerStats();
     playSound('build');
+    const sellDef = getTowerDefinition(tower.type);
+    announce(sellDef.label + ' 판매 — ' + refund + 'G 환급');
     return true;
 }
 
@@ -1434,6 +1488,8 @@ function resetGame() {
     updateWavePreview();
     elapsedTime = 0;
     lastTime = performance.now();
+    cachedNoiseBuffer = null;
+    cachedNoiseDuration = 0;
 }
 
 function startWave() {
@@ -2848,10 +2904,8 @@ function handlePointerMove(canvasX, canvasY) {
  * @param {boolean} isRightClick - true for secondary action (upgrade), false for primary (build/select)
  */
 function handlePointerDown(canvasX, canvasY, isRightClick) {
+    if (gameOver) return;
     if (isRightClick) {
-        if (gameOver) {
-            return;
-        }
         const tower = getTowerAtPoint(canvasX, canvasY);
         if (!tower) {
             return;
@@ -2899,6 +2953,7 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     towers.push(towerData);
     playSound('build');
     showTowerStats(towerData);
+    announce(towerDef.label + ' 설치 완료');
 }
 
 // ── Mouse event handlers ────────────────────────────────────────────────────
@@ -3045,6 +3100,15 @@ GOLD_ADJUST_BUTTONS.forEach(button => {
     });
 });
 
+const UPGRADE_TOWER_BUTTON = document.getElementById('upgrade-tower-button');
+if (UPGRADE_TOWER_BUTTON) {
+    UPGRADE_TOWER_BUTTON.addEventListener('click', () => {
+        if (selectedTower && !gameOver) {
+            upgradeTower(selectedTower);
+        }
+    });
+}
+
 const SELL_TOWER_BUTTON = document.getElementById('sell-tower-button');
 if (SELL_TOWER_BUTTON) {
     SELL_TOWER_BUTTON.addEventListener('click', () => {
@@ -3113,6 +3177,15 @@ if (DEFEAT_OVERLAY) {
 
 if (MAP_SELECT_OVERLAY) {
     MAP_SELECT_OVERLAY.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            hideMapSelectOverlay();
+            resetGame();
+            buildStaticLayer();
+            paused = false;
+            startLoop();
+            return;
+        }
         if (event.key !== 'Tab') return;
         const focusable = Array.from(
             MAP_SELECT_OVERLAY.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
@@ -3165,6 +3238,8 @@ document.addEventListener("keydown", event => {
 let elapsedTime = 0;
 let lastTime = performance.now();
 let rafHandle = 0;
+let loopErrorCount = 0;
+const MAX_LOOP_ERRORS = 10;
 function loop(timestamp) {
     try {
         const rawDt = (timestamp - lastTime) / 1000;
@@ -3176,8 +3251,15 @@ function loop(timestamp) {
             update(scaledDt);
         }
         render();
+        loopErrorCount = 0;
     } catch (e) {
-        console.error('Game loop error:', e.message);
+        console.error('Game loop error:', e);
+        loopErrorCount++;
+        if (loopErrorCount >= MAX_LOOP_ERRORS) {
+            console.error(`Game loop halted after ${MAX_LOOP_ERRORS} consecutive errors.`);
+            announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
+            return;
+        }
     }
     rafHandle = requestAnimationFrame(loop);
 }
@@ -3191,6 +3273,7 @@ function stopLoop() {
 
 function startLoop() {
     stopLoop();
+    loopErrorCount = 0;
     lastTime = performance.now();
     rafHandle = requestAnimationFrame(loop);
 }
@@ -3217,7 +3300,21 @@ if (typeof module !== 'undefined') {
         getGameOver: () => gameOver,
         setGameOver: (v) => { gameOver = v; },
         getEnemiesToSpawn: () => enemiesToSpawn,
-        setEnemiesToSpawn: (v) => { enemiesToSpawn = v; }
+        setEnemiesToSpawn: (v) => { enemiesToSpawn = v; },
+        lerpAngle,
+        resetGame,
+        buildMapData,
+        startWave,
+        handleLaserAttack,
+        getWaypoints: () => waypoints,
+        getWave: () => wave,
+        getLives: () => lives,
+        getNextWaveTimer: () => nextWaveTimer,
+        getWaveInProgress: () => waveInProgress,
+        setWaveInProgress: (v) => { waveInProgress = v; },
+        setNextWaveTimer: (v) => { nextWaveTimer = v; },
+        setWave: (v) => { wave = v; },
+        setLives: (v) => { lives = v; }
     };
 }
 
