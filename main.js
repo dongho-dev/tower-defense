@@ -497,6 +497,7 @@ function buildMapData(mapId) {
 buildMapData(activeMapId);
 
 const towers = [];
+const towerPositionSet = new Set();
 const enemies = [];
 const projectiles = [];
 const impactEffects = [];
@@ -511,10 +512,18 @@ let spawnCooldown = 0;
 let nextWaveTimer = 0;
 let paused = false;
 let hoverTile = null;
+let _longPressTimer = null;
+let _longPressFired = false;
+let _touchStartX = 0;
+let _touchStartY = 0;
+const LONG_PRESS_DURATION = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
 let selectedTower = null;
 let selectedEnemy = null;
 let gameSpeed = 1;
 let gameOver = false;
+let gameLoopHalted = false;
+let buildFailFlash = null;
 let selectedTowerType = DEFAULT_TOWER_TYPE;
 
 const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
@@ -822,7 +831,10 @@ function applyAlpha(color, alpha) {
         result = color;
     }
 
-    if (alphaCache.size >= ALPHA_CACHE_MAX) alphaCache.clear();
+    if (alphaCache.size >= ALPHA_CACHE_MAX) {
+        const keys = Array.from(alphaCache.keys()).slice(0, ALPHA_CACHE_MAX >> 1);
+        for (let i = 0; i < keys.length; i++) alphaCache.delete(keys[i]);
+    }
     alphaCache.set(key, result);
     return result;
 }
@@ -1318,10 +1330,21 @@ function showEnemyStats(enemy) {
     announce(typeName + ' 적 정보');
 }
 
+function getAdjustedPickRadius(baseRadius) {
+    if (!canvas) return baseRadius;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0) return baseRadius;
+    const scale = rect.width / canvas.width;
+    if (scale >= 1) return baseRadius;
+    const minRadiusInCanvas = 22 / scale;
+    return Math.max(baseRadius, minRadiusInCanvas);
+}
+
 function getTowerAtPoint(px, py) {
+    const radius = getAdjustedPickRadius(TOWER_PICK_RADIUS);
     for (let i = towers.length - 1; i >= 0; i--) {
         const tower = towers[i];
-        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= TOWER_PICK_RADIUS) {
+        if (Math.hypot(px - tower.worldX, py - tower.worldY) <= radius) {
             return tower;
         }
     }
@@ -1329,9 +1352,10 @@ function getTowerAtPoint(px, py) {
 }
 
 function getEnemyAtPoint(px, py) {
+    const radius = getAdjustedPickRadius(ENEMY_RADIUS * 1.5);
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        if (Math.hypot(px - enemy.x, py - enemy.y) <= ENEMY_RADIUS) {
+        if (Math.hypot(px - enemy.x, py - enemy.y) <= radius) {
             return enemy;
         }
     }
@@ -1368,6 +1392,7 @@ function sellTower(tower) {
     if (idx === -1) return false;
     const refund = Math.floor((tower.spentGold || 0) * 0.5);
     towers.splice(idx, 1);
+    towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
     gold += refund;
     updateGoldUI();
     if (selectedTower === tower) hideTowerStats();
@@ -1493,6 +1518,7 @@ function resetGame() {
     hoverTile = null;
     hideAllStats();
     towers.length = 0;
+    towerPositionSet.clear();
     clearCurrentWave();
     selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(selectedTowerType);
@@ -1536,7 +1562,7 @@ function canBuildAt(x, y) {
     if (pathTiles.has(keyFromGrid(x, y))) {
         return false;
     }
-    return !towers.some(t => t.x === x && t.y === y);
+    return !towerPositionSet.has(keyFromGrid(x, y));
 }
 
 function createTowerData(x, y, typeId) {
@@ -1893,6 +1919,10 @@ function handleLaserAttack(tower, dt, def) {
 }
 
 function update(dt) {
+    if (buildFailFlash) {
+        buildFailFlash.timer -= dt;
+        if (buildFailFlash.timer <= 0) buildFailFlash = null;
+    }
     if (gameOver) {
         return;
     }
@@ -2865,6 +2895,21 @@ function drawHover() {
 }
 
 function drawState() {
+    if (gameLoopHalted) {
+        ctx.save();
+        ctx.fillStyle = "rgba(80, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ff6b6b";
+        ctx.font = "36px 'Noto Sans KR', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("오류 발생", canvas.width / 2, canvas.height / 2 - 30);
+        ctx.fillStyle = "#f5f5f5";
+        ctx.font = "20px 'Noto Sans KR', sans-serif";
+        ctx.fillText("페이지를 새로고침 해주세요", canvas.width / 2, canvas.height / 2 + 20);
+        ctx.restore();
+        return;
+    }
     if (!paused) {
         return;
     }
@@ -2890,6 +2935,11 @@ function render() {
         drawPath();
     }
     drawHover();
+    if (buildFailFlash && buildFailFlash.timer > 0) {
+        const alpha = Math.min(1, buildFailFlash.timer * 3);
+        ctx.fillStyle = `rgba(255, 80, 80, ${(0.45 * alpha).toFixed(2)})`;
+        ctx.fillRect(buildFailFlash.x * TILE_SIZE, buildFailFlash.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
     drawTowers();
     drawEnemies();
     drawMuzzleFlashes();
@@ -2903,8 +2953,12 @@ function render() {
  * Convert a client-space point to canvas-space coordinates,
  * accounting for any CSS scaling applied to the canvas element.
  */
+let _cachedCanvasRect = null;
+function updateCanvasRect() {
+    if (canvas) _cachedCanvasRect = canvas.getBoundingClientRect();
+}
 function getCanvasCoords(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
+    const rect = _cachedCanvasRect || canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
@@ -2918,14 +2972,18 @@ function getCanvasCoords(clientX, clientY) {
  * @param {number} canvasX - Canvas-space X coordinate
  * @param {number} canvasY - Canvas-space Y coordinate
  */
+const _hoverTileObj = { x: 0, y: 0 };
 function handlePointerMove(canvasX, canvasY) {
     const tileX = Math.floor(canvasX / TILE_SIZE);
     const tileY = Math.floor(canvasY / TILE_SIZE);
     if (tileX >= 0 && tileX < GRID_COLS && tileY >= 0 && tileY < GRID_ROWS) {
-        hoverTile = { x: tileX, y: tileY };
+        _hoverTileObj.x = tileX;
+        _hoverTileObj.y = tileY;
+        hoverTile = _hoverTileObj;
     } else {
         hoverTile = null;
     }
+    renderDirty = true;
 }
 
 /**
@@ -2967,6 +3025,8 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     }
 
     if (!canBuildAt(x, y)) {
+        announce('해당 위치에 설치할 수 없습니다');
+        buildFailFlash = { x, y, timer: 0.3 };
         hideAllStats();
         return;
     }
@@ -2982,6 +3042,7 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     updateGoldUI();
     const towerData = createTowerData(x, y, towerDef.id);
     towers.push(towerData);
+    towerPositionSet.add(keyFromGrid(x, y));
     playSound('build');
     showTowerStats(towerData);
     announce(towerDef.label + ' 설치 완료');
@@ -3017,7 +3078,14 @@ canvas.addEventListener('touchstart', function(e) {
     const touch = e.touches[0];
     if (!touch) return;
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
-    handlePointerDown(x, y, false);
+    _touchStartX = touch.clientX;
+    _touchStartY = touch.clientY;
+    _longPressFired = false;
+    if (_longPressTimer) clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+        _longPressFired = true;
+        handlePointerDown(x, y, true);
+    }, LONG_PRESS_DURATION);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', function(e) {
@@ -3025,6 +3093,11 @@ canvas.addEventListener('touchmove', function(e) {
     e.preventDefault();
     const touch = e.touches[0];
     if (!touch) return;
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+        if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+    }
     const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
     handlePointerMove(x, y);
 }, { passive: false });
@@ -3032,6 +3105,15 @@ canvas.addEventListener('touchmove', function(e) {
 canvas.addEventListener('touchend', function(e) {
     if (e.touches.length > 0) return;
     e.preventDefault();
+    if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+    if (!_longPressFired) {
+        const touch = e.changedTouches[0];
+        if (touch) {
+            const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+            handlePointerDown(x, y, false);
+        }
+    }
+    _longPressFired = false;
     hoverTile = null;
 }, { passive: false });
 
@@ -3057,10 +3139,12 @@ if (typeof window !== 'undefined') {
     autoCollapse();
     let resizeRaf = 0;
     window.addEventListener('resize', () => {
+        updateCanvasRect();
         if (buildPanelUserOverride) return;
         cancelAnimationFrame(resizeRaf);
         resizeRaf = requestAnimationFrame(autoCollapse);
     });
+    updateCanvasRect();
 } else {
     setBuildPanelCollapsed(false);
 }
@@ -3244,6 +3328,7 @@ document.addEventListener("keydown", event => {
             return;
         }
         paused = !paused;
+        renderDirty = true;
         announce(paused ? '일시 정지' : '게임 재개');
         event.preventDefault();
         return;
@@ -3267,6 +3352,8 @@ let elapsedTime = 0;
 let lastTime = performance.now();
 let rafHandle = 0;
 let loopErrorCount = 0;
+let renderDirty = true;
+function markRenderDirty() { renderDirty = true; }
 const MAX_LOOP_ERRORS = 10;
 function loop(timestamp) {
     try {
@@ -3277,15 +3364,20 @@ function loop(timestamp) {
             const scaledDt = dt * gameSpeed;
             elapsedTime += scaledDt;
             update(scaledDt);
+            render();
+        } else if (renderDirty) {
+            render();
+            renderDirty = false;
         }
-        render();
         loopErrorCount = 0;
     } catch (e) {
-        console.error('Game loop error:', e);
+        console.error('Game loop error:', e.message || e);
         loopErrorCount++;
         if (loopErrorCount >= MAX_LOOP_ERRORS) {
-            console.error(`Game loop halted after ${MAX_LOOP_ERRORS} consecutive errors.`);
+            console.error('Game loop halted after repeated errors.');
+            gameLoopHalted = true;
             announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
+            try { render(); } catch (_) {}
             return;
         }
     }
@@ -3355,7 +3447,18 @@ if (typeof module !== 'undefined') {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
             lives = Math.max(0, Math.floor(v));
         },
-        getPrefersReducedMotion: () => prefersReducedMotion
+        getPrefersReducedMotion: () => prefersReducedMotion,
+        update,
+        spawnEnemy,
+        handlePointerDown,
+        getPaused: () => paused,
+        setPaused: (v) => { paused = !!v; },
+        getGameSpeed: () => gameSpeed,
+        getAdjustedPickRadius,
+        getGameLoopHalted: () => gameLoopHalted,
+        towerPositionSet,
+        markRenderDirty,
+        getRenderDirty: () => renderDirty
     };
 }
 
