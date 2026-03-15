@@ -27,6 +27,15 @@ const TOWER_MAX_LEVEL = 15;
 const WAVE_MAX = 9999;
 const DEFAULT_TOWER_TYPE = "basic";
 
+let prefersReducedMotion = false;
+if (typeof window !== 'undefined' && window.matchMedia) {
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    prefersReducedMotion = motionQuery.matches;
+    motionQuery.addEventListener('change', (e) => {
+        prefersReducedMotion = e.matches;
+    });
+}
+
 const ENEMY_TYPE_DEFINITIONS = [
     { id: 'normal',  label: '일반', hpMult: 1.0,  speedMult: 1.0, rewardMult: 1.0, body: "#d65a57", core: "#ffe6c2", outline: "#321816", thruster: "#ff9a6d", halo: "rgba(214, 90, 87, 0.55)" },
     { id: 'armored', label: '장갑', hpMult: 3.0,  speedMult: 0.6, rewardMult: 2.0, body: "#5d7dff", core: "#d8e1ff", outline: "#19224f", thruster: "#8aa8ff", halo: "rgba(93, 125, 255, 0.55)" },
@@ -2001,7 +2010,7 @@ function update(dt) {
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
         projectile.life -= dt;
-        if (projectile.spin) {
+        if (projectile.spin && !prefersReducedMotion) {
             projectile.rotation += projectile.spin * dt;
         } else {
             projectile.rotation = Math.atan2(projectile.vy, projectile.vx);
@@ -2511,7 +2520,7 @@ function drawTowers() {
         const color = getTowerColor(def, tower.level);
         const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
         const glowColor = def.glowColor || color;
-        const auraRadius = size * (1.8 + Math.sin(now * 2.4 + (tower.auraOffset || 0)) * 0.35);
+        const auraRadius = size * (1.8 + (prefersReducedMotion ? 0 : Math.sin(now * 2.4 + (tower.auraOffset || 0)) * 0.35));
         const gradient = ctx.createRadialGradient(tower.worldX, tower.worldY, size * 0.3, tower.worldX, tower.worldY, auraRadius);
         gradient.addColorStop(0, applyAlpha(glowColor, 0.4 + (tower.flashTimer || 0) * 0.6));
         gradient.addColorStop(1, applyAlpha(glowColor, 0));
@@ -2552,7 +2561,7 @@ function drawEnemies() {
     for (const enemy of enemies) {
         const style = enemy.style || ENEMY_TYPE_DEFINITIONS[0];
         const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
-        const pulse = Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
+        const pulse = prefersReducedMotion ? 0.5 : Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
         const size = (enemy.enemyType && enemy.enemyType.id === 'boss') ? ENEMY_RADIUS * 1.5 : ENEMY_RADIUS;
 
         ctx.save();
@@ -2745,7 +2754,7 @@ function drawProjectiles() {
         const alpha = projectile.initialLife > 0 ? Math.max(0.25, projectile.life / projectile.initialLife) : 1;
         ctx.save();
         ctx.globalAlpha = Math.min(1, alpha);
-        if (projectile.trailLength) {
+        if (projectile.trailLength && !prefersReducedMotion) {
             ctx.save();
             ctx.globalAlpha = Math.min(0.8, alpha);
             drawProjectileTrail(projectile);
@@ -3345,7 +3354,8 @@ if (typeof module !== 'undefined') {
         setLives: (v) => {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
             lives = Math.max(0, Math.floor(v));
-        }
+        },
+        getPrefersReducedMotion: () => prefersReducedMotion
     };
 }
 

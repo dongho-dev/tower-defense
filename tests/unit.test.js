@@ -604,6 +604,10 @@ function run() {
     // announce uses requestAnimationFrame — check synchronous textContent reset
     assertEqual(announcer.textContent, '', '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)');
 
+    // --- #77: prefersReducedMotion 기본값 ---
+    // jsdom에서 matchMedia는 제한적이므로 기본값 false 확인
+    assertEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
+
     console.log('Unit tests passed');
 }
 
