@@ -1244,7 +1244,7 @@ function damageEnemyAtIndex(index, amount) {
             hideEnemyStats();
         }
         enemies.splice(index, 1);
-        gold += enemy.reward;
+        gold = Math.min(999999, gold + enemy.reward);
         updateGoldUI();
         playSound('kill');
         return true;
@@ -1404,7 +1404,7 @@ function sellTower(tower) {
     const refund = Math.floor((tower.spentGold || 0) * 0.5);
     towers.splice(idx, 1);
     towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
-    gold += refund;
+    gold = Math.min(999999, gold + refund);
     updateGoldUI();
     if (selectedTower === tower) hideTowerStats();
     playSound('build');
@@ -1552,6 +1552,8 @@ function resetGame() {
     elapsedTime = 0;
     lastTime = performance.now();
     cachedNoiseBuffer = null;
+    gameLoopHalted = false;
+    loopErrorCount = 0;
     cachedNoiseDuration = 0;
 }
 
@@ -1891,7 +1893,11 @@ function handleLaserAttack(tower, dt, def) {
         return;
     }
     const target = result.enemy;
-    const targetIndex = result.index;
+    let targetIndex = result.index;
+    if (enemies[targetIndex] !== target) {
+        targetIndex = enemies.indexOf(target);
+        if (targetIndex === -1) { tower.activeBeam = null; return; }
+    }
     const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
     tower.aimAngle = angle;
     if (typeof tower.heading !== 'number') {
@@ -3274,6 +3280,7 @@ if (RETRY_BUTTON) {
 if (CANCEL_RETRY_BUTTON) {
     CANCEL_RETRY_BUTTON.addEventListener('click', () => {
         hideDefeatDialog();
+        showMapSelectOverlay();
     });
 }
 
@@ -3352,9 +3359,11 @@ if (MAP_SELECT_OVERLAY) {
 document.addEventListener("keydown", event => {
     const tag = event.target ? event.target.tagName : '';
     const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    const overlayOpen = (DEFEAT_OVERLAY && !DEFEAT_OVERLAY.classList.contains('hidden'))
+        || (MAP_SELECT_OVERLAY && !MAP_SELECT_OVERLAY.classList.contains('hidden'));
 
     if (event.code === "Space") {
-        if (lives === 0 || gameOver) {
+        if (lives === 0 || gameOver || overlayOpen) {
             return;
         }
         paused = !paused;
@@ -3377,7 +3386,7 @@ document.addEventListener("keydown", event => {
         return;
     }
 
-    if (!isInput) {
+    if (!isInput && !overlayOpen) {
         switch (event.key) {
             case 'ArrowUp':    event.preventDefault(); moveKbCursor(0, -1); return;
             case 'ArrowDown':  event.preventDefault(); moveKbCursor(0, 1); return;
