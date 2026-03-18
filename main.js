@@ -515,6 +515,8 @@ let spawnCooldown = 0;
 let nextWaveTimer = 0;
 let paused = false;
 let hoverTile = null;
+let kbCursor = null;
+let kbCursorActive = false;
 let _longPressTimer = null;
 let _longPressFired = false;
 let _touchStartX = 0;
@@ -2869,7 +2871,40 @@ function drawProjectiles() {
 }
 
 
+function initKbCursor() {
+    kbCursor = { x: Math.floor(GRID_COLS / 2), y: Math.floor(GRID_ROWS / 2) };
+    kbCursorActive = true;
+}
+
+function moveKbCursor(dx, dy) {
+    if (!kbCursor) initKbCursor();
+    kbCursor.x = Math.max(0, Math.min(GRID_COLS - 1, kbCursor.x + dx));
+    kbCursor.y = Math.max(0, Math.min(GRID_ROWS - 1, kbCursor.y + dy));
+    kbCursorActive = true;
+    hoverTile = { x: kbCursor.x, y: kbCursor.y };
+    renderDirty = true;
+}
+
+function activateKbCursor(isUpgrade) {
+    if (!kbCursor) return;
+    const worldX = kbCursor.x * TILE_SIZE + TILE_CENTER_OFFSET;
+    const worldY = kbCursor.y * TILE_SIZE + TILE_CENTER_OFFSET;
+    handlePointerDown(worldX, worldY, isUpgrade);
+}
+
 function drawHover() {
+    if (kbCursorActive && kbCursor) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 220, 100, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+            kbCursor.x * TILE_SIZE + 1,
+            kbCursor.y * TILE_SIZE + 1,
+            TILE_SIZE - 2,
+            TILE_SIZE - 2
+        );
+        ctx.restore();
+    }
     if (!hoverTile) {
         return;
     }
@@ -2962,6 +2997,7 @@ function getCanvasCoords(clientX, clientY) {
  */
 const _hoverTileObj = { x: 0, y: 0 };
 function handlePointerMove(canvasX, canvasY) {
+    kbCursorActive = false;
     const tileX = Math.floor(canvasX / TILE_SIZE);
     const tileY = Math.floor(canvasY / TILE_SIZE);
     if (tileX >= 0 && tileX < GRID_COLS && tileY >= 0 && tileY < GRID_ROWS) {
@@ -3041,6 +3077,12 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
 canvas.addEventListener("mousemove", event => {
     const { x, y } = getCanvasCoords(event.clientX, event.clientY);
     handlePointerMove(x, y);
+});
+
+canvas.addEventListener("focus", () => {
+    if (!kbCursor) initKbCursor();
+    kbCursorActive = true;
+    renderDirty = true;
 });
 
 canvas.addEventListener("mouseleave", () => {
@@ -3334,6 +3376,26 @@ document.addEventListener("keydown", event => {
         }
         return;
     }
+
+    if (!isInput) {
+        switch (event.key) {
+            case 'ArrowUp':    event.preventDefault(); moveKbCursor(0, -1); return;
+            case 'ArrowDown':  event.preventDefault(); moveKbCursor(0, 1); return;
+            case 'ArrowLeft':  event.preventDefault(); moveKbCursor(-1, 0); return;
+            case 'ArrowRight': event.preventDefault(); moveKbCursor(1, 0); return;
+            case 'Enter':      event.preventDefault(); activateKbCursor(event.shiftKey); return;
+            case 's': case 'S':
+                if (selectedTower && !gameOver) sellTower(selectedTower);
+                return;
+            case 'Escape':
+                kbCursorActive = false;
+                kbCursor = null;
+                hoverTile = null;
+                hideAllStats();
+                renderDirty = true;
+                return;
+        }
+    }
 });
 
 let elapsedTime = 0;
@@ -3419,6 +3481,9 @@ if (typeof module !== 'undefined') {
         buildMapData,
         startWave,
         handleLaserAttack,
+        initKbCursor, moveKbCursor, activateKbCursor,
+        getKbCursor: () => kbCursor,
+        getKbCursorActive: () => kbCursorActive,
         getWaypoints: () => waypoints,
         getWave: () => wave,
         getLives: () => lives,
