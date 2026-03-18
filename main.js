@@ -3407,7 +3407,6 @@ if (WAVE_INPUT) {
 
 populateMapList();
 showMapSelectOverlay();
-rafHandle = requestAnimationFrame(loop);
 
 if (typeof module !== 'undefined') {
     module.exports = {
