@@ -43,6 +43,9 @@ const ENEMY_TYPE_DEFINITIONS = [
     { id: 'boss',    label: '보스', hpMult: 12.0, speedMult: 0.7, rewardMult: 8.0, body: "#c95de9", core: "#f5d1ff", outline: "#3d1649", thruster: "#ff96f3", halo: "rgba(201, 93, 233, 0.55)" }
 ];
 
+const ENEMY_TYPE_MAP = {};
+ENEMY_TYPE_DEFINITIONS.forEach(t => { ENEMY_TYPE_MAP[t.id] = t; });
+
 const TOWER_TYPES = {
     basic: {
         id: "basic",
@@ -1484,6 +1487,7 @@ function populateMapList() {
         return;
     }
     MAP_LIST_CONTAINER.innerHTML = '';
+    const cards = [];
     for (const mapDef of Object.values(MAP_DEFINITIONS)) {
         const card = document.createElement('button');
         card.type = 'button';
@@ -1502,14 +1506,14 @@ function populateMapList() {
         card.append(nameEl, diffEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
-            const allCards = MAP_LIST_CONTAINER.querySelectorAll('.map-card');
-            allCards.forEach(c => {
+            cards.forEach(c => {
                 const isSelected = c.dataset.mapId === activeMapId;
                 c.classList.toggle('selected', isSelected);
                 c.setAttribute('aria-pressed', String(isSelected));
             });
         });
         MAP_LIST_CONTAINER.appendChild(card);
+        cards.push(card);
     }
 }
 
@@ -1599,12 +1603,12 @@ function createTowerData(x, y, typeId) {
 
 function pickEnemyType(waveNumber) {
     if (waveNumber % 10 === 0 && enemiesToSpawn === 1) {
-        return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss') || ENEMY_TYPE_DEFINITIONS[0];
+        return ENEMY_TYPE_MAP['boss'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     if (waveNumber >= 3) {
         const roll = Math.random();
-        if (roll < 0.20) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored') || ENEMY_TYPE_DEFINITIONS[0];
-        if (roll < 0.50) return ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast') || ENEMY_TYPE_DEFINITIONS[0];
+        if (roll < 0.20) return ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0];
+        if (roll < 0.50) return ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     return ENEMY_TYPE_DEFINITIONS[0];
 }
@@ -2116,36 +2120,38 @@ function update(dt) {
 }
 
 
-function drawGrid() {
-    ctx.save();
-    ctx.strokeStyle = "#2a333d";
-    ctx.lineWidth = 1;
+function drawGrid(targetCtx) {
+    const c = targetCtx || ctx;
+    c.save();
+    c.strokeStyle = "#2a333d";
+    c.lineWidth = 1;
     for (let x = 0; x <= GRID_COLS; x++) {
-        ctx.beginPath();
-        ctx.moveTo(x * TILE_SIZE + 0.5, 0);
-        ctx.lineTo(x * TILE_SIZE + 0.5, GRID_ROWS * TILE_SIZE);
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(x * TILE_SIZE + 0.5, 0);
+        c.lineTo(x * TILE_SIZE + 0.5, GRID_ROWS * TILE_SIZE);
+        c.stroke();
     }
     for (let y = 0; y <= GRID_ROWS; y++) {
-        ctx.beginPath();
-        ctx.moveTo(0, y * TILE_SIZE + 0.5);
-        ctx.lineTo(GRID_COLS * TILE_SIZE, y * TILE_SIZE + 0.5);
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(0, y * TILE_SIZE + 0.5);
+        c.lineTo(GRID_COLS * TILE_SIZE, y * TILE_SIZE + 0.5);
+        c.stroke();
     }
-    ctx.restore();
+    c.restore();
 }
 
-function drawPath() {
-    ctx.save();
-    ctx.fillStyle = "#3b4637";
+function drawPath(targetCtx) {
+    const c = targetCtx || ctx;
+    c.save();
+    c.fillStyle = "#3b4637";
     pathTiles.forEach(key => {
         const [gx, gy] = key.split(",").map(Number);
         if (gx < 0 || gy < 0 || gx >= GRID_COLS || gy >= GRID_ROWS) {
             return;
         }
-        ctx.fillRect(gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        c.fillRect(gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     });
-    ctx.restore();
+    c.restore();
 }
 
 function buildStaticLayer() {
@@ -2157,31 +2163,8 @@ function buildStaticLayer() {
         console.error('Failed to get offscreen 2D context');
         return;
     }
-
-    // drawGrid 로직
-    offCtx.strokeStyle = "#2a333d";
-    offCtx.lineWidth = 1;
-    for (let x = 0; x <= GRID_COLS; x++) {
-        offCtx.beginPath();
-        offCtx.moveTo(x * TILE_SIZE + 0.5, 0);
-        offCtx.lineTo(x * TILE_SIZE + 0.5, GRID_ROWS * TILE_SIZE);
-        offCtx.stroke();
-    }
-    for (let y = 0; y <= GRID_ROWS; y++) {
-        offCtx.beginPath();
-        offCtx.moveTo(0, y * TILE_SIZE + 0.5);
-        offCtx.lineTo(GRID_COLS * TILE_SIZE, y * TILE_SIZE + 0.5);
-        offCtx.stroke();
-    }
-
-    // drawPath 로직
-    offCtx.fillStyle = "#3b4637";
-    pathTiles.forEach(key => {
-        const [gx, gy] = key.split(",").map(Number);
-        if (gx < 0 || gy < 0 || gx >= GRID_COLS || gy >= GRID_ROWS) return;
-        offCtx.fillRect(gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    });
-
+    drawGrid(offCtx);
+    drawPath(offCtx);
     staticLayer = offscreen;
 }
 
@@ -3418,7 +3401,7 @@ if (typeof module !== 'undefined') {
         calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats,
         applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold,
         canBuildAt, findTarget, createTowerData, upgradeTower, damageEnemy, damageEnemyAtIndex,
-        pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
+        pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, ENEMY_TYPE_MAP, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
         projectiles,
         setGameSpeed,
         getGameSpeed: () => gameSpeed,
