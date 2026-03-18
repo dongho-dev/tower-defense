@@ -777,14 +777,28 @@ function getTowerDefinition(id) {
     return TOWER_TYPES[id] || TOWER_TYPES[DEFAULT_TOWER_TYPE];
 }
 
+function darkenHex(hex, factor) {
+    const r = Math.round(parseInt(hex.slice(1, 3), 16) * factor);
+    const g = Math.round(parseInt(hex.slice(3, 5), 16) * factor);
+    const b = Math.round(parseInt(hex.slice(5, 7), 16) * factor);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+function getColorFromArray(colors, level, fallback) {
+    if (!colors || colors.length === 0) return fallback;
+    const idx = Math.max(0, level - 1);
+    if (idx < colors.length) return colors[idx];
+    const last = colors[colors.length - 1];
+    const steps = idx - colors.length + 1;
+    return darkenHex(last, Math.max(0.25, 1 - steps * 0.08));
+}
+
 function getTowerColor(definition, level) {
-    const colors = definition.levelColors || [];
-    return colors[Math.min(colors.length - 1, Math.max(0, level - 1))] || "#6296ff";
+    return getColorFromArray(definition.levelColors, level, "#6296ff");
 }
 
 function getProjectileColor(definition, level) {
-    const colors = definition.projectileColors || [];
-    return colors[Math.min(colors.length - 1, Math.max(0, level - 1))] || "#ffd966";
+    return getColorFromArray(definition.projectileColors, level, "#ffd966");
 }
 
 function hexToRgba(hex, alpha) {
@@ -948,7 +962,9 @@ function populateTowerList() {
         const range = typeof def.range === 'number' ? def.range : 0;
         const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
         const fireDelay = typeof def.fireDelay === 'number' && def.fireDelay > 0 ? def.fireDelay : 1;
-        const dps = baseDamage / fireDelay;
+        const dps = def.attackPattern === 'laser'
+            ? baseDamage * (def.sustainMultiplier || 1)
+            : baseDamage / fireDelay;
         const nameSpan = document.createElement('span');
         nameSpan.className = 'tower-name';
         nameSpan.textContent = def.label;
@@ -1142,50 +1158,44 @@ function setWave(targetWave) {
     updateWavePreview();
 }
 
+function setTextIfChanged(el, text) {
+    if (el && el.textContent !== text) el.textContent = text;
+}
+
 function updateTowerStatsFields() {
     if (!selectedTower || !TOWER_STATS_PANEL) {
         return;
     }
     ensureTowerMetadata(selectedTower);
     const def = getTowerDefinition(selectedTower.type);
-    if (TOWER_STATS_FIELDS.type) {
-        TOWER_STATS_FIELDS.type.textContent = def.label;
-    }
-    if (TOWER_STATS_FIELDS.position) {
-        TOWER_STATS_FIELDS.position.textContent = `${selectedTower.x}, ${selectedTower.y}`;
-    }
+    setTextIfChanged(TOWER_STATS_FIELDS.type, def.label);
+    setTextIfChanged(TOWER_STATS_FIELDS.position, `${selectedTower.x}, ${selectedTower.y}`);
     if (TOWER_STATS_FIELDS.range) {
         const tiles = (selectedTower.range / TILE_SIZE).toFixed(1);
-        TOWER_STATS_FIELDS.range.textContent = `${Math.round(selectedTower.range)}px (${tiles}타일)`;
+        setTextIfChanged(TOWER_STATS_FIELDS.range, `${Math.round(selectedTower.range)}px (${tiles}타일)`);
     }
     if (TOWER_STATS_FIELDS.fireDelay) {
-        if (def.attackPattern === 'laser') {
-            const dps = (selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1);
-            TOWER_STATS_FIELDS.fireDelay.textContent = `지속 (${dps} DPS)`;
-        } else {
-            TOWER_STATS_FIELDS.fireDelay.textContent = `${selectedTower.fireDelay.toFixed(2)}초`;
-        }
+        const text = def.attackPattern === 'laser'
+            ? `지속 (${(selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
+            : `${selectedTower.fireDelay.toFixed(2)}초`;
+        setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
     }
-    if (TOWER_STATS_FIELDS.damage) {
-        TOWER_STATS_FIELDS.damage.textContent = formatNumber(selectedTower.damage);
-    }
-    if (TOWER_STATS_FIELDS.level) {
-        TOWER_STATS_FIELDS.level.textContent = selectedTower.level;
-    }
+    setTextIfChanged(TOWER_STATS_FIELDS.damage, formatNumber(selectedTower.damage));
+    setTextIfChanged(TOWER_STATS_FIELDS.level, '' + selectedTower.level);
     if (TOWER_STATS_FIELDS.upgradeCost) {
         const cost = selectedTower.upgradeCost;
-        TOWER_STATS_FIELDS.upgradeCost.textContent = cost == null ? 'MAX' : formatNumber(cost);
+        setTextIfChanged(TOWER_STATS_FIELDS.upgradeCost, cost == null ? 'MAX' : formatNumber(cost));
     }
     if (UPGRADE_TOWER_BUTTON) {
         const atMax = selectedTower.upgradeCost == null;
         UPGRADE_TOWER_BUTTON.disabled = atMax || gameOver;
         const label = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(selectedTower.upgradeCost)}G)`;
-        UPGRADE_TOWER_BUTTON.textContent = label;
+        setTextIfChanged(UPGRADE_TOWER_BUTTON, label);
         UPGRADE_TOWER_BUTTON.setAttribute('aria-label', label);
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
         const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
-        TOWER_STATS_FIELDS.sellRefund.textContent = formatNumber(refund);
+        setTextIfChanged(TOWER_STATS_FIELDS.sellRefund, formatNumber(refund));
     }
     if (SELL_TOWER_BUTTON) {
         const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
@@ -1197,21 +1207,17 @@ function updateEnemyStatsFields() {
     if (!selectedEnemy || !ENEMY_STATS_PANEL) {
         return;
     }
+    if (!enemies.includes(selectedEnemy)) {
+        hideEnemyStats();
+        return;
+    }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
     const waveIndex = typeof selectedEnemy.waveIndex === "number" ? selectedEnemy.waveIndex : wave;
-    if (ENEMY_STATS_FIELDS.wave) {
-        ENEMY_STATS_FIELDS.wave.textContent = waveIndex;
-    }
-    if (ENEMY_STATS_FIELDS.hp) {
-        ENEMY_STATS_FIELDS.hp.textContent = `${NUMBER_FORMAT.format(currentHp)} / ${NUMBER_FORMAT.format(maxHp)}`;
-    }
-    if (ENEMY_STATS_FIELDS.speed) {
-        ENEMY_STATS_FIELDS.speed.textContent = `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`;
-    }
-    if (ENEMY_STATS_FIELDS.reward) {
-        ENEMY_STATS_FIELDS.reward.textContent = `${selectedEnemy.reward}`;
-    }
+    setTextIfChanged(ENEMY_STATS_FIELDS.wave, '' + waveIndex);
+    setTextIfChanged(ENEMY_STATS_FIELDS.hp, `${NUMBER_FORMAT.format(currentHp)} / ${NUMBER_FORMAT.format(maxHp)}`);
+    setTextIfChanged(ENEMY_STATS_FIELDS.speed, `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`);
+    setTextIfChanged(ENEMY_STATS_FIELDS.reward, `${selectedEnemy.reward}`);
 }
 
 function damageEnemyAtIndex(index, amount) {
@@ -1221,7 +1227,7 @@ function damageEnemyAtIndex(index, amount) {
     }
     enemy.hp -= amount;
     if (enemy.hp <= 0) {
-        const style = enemy.style || ENEMY_TYPE_DEFINITIONS[0];
+        const style = enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0];
         spawnImpactEffect(enemy.x, enemy.y, ENEMY_RADIUS * 1.9, style.core || 'rgba(255, 220, 190, 0.7)', {
             haloColor: style.halo || style.body,
             stroke: style.outline || 'rgba(20, 16, 26, 0.7)',
@@ -1326,7 +1332,7 @@ function showEnemyStats(enemy) {
     selectedEnemy = enemy;
     ENEMY_STATS_PANEL.classList.remove("hidden");
     updateEnemyStatsFields();
-    const typeName = (enemy.enemyType || enemy.style || ENEMY_TYPE_DEFINITIONS[0]).label;
+    const typeName = (enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
     announce(typeName + ' 적 정보');
 }
 
@@ -1617,7 +1623,6 @@ function spawnEnemy() {
         reward: stats.reward,
         waveIndex: wave,
         heading: 0,
-        style: enemyType,
         enemyType,
         pulseSeed: Math.random() * Math.PI * 2
     });
@@ -2589,7 +2594,7 @@ function drawEnemies() {
     ctx.save();
     ctx.lineJoin = 'round';
     for (const enemy of enemies) {
-        const style = enemy.style || ENEMY_TYPE_DEFINITIONS[0];
+        const style = enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0];
         const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
         const pulse = prefersReducedMotion ? 0.5 : Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
         const size = (enemy.enemyType && enemy.enemyType.id === 'boss') ? ENEMY_RADIUS * 1.5 : ENEMY_RADIUS;
