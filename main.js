@@ -1445,6 +1445,7 @@ function showDefeatDialog() {
         }
     }
     updateWavePreview(0);
+    announce('패배했습니다');
 }
 
 function hideDefeatDialog() {
@@ -1567,6 +1568,7 @@ function startWave() {
         WAVE_INPUT.value = wave;
     }
     updateWavePreview(enemiesToSpawn + enemies.length);
+    announce(`웨이브 ${wave} 시작`);
 }
 
 function canBuildAt(x, y) {
@@ -1958,6 +1960,7 @@ function update(dt) {
         } else if (enemies.length === 0) {
             waveInProgress = false;
             nextWaveTimer = 4;
+            announce(`웨이브 ${wave} 완료`);
             wave = Math.min(wave + 1, WAVE_MAX);
             if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
             if (WAVE_INPUT) {
@@ -2889,6 +2892,8 @@ function moveKbCursor(dx, dy) {
     kbCursorActive = true;
     hoverTile = { x: kbCursor.x, y: kbCursor.y };
     renderDirty = true;
+    const tileInfo = canBuildAt(kbCursor.x, kbCursor.y) ? '빈 타일' : '배치 불가';
+    announce(`${kbCursor.x + 1}, ${kbCursor.y + 1} ${tileInfo}`);
 }
 
 function activateKbCursor(isUpgrade) {
@@ -3088,6 +3093,11 @@ canvas.addEventListener("mousemove", event => {
 canvas.addEventListener("focus", () => {
     if (!kbCursor) initKbCursor();
     kbCursorActive = true;
+    renderDirty = true;
+});
+
+canvas.addEventListener("blur", () => {
+    kbCursorActive = false;
     renderDirty = true;
 });
 
