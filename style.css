@@ -503,6 +503,7 @@ canvas {
 #upgrade-tower-button {
     margin-top: 8px;
     width: 100%;
+    min-height: 44px;
     background: rgba(106, 168, 255, 0.12);
     border: 1px solid rgba(106, 168, 255, 0.4);
     border-radius: 999px;
@@ -528,6 +529,7 @@ canvas {
 #sell-tower-button {
     margin-top: 8px;
     width: 100%;
+    min-height: 44px;
     background: rgba(255, 131, 100, 0.12);
     border: 1px solid rgba(255, 131, 100, 0.4);
     border-radius: 999px;
