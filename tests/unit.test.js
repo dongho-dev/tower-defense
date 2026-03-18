@@ -152,7 +152,13 @@ function run() {
         getAdjustedPickRadius,
         getGameLoopHalted,
         towerPositionSet,
-        getRenderDirty
+        getRenderDirty,
+        initKbCursor,
+        moveKbCursor,
+        activateKbCursor,
+        getKbCursor,
+        getKbCursorActive,
+        ENEMY_TYPE_MAP
     } = game;
 
     // --- calculateTowerDamage ---
@@ -388,7 +394,7 @@ function run() {
     const testTower = { worldX: 100, worldY: 100, range: 150 };
 
     // 사거리 내 적
-    enemies.push({ x: 120, y: 120, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, style: mockStyle, waypoint: 2 });
+    enemies.push({ x: 120, y: 120, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, enemyType: mockStyle, waypoint: 2 });
     const result = findTarget(testTower);
     assert(result !== null, 'findTarget: 사거리 내 적 발견');
     assertEqual(result.enemy.x, 120, 'findTarget: 올바른 적 반환');
@@ -396,7 +402,7 @@ function run() {
 
     // 사거리 밖 적만 존재
     enemies.length = 0;
-    enemies.push({ x: 900, y: 900, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, style: mockStyle, waypoint: 0 });
+    enemies.push({ x: 900, y: 900, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
     const noResult = findTarget(testTower);
     assertEqual(noResult, null, 'findTarget: 사거리 밖 적은 타겟 안됨');
     enemies.length = 0;
@@ -405,7 +411,7 @@ function run() {
     enemies.length = 0;
     towers.length = 0;
     game.setGold(0);
-    const killEnemy = { x: 50, y: 50, hp: 10, maxHp: 10, reward: 20, waveIndex: 1, style: mockStyle, waypoint: 0 };
+    const killEnemy = { x: 50, y: 50, hp: 10, maxHp: 10, reward: 20, waveIndex: 1, enemyType: mockStyle, waypoint: 0 };
     enemies.push(killEnemy);
     const killed = damageEnemy(killEnemy, 100);
     assertEqual(killed, true, 'damageEnemy: 치명적 피해 시 true 반환');
@@ -415,7 +421,7 @@ function run() {
     // --- damageEnemy: no-kill ---
     enemies.length = 0;
     game.setGold(0);
-    const tankEnemy = { x: 60, y: 60, hp: 200, maxHp: 200, reward: 15, waveIndex: 1, style: mockStyle, waypoint: 0 };
+    const tankEnemy = { x: 60, y: 60, hp: 200, maxHp: 200, reward: 15, waveIndex: 1, enemyType: mockStyle, waypoint: 0 };
     enemies.push(tankEnemy);
     const notKilled = damageEnemy(tankEnemy, 50);
     assertEqual(notKilled, false, 'damageEnemy: 비치명적 피해 시 false 반환');
@@ -428,8 +434,8 @@ function run() {
     enemies.length = 0;
     towers.length = 0;
     game.setGold(0);
-    enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, style: mockStyle, waypoint: 0 });
-    enemies.push({ x: 500, y: 500, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, style: mockStyle, waypoint: 0 });
+    enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
+    enemies.push({ x: 500, y: 500, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
     const mockProjectile = {
         damage: 200,
         explosionRadius: 200,
@@ -492,7 +498,7 @@ function run() {
     towerPositionSet.clear();
     game.setGold(9999);
     game.setGameOver(true);
-    enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, style: mockStyle, waypoint: 0 });
+    enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
     towers.push({ x: 0, y: 0, worldX: 15, worldY: 15, type: 'basic', level: 1, spentGold: 35,
         cooldown: 0, activeBeam: null, heading: 0, aimAngle: null, flashTimer: 0, recoil: 0,
         auraOffset: 0, range: 165, fireDelay: 0.6, damage: 20, upgradeCost: 40 });
@@ -532,7 +538,7 @@ function run() {
     towerPositionSet.add('5,5');
     // 사거리 내 적 배치
     const laserEnemy = { x: laserTower.worldX + 30, y: laserTower.worldY, hp: 1000, maxHp: 1000,
-        reward: 10, waveIndex: 1, speed: 49, waypoint: 0, style: mockStyle, heading: 0, pulseSeed: 0 };
+        reward: 10, waveIndex: 1, speed: 49, waypoint: 0, enemyType: mockStyle, heading: 0, pulseSeed: 0 };
     enemies.push(laserEnemy);
     // dt=0.1초 동안 레이저 공격
     handleLaserAttack(laserTower, 0.1, laserTower.def);
@@ -681,7 +687,7 @@ function run() {
     enemies.push({
         x: lastWp.x, y: lastWp.y, hp: 100, maxHp: 100,
         speed: 49, waypoint: waypoints.length - 1, reward: 10,
-        waveIndex: 1, heading: 0, style: mockStyle, pulseSeed: 0
+        waveIndex: 1, heading: 0, enemyType: mockStyle, pulseSeed: 0
     });
     game.setLives(5);
     game.setGameOver(false);
@@ -693,7 +699,7 @@ function run() {
     enemies.length = 0;
     game.setGold(0);
     enemies.push({ x: 100, y: 100, hp: 10, maxHp: 10, reward: 15,
-        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+        waveIndex: 1, enemyType: mockStyle, waypoint: 0, heading: 0 });
     const daiKilled = damageEnemyAtIndex(0, 100);
     assert(daiKilled === true, 'damageEnemyAtIndex: 처치 시 true 반환');
     assertEqual(enemies.length, 0, 'damageEnemyAtIndex: 처치 시 배열에서 제거');
@@ -706,7 +712,7 @@ function run() {
     // --- damageEnemyAtIndex: 피해만 (미처치) ---
     enemies.length = 0;
     enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 10,
-        waveIndex: 1, style: mockStyle, waypoint: 0, heading: 0 });
+        waveIndex: 1, enemyType: mockStyle, waypoint: 0, heading: 0 });
     const notKilledDai = damageEnemyAtIndex(0, 30);
     assert(notKilledDai === false, 'damageEnemyAtIndex: 미처치 시 false 반환');
     assertEqual(enemies[0].hp, 70, 'damageEnemyAtIndex: hp 감소');
@@ -735,6 +741,27 @@ function run() {
 
     // --- renderDirty 초기값 ---
     assert(getRenderDirty() !== undefined, 'renderDirty: 값이 정의되어 있음');
+
+    // --- 키보드 커서 (#94) ---
+    initKbCursor();
+    const cursor = getKbCursor();
+    assert(cursor !== null, 'initKbCursor: 커서 생성');
+    assertEqual(cursor.x, Math.floor(GRID_COLS / 2), 'initKbCursor: x 중앙');
+    assertEqual(cursor.y, Math.floor(GRID_ROWS / 2), 'initKbCursor: y 중앙');
+    assert(getKbCursorActive() === true, 'initKbCursor: active = true');
+
+    // 이동 + 경계 클램핑
+    moveKbCursor(-cursor.x, 0); // 좌측 끝으로
+    assertEqual(getKbCursor().x, 0, 'moveKbCursor: 좌측 경계 클램핑');
+    moveKbCursor(-1, 0);
+    assertEqual(getKbCursor().x, 0, 'moveKbCursor: 좌측 경계 초과 방지');
+    moveKbCursor(1, 0);
+    assertEqual(getKbCursor().x, 1, 'moveKbCursor: 우측 이동');
+
+    // ENEMY_TYPE_MAP 정합성
+    ENEMY_TYPE_DEFINITIONS.forEach(t => {
+        assert(ENEMY_TYPE_MAP[t.id] === t, `ENEMY_TYPE_MAP: ${t.id} 매핑 정확`);
+    });
 
     console.log('Unit tests passed');
 }

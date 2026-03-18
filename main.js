@@ -1088,12 +1088,12 @@ function updateWavePreview(remainingOverride) {
     } else {
         status = '대기';
     }
-    WAVE_PREVIEW_FIELDS.status.textContent = status;
-    WAVE_PREVIEW_FIELDS.wave.textContent = wave;
-    WAVE_PREVIEW_FIELDS.remaining.textContent = remaining;
-    WAVE_PREVIEW_FIELDS.hp.textContent = stats.hp;
-    WAVE_PREVIEW_FIELDS.speed.textContent = `${(stats.speed / TILE_SIZE).toFixed(2)} 타일/초`;
-    WAVE_PREVIEW_FIELDS.reward.textContent = stats.reward;
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.status, status);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.wave, '' + wave);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.remaining, '' + remaining);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.hp, '' + stats.hp);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.speed, `${(stats.speed / TILE_SIZE).toFixed(2)} 타일/초`);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.reward, '' + stats.reward);
 }
 
 function updateSpeedControls() {
@@ -1657,8 +1657,12 @@ function findTarget(tower) {
             chosenIndex = i;
         }
     }
-    return chosen ? { enemy: chosen, index: chosenIndex } : null;
+    if (!chosen) return null;
+    _findTargetResult.enemy = chosen;
+    _findTargetResult.index = chosenIndex;
+    return _findTargetResult;
 }
+const _findTargetResult = { enemy: null, index: -1 };
 
 function spawnProjectile(options) {
     const speed = Math.hypot(options.vx, options.vy) || 1;
@@ -1915,16 +1919,21 @@ function handleLaserAttack(tower, dt, def) {
     const targetY = target.y;
     const killed = damageEnemyAtIndex(targetIndex, appliedDamage);
     const beamColor = def.beamColor || getProjectileColor(def, tower.level);
-    tower.activeBeam = {
-        x1: tower.worldX,
-        y1: tower.worldY,
-        x2: targetX,
-        y2: targetY,
-        width: (def.beamWidth || 6) + (tower.level - 1) * 0.35,
-        color: beamColor,
-        glow: def.beamGlowColor || beamColor,
-        alpha: 0.95
-    };
+    if (tower.activeBeam) {
+        tower.activeBeam.x1 = tower.worldX;
+        tower.activeBeam.y1 = tower.worldY;
+        tower.activeBeam.x2 = targetX;
+        tower.activeBeam.y2 = targetY;
+        tower.activeBeam.alpha = 0.95;
+    } else {
+        tower.activeBeam = {
+            x1: tower.worldX, y1: tower.worldY,
+            x2: targetX, y2: targetY,
+            width: (def.beamWidth || 6) + (tower.level - 1) * 0.35,
+            color: beamColor, glow: def.beamGlowColor || beamColor,
+            alpha: 0.95
+        };
+    }
     if (!hadBeam) {
         playSound('laser');
     }
@@ -2065,7 +2074,9 @@ function update(dt) {
         } else {
             projectile.rotation = Math.atan2(projectile.vy, projectile.vx);
         }
-        projectile.speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        if (projectile.gravity) {
+            projectile.speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        }
 
         let remove = false;
         let impacted = false;
@@ -2542,7 +2553,7 @@ function drawTowerShape(tower, color, outline, time, def) {
 
 
 function drawTowers() {
-    const now = performance.now() / 1000;
+    const now = elapsedTime;
     ctx.save();
     for (const tower of towers) {
         const def = tower.def || getTowerDefinition(tower.type);
@@ -2584,7 +2595,7 @@ function drawTowers() {
 
 
 function drawEnemies() {
-    const time = performance.now() / 1000;
+    const time = elapsedTime;
     ctx.save();
     ctx.lineJoin = 'round';
     for (const enemy of enemies) {
