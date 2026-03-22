@@ -3,10 +3,10 @@ function clearCurrentWave() {
     projectiles.length = 0;
     impactEffects.length = 0;
     muzzleFlashes.length = 0;
-    enemiesToSpawn = 0;
-    spawnCooldown = 0;
-    waveInProgress = false;
-    nextWaveTimer = 0;
+    gameState.enemiesToSpawn = 0;
+    gameState.spawnCooldown = 0;
+    gameState.waveInProgress = false;
+    gameState.nextWaveTimer = 0;
     hideEnemyStats();
 }
 
@@ -27,19 +27,19 @@ function ensureTowerMetadata(tower) {
 }
 
 function setWave(targetWave) {
-    if (gameOver) {
+    if (gameState.gameOver) {
         if (WAVE_INPUT) {
-            WAVE_INPUT.value = wave;
+            WAVE_INPUT.value = gameState.wave;
         }
         return;
     }
     const desiredWave = Math.max(1, Math.min(WAVE_MAX, Math.floor(targetWave)));
     clearCurrentWave();
     hideTowerStats();
-    wave = desiredWave;
-    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
+    gameState.wave = desiredWave;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
-        WAVE_INPUT.value = wave;
+        WAVE_INPUT.value = gameState.wave;
     }
     updateWavePreview();
 }
@@ -59,11 +59,11 @@ function damageEnemyAtIndex(index, amount) {
             life: 0.5,
             pulse: true
         });
-        if (selectedEnemy === enemy) {
+        if (gameState.selectedEnemy === enemy) {
             hideEnemyStats();
         }
         enemies.splice(index, 1);
-        gold = Math.min(999999, gold + enemy.reward);
+        gameState.gold = Math.min(999999, gameState.gold + enemy.reward);
         updateGoldUI();
         playSound('kill');
         return true;
@@ -140,7 +140,7 @@ function showTowerStats(tower) {
         return;
     }
     ensureTowerMetadata(tower);
-    selectedTower = tower;
+    gameState.selectedTower = tower;
     TOWER_STATS_PANEL.classList.remove('hidden');
     updateTowerStatsFields();
     const def = getTowerDefinition(tower.type);
@@ -151,7 +151,7 @@ function showEnemyStats(enemy) {
     if (!enemy || !ENEMY_STATS_PANEL) {
         return;
     }
-    selectedEnemy = enemy;
+    gameState.selectedEnemy = enemy;
     ENEMY_STATS_PANEL.classList.remove('hidden');
     updateEnemyStatsFields();
     const typeName = (enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
@@ -191,22 +191,22 @@ function getEnemyAtPoint(px, py) {
 }
 
 function upgradeTower(tower) {
-    if (gameOver) return false;
+    if (gameState.gameOver) return false;
     ensureTowerMetadata(tower);
     if (tower.level >= TOWER_MAX_LEVEL) {
         return false;
     }
     const cost = tower.upgradeCost;
-    if (cost == null || gold < cost) {
+    if (cost == null || gameState.gold < cost) {
         return false;
     }
-    gold -= cost;
+    gameState.gold -= cost;
     tower.spentGold = (tower.spentGold || 0) + cost;
     updateGoldUI();
     tower.level += 1;
     recalcTowerStats(tower);
     playSound('upgrade');
-    if (selectedTower === tower) {
+    if (gameState.selectedTower === tower) {
         updateTowerStatsFields();
     }
     const upgDef = getTowerDefinition(tower.type);
@@ -215,15 +215,15 @@ function upgradeTower(tower) {
 }
 
 function sellTower(tower) {
-    if (gameOver) return false;
+    if (gameState.gameOver) return false;
     const idx = towers.indexOf(tower);
     if (idx === -1) return false;
     const refund = Math.floor((tower.spentGold || 0) * 0.5);
     towers.splice(idx, 1);
     towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
-    gold = Math.min(999999, gold + refund);
+    gameState.gold = Math.min(999999, gameState.gold + refund);
     updateGoldUI();
-    if (selectedTower === tower) hideTowerStats();
+    if (gameState.selectedTower === tower) hideTowerStats();
     playSound('build');
     const sellDef = getTowerDefinition(tower.type);
     announce(sellDef.label + ' 판매 — ' + refund + 'G 환급');
@@ -243,16 +243,16 @@ function flashGoldInsufficient() {
 let _defeatPreviousFocus = null;
 
 function showDefeatDialog() {
-    if (gameOver) {
+    if (gameState.gameOver) {
         return;
     }
-    gameOver = true;
-    paused = true;
+    gameState.gameOver = true;
+    gameState.paused = true;
     render();
     stopLoop();
     clearCurrentWave();
-    selectedTowerType = DEFAULT_TOWER_TYPE;
-    setSelectedTowerButton(selectedTowerType);
+    gameState.selectedTowerType = DEFAULT_TOWER_TYPE;
+    setSelectedTowerButton(gameState.selectedTowerType);
     setGameSpeed(1);
     if (DEFEAT_OVERLAY) {
         _defeatPreviousFocus = document.activeElement;
@@ -283,7 +283,7 @@ function showMapSelectOverlay() {
         return;
     }
     _mapSelectPreviousFocus = document.activeElement;
-    paused = true;
+    gameState.paused = true;
     MAP_SELECT_OVERLAY.classList.remove('hidden');
     const firstFocusable = MAP_SELECT_OVERLAY.querySelector(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -399,23 +399,23 @@ function resetGame() {
     buildMapData(activeMapId);
     staticLayer = null;
     var currentMapDef = MAP_DEFINITIONS[activeMapId] || MAP_DEFINITIONS['map1'];
-    gold = currentMapDef.initialGold || 100;
-    lives = currentMapDef.initialLives || 20;
-    wave = 1;
-    gameOver = false;
-    paused = false;
-    hoverTile = null;
+    gameState.gold = currentMapDef.initialGold || 100;
+    gameState.lives = currentMapDef.initialLives || 20;
+    gameState.wave = 1;
+    gameState.gameOver = false;
+    gameState.paused = false;
+    gameState.hoverTile = null;
     hideAllStats();
     towers.length = 0;
     towerPositionSet.clear();
     clearCurrentWave();
-    selectedTowerType = DEFAULT_TOWER_TYPE;
-    setSelectedTowerButton(selectedTowerType);
+    gameState.selectedTowerType = DEFAULT_TOWER_TYPE;
+    setSelectedTowerButton(gameState.selectedTowerType);
     updateGoldUI();
-    if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
-    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
+    if (LIVES_LABEL) LIVES_LABEL.textContent = gameState.lives;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
-        WAVE_INPUT.value = wave;
+        WAVE_INPUT.value = gameState.wave;
     }
     hideDefeatDialog();
     setGameSpeed(1);
@@ -429,22 +429,22 @@ function resetGame() {
     elapsedTime = 0;
     lastTime = performance.now();
     cachedNoiseBuffer = null;
-    gameLoopHalted = false;
+    gameState.gameLoopHalted = false;
     loopErrorCount = 0;
     cachedNoiseDuration = 0;
 }
 
 function startWave() {
-    waveInProgress = true;
-    enemiesToSpawn = getWaveEnemyCount(wave);
-    spawnCooldown = 0;
-    nextWaveTimer = 0;
-    if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
+    gameState.waveInProgress = true;
+    gameState.enemiesToSpawn = getWaveEnemyCount(gameState.wave);
+    gameState.spawnCooldown = 0;
+    gameState.nextWaveTimer = 0;
+    if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
-        WAVE_INPUT.value = wave;
+        WAVE_INPUT.value = gameState.wave;
     }
-    updateWavePreview(enemiesToSpawn + enemies.length);
-    announce(`웨이브 ${wave} 시작`);
+    updateWavePreview(gameState.enemiesToSpawn + enemies.length);
+    announce(`웨이브 ${gameState.wave} 시작`);
 }
 
 function canBuildAt(x, y) {
@@ -483,7 +483,7 @@ function createTowerData(x, y, typeId) {
 }
 
 function pickEnemyType(waveNumber) {
-    if (waveNumber % 10 === 0 && enemiesToSpawn === 1) {
+    if (waveNumber % 10 === 0 && gameState.enemiesToSpawn === 1) {
         return ENEMY_TYPE_MAP['boss'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     if (waveNumber >= 3) {
@@ -496,8 +496,8 @@ function pickEnemyType(waveNumber) {
 
 function spawnEnemy() {
     const start = waypoints[0];
-    const enemyType = pickEnemyType(wave);
-    const stats = getWaveEnemyStats(wave, enemyType);
+    const enemyType = pickEnemyType(gameState.wave);
+    const stats = getWaveEnemyStats(gameState.wave, enemyType);
     enemies.push({
         x: start.x,
         y: start.y,
@@ -506,7 +506,7 @@ function spawnEnemy() {
         maxHp: stats.hp,
         waypoint: 0,
         reward: stats.reward,
-        waveIndex: wave,
+        waveIndex: gameState.wave,
         heading: 0,
         enemyType,
         pulseSeed: Math.random() * Math.PI * 2
@@ -840,51 +840,51 @@ function handleLaserAttack(tower, dt, def) {
 }
 
 function update(dt) {
-    if (buildFailFlash) {
-        buildFailFlash.timer -= dt;
-        if (buildFailFlash.timer <= 0) buildFailFlash = null;
+    if (gameState.buildFailFlash) {
+        gameState.buildFailFlash.timer -= dt;
+        if (gameState.buildFailFlash.timer <= 0) gameState.buildFailFlash = null;
     }
-    if (gameOver) {
+    if (gameState.gameOver) {
         return;
     }
-    if (!waveInProgress && nextWaveTimer <= 0) {
+    if (!gameState.waveInProgress && gameState.nextWaveTimer <= 0) {
         startWave();
     }
-    if (waveInProgress) {
-        if (enemiesToSpawn > 0) {
-            spawnCooldown -= dt;
-            if (spawnCooldown <= 0) {
+    if (gameState.waveInProgress) {
+        if (gameState.enemiesToSpawn > 0) {
+            gameState.spawnCooldown -= dt;
+            if (gameState.spawnCooldown <= 0) {
                 spawnEnemy();
-                enemiesToSpawn--;
-                const minCooldown = wave < 30 ? 0.25 : wave < 60 ? 0.18 : 0.12;
-                spawnCooldown = Math.max(0.6 - wave * 0.02, minCooldown);
+                gameState.enemiesToSpawn--;
+                const minCooldown = gameState.wave < 30 ? 0.25 : gameState.wave < 60 ? 0.18 : 0.12;
+                gameState.spawnCooldown = Math.max(0.6 - gameState.wave * 0.02, minCooldown);
             }
         } else if (enemies.length === 0) {
-            waveInProgress = false;
-            nextWaveTimer = 4;
-            announce(`웨이브 ${wave} 완료`);
-            wave = Math.min(wave + 1, WAVE_MAX);
-            if (WAVE_LABEL) WAVE_LABEL.textContent = wave;
+            gameState.waveInProgress = false;
+            gameState.nextWaveTimer = 4;
+            announce(`웨이브 ${gameState.wave} 완료`);
+            gameState.wave = Math.min(gameState.wave + 1, WAVE_MAX);
+            if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
             if (WAVE_INPUT) {
-                WAVE_INPUT.value = wave;
+                WAVE_INPUT.value = gameState.wave;
             }
             updateWavePreview();
         }
-    } else if (nextWaveTimer > 0) {
-        nextWaveTimer -= dt;
+    } else if (gameState.nextWaveTimer > 0) {
+        gameState.nextWaveTimer -= dt;
     }
 
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const target = waypoints[enemy.waypoint + 1];
         if (!target) {
-            if (selectedEnemy === enemy) {
+            if (gameState.selectedEnemy === enemy) {
                 hideEnemyStats();
             }
             enemies.splice(i, 1);
-            lives = Math.max(0, lives - 1);
-            if (LIVES_LABEL) LIVES_LABEL.textContent = lives;
-            if (lives === 0) {
+            gameState.lives = Math.max(0, gameState.lives - 1);
+            if (LIVES_LABEL) LIVES_LABEL.textContent = gameState.lives;
+            if (gameState.lives === 0) {
                 showDefeatDialog();
                 return;
             }
@@ -1031,11 +1031,11 @@ function update(dt) {
         }
     }
 
-    if (selectedEnemy) {
+    if (gameState.selectedEnemy) {
         updateEnemyStatsFields();
     }
-    if (selectedTower) {
+    if (gameState.selectedTower) {
         updateTowerStatsFields();
     }
-    updateWavePreview(waveInProgress ? enemiesToSpawn + enemies.length : null);
+    updateWavePreview(gameState.waveInProgress ? gameState.enemiesToSpawn + enemies.length : null);
 }

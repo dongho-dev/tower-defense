@@ -5,15 +5,6 @@ const projectiles = [];
 const impactEffects = [];
 const muzzleFlashes = [];
 
-let gold = 100;
-let lives = 20;
-let wave = 1;
-let waveInProgress = false;
-let enemiesToSpawn = 0;
-let spawnCooldown = 0;
-let nextWaveTimer = 0;
-let paused = false;
-let hoverTile = null;
 let kbCursor = null;
 let kbCursorActive = false;
 let _longPressTimer = null;
@@ -22,13 +13,6 @@ let _touchStartX = 0;
 let _touchStartY = 0;
 const LONG_PRESS_DURATION = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
-let selectedTower = null;
-let selectedEnemy = null;
-let gameSpeed = 1;
-let gameOver = false;
-let gameLoopHalted = false;
-let buildFailFlash = null;
-let selectedTowerType = DEFAULT_TOWER_TYPE;
 
 const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
 
@@ -117,10 +101,10 @@ function announce(message) {
 
 function updateGoldUI() {
     if (GOLD_LABEL) {
-        GOLD_LABEL.textContent = gold;
+        GOLD_LABEL.textContent = gameState.gold;
     }
     if (GOLD_INPUT) {
-        GOLD_INPUT.value = gold;
+        GOLD_INPUT.value = gameState.gold;
     }
 }
 
@@ -128,7 +112,7 @@ function hideTowerStats() {
     if (!TOWER_STATS_PANEL) {
         return;
     }
-    selectedTower = null;
+    gameState.selectedTower = null;
     TOWER_STATS_PANEL.classList.add('hidden');
 }
 
@@ -136,7 +120,7 @@ function hideEnemyStats() {
     if (!ENEMY_STATS_PANEL) {
         return;
     }
-    selectedEnemy = null;
+    gameState.selectedEnemy = null;
     ENEMY_STATS_PANEL.classList.add('hidden');
 }
 
@@ -203,17 +187,17 @@ function populateTowerList() {
         metaSpan.append(costSpan, rangeSpan, dpsSpan);
         button.append(nameSpan, metaSpan);
         button.addEventListener('click', () => {
-            if (selectedTowerType === id) {
+            if (gameState.selectedTowerType === id) {
                 return;
             }
-            selectedTowerType = id;
+            gameState.selectedTowerType = id;
             setSelectedTowerButton(id);
             playSound('select');
         });
         TOWER_LIST_CONTAINER.appendChild(button);
         TOWER_SELECTOR_BUTTONS.push(button);
     }
-    setSelectedTowerButton(selectedTowerType);
+    setSelectedTowerButton(gameState.selectedTowerType);
 }
 
 if (TOWER_LIST_CONTAINER) {
@@ -292,20 +276,20 @@ function updateWavePreview(remainingOverride) {
     if (!WAVE_PREVIEW_FIELDS) {
         return;
     }
-    const stats = getWaveEnemyStats(wave);
+    const stats = getWaveEnemyStats(gameState.wave);
     const remaining = typeof remainingOverride === 'number' ? Math.max(0, Math.ceil(remainingOverride)) : stats.count;
     let status;
-    if (gameOver) {
+    if (gameState.gameOver) {
         status = '패배';
-    } else if (waveInProgress) {
+    } else if (gameState.waveInProgress) {
         status = '전투 중';
-    } else if (nextWaveTimer > 0) {
+    } else if (gameState.nextWaveTimer > 0) {
         status = '휴식';
     } else {
         status = '대기';
     }
     setTextIfChanged(WAVE_PREVIEW_FIELDS.status, status);
-    setTextIfChanged(WAVE_PREVIEW_FIELDS.wave, '' + wave);
+    setTextIfChanged(WAVE_PREVIEW_FIELDS.wave, '' + gameState.wave);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.remaining, '' + remaining);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.hp, '' + stats.hp);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.speed, `${(stats.speed / TILE_SIZE).toFixed(2)} 타일/초`);
@@ -318,7 +302,7 @@ function updateSpeedControls() {
     }
     for (const button of SPEED_BUTTONS) {
         const value = Number(button.dataset.speed) || 1;
-        const isActive = value === gameSpeed;
+        const isActive = value === gameState.gameSpeed;
         button.classList.toggle('active', isActive);
         button.setAttribute('aria-pressed', String(isActive));
     }
@@ -329,7 +313,7 @@ function setGameSpeed(multiplier) {
         multiplier = 1;
     }
     multiplier = Math.min(multiplier, 5);
-    gameSpeed = multiplier;
+    gameState.gameSpeed = multiplier;
     updateSpeedControls();
 }
 
@@ -338,64 +322,65 @@ function setTextIfChanged(el, text) {
 }
 
 function updateTowerStatsFields() {
-    if (!selectedTower || !TOWER_STATS_PANEL) {
+    if (!gameState.selectedTower || !TOWER_STATS_PANEL) {
         return;
     }
-    ensureTowerMetadata(selectedTower);
-    const def = getTowerDefinition(selectedTower.type);
+    ensureTowerMetadata(gameState.selectedTower);
+    const def = getTowerDefinition(gameState.selectedTower.type);
     setTextIfChanged(TOWER_STATS_FIELDS.type, def.label);
-    setTextIfChanged(TOWER_STATS_FIELDS.position, `${selectedTower.x}, ${selectedTower.y}`);
+    setTextIfChanged(TOWER_STATS_FIELDS.position, `${gameState.selectedTower.x}, ${gameState.selectedTower.y}`);
     if (TOWER_STATS_FIELDS.range) {
-        const tiles = (selectedTower.range / TILE_SIZE).toFixed(1);
-        setTextIfChanged(TOWER_STATS_FIELDS.range, `${Math.round(selectedTower.range)}px (${tiles}타일)`);
+        const tiles = (gameState.selectedTower.range / TILE_SIZE).toFixed(1);
+        setTextIfChanged(TOWER_STATS_FIELDS.range, `${Math.round(gameState.selectedTower.range)}px (${tiles}타일)`);
     }
     if (TOWER_STATS_FIELDS.fireDelay) {
         const text =
             def.attackPattern === 'laser'
-                ? `지속 (${(selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
-                : `${selectedTower.fireDelay.toFixed(2)}초`;
+                ? `지속 (${(gameState.selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
+                : `${gameState.selectedTower.fireDelay.toFixed(2)}초`;
         setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
     }
-    setTextIfChanged(TOWER_STATS_FIELDS.damage, formatNumber(selectedTower.damage));
-    setTextIfChanged(TOWER_STATS_FIELDS.level, '' + selectedTower.level);
+    setTextIfChanged(TOWER_STATS_FIELDS.damage, formatNumber(gameState.selectedTower.damage));
+    setTextIfChanged(TOWER_STATS_FIELDS.level, '' + gameState.selectedTower.level);
     if (TOWER_STATS_FIELDS.upgradeCost) {
-        const cost = selectedTower.upgradeCost;
+        const cost = gameState.selectedTower.upgradeCost;
         setTextIfChanged(TOWER_STATS_FIELDS.upgradeCost, cost == null ? 'MAX' : formatNumber(cost));
     }
     if (UPGRADE_TOWER_BUTTON) {
-        const atMax = selectedTower.upgradeCost == null;
-        UPGRADE_TOWER_BUTTON.disabled = atMax || gameOver;
-        const label = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(selectedTower.upgradeCost)}G)`;
+        const atMax = gameState.selectedTower.upgradeCost == null;
+        UPGRADE_TOWER_BUTTON.disabled = atMax || gameState.gameOver;
+        const label = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(gameState.selectedTower.upgradeCost)}G)`;
         setTextIfChanged(UPGRADE_TOWER_BUTTON, label);
         UPGRADE_TOWER_BUTTON.setAttribute('aria-label', label);
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
-        const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
+        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * 0.5);
         setTextIfChanged(TOWER_STATS_FIELDS.sellRefund, formatNumber(refund));
     }
     if (SELL_TOWER_BUTTON) {
-        const refund = Math.floor((selectedTower.spentGold || 0) * 0.5);
+        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * 0.5);
         SELL_TOWER_BUTTON.setAttribute('aria-label', `판매 (${refund}G 환급)`);
     }
 }
 
 function updateEnemyStatsFields() {
-    if (!selectedEnemy || !ENEMY_STATS_PANEL) {
+    if (!gameState.selectedEnemy || !ENEMY_STATS_PANEL) {
         return;
     }
-    if (!enemies.includes(selectedEnemy)) {
+    if (!enemies.includes(gameState.selectedEnemy)) {
         hideEnemyStats();
         return;
     }
     if (ENEMY_STATS_FIELDS.enemyType) {
-        const typeName = (selectedEnemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
+        const typeName = (gameState.selectedEnemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
         setTextIfChanged(ENEMY_STATS_FIELDS.enemyType, typeName);
     }
-    const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
-    const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
-    const waveIndex = typeof selectedEnemy.waveIndex === 'number' ? selectedEnemy.waveIndex : wave;
+    const currentHp = Math.max(0, Math.ceil(gameState.selectedEnemy.hp));
+    const maxHp = Math.max(0, Math.ceil(gameState.selectedEnemy.maxHp));
+    const waveIndex =
+        typeof gameState.selectedEnemy.waveIndex === 'number' ? gameState.selectedEnemy.waveIndex : gameState.wave;
     setTextIfChanged(ENEMY_STATS_FIELDS.wave, '' + waveIndex);
     setTextIfChanged(ENEMY_STATS_FIELDS.hp, `${NUMBER_FORMAT.format(currentHp)} / ${NUMBER_FORMAT.format(maxHp)}`);
-    setTextIfChanged(ENEMY_STATS_FIELDS.speed, `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`);
-    setTextIfChanged(ENEMY_STATS_FIELDS.reward, `${selectedEnemy.reward}`);
+    setTextIfChanged(ENEMY_STATS_FIELDS.speed, `${(gameState.selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`);
+    setTextIfChanged(ENEMY_STATS_FIELDS.reward, `${gameState.selectedEnemy.reward}`);
 }

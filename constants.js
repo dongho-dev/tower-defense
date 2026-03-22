@@ -92,3 +92,22 @@ const ENEMY_TYPE_MAP = {};
 ENEMY_TYPE_DEFINITIONS.forEach((t) => {
     ENEMY_TYPE_MAP[t.id] = t;
 });
+
+const gameState = {
+    gold: 100,
+    lives: 20,
+    wave: 1,
+    waveInProgress: false,
+    enemiesToSpawn: 0,
+    spawnCooldown: 0,
+    nextWaveTimer: 0,
+    paused: false,
+    gameOver: false,
+    gameLoopHalted: false,
+    gameSpeed: 1,
+    selectedTower: null,
+    selectedEnemy: null,
+    selectedTowerType: DEFAULT_TOWER_TYPE,
+    hoverTile: null,
+    buildFailFlash: null
+};
