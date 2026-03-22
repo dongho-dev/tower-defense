@@ -165,4 +165,7 @@ function recalcTowerStats(tower) {
     tower.fireDelay = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * (tower.level - 1), 0.05);
     tower.damage = calculateTowerDamage(def, tower.level);
     tower.upgradeCost = tower.level >= TOWER_MAX_LEVEL ? null : calculateUpgradeCost(def, tower.level);
+    tower.cachedProjectileColor = getProjectileColor(def, tower.level);
+    tower.cachedTrailColor = getProjectileColor(def, Math.max(1, tower.level - 1));
+    tower.cachedTowerColor = getTowerColor(def, tower.level);
 }

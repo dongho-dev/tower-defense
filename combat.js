@@ -56,7 +56,7 @@ function handleTowerFireVisuals(tower, def, angle) {
     const muzzleDistance = baseSize * (def.muzzleLengthMultiplier || 1.65);
     const muzzleX = tower.worldX + Math.cos(angle) * muzzleDistance;
     const muzzleY = tower.worldY + Math.sin(angle) * muzzleDistance;
-    const flashColor = def.muzzleFlashColor || getTowerColor(def, tower.level);
+    const flashColor = def.muzzleFlashColor || tower.cachedTowerColor;
     const flashRadius = baseSize * (def.flashSizeMultiplier || 0.9);
     spawnMuzzleFlash(muzzleX, muzzleY, flashRadius, flashColor, angle, {
         growth: flashRadius * 9,
@@ -68,12 +68,13 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const pellets = def.pellets || 4;
     const spread = def.spread || Math.PI / 4;
+    const color = tower.cachedProjectileColor;
+    const trailColor = tower.cachedTrailColor;
     for (let i = 0; i < pellets; i++) {
         const ratio = pellets === 1 ? 0 : i / (pellets - 1) - 0.5;
         const jitter = (Math.random() - 0.5) * 0.35;
         const angle = baseAngle + (ratio + jitter) * spread;
         const speed = (def.projectileSpeed || 580) * (0.9 + Math.random() * 0.3);
-        const color = getProjectileColor(def, tower.level);
         spawnProjectile({
             x: tower.worldX,
             y: tower.worldY,
@@ -85,7 +86,7 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
             color,
             glowColor: def.glowColor || color,
             outline: '#2e2e2e',
-            trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+            trailColor,
             trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 10),
             hitRadius: (ls.hitRadiusBase ?? 14) + tower.level * (ls.hitRadiusPerLevel ?? 1),
             spin: (Math.random() - 0.5) * 6,
@@ -97,7 +98,7 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
 function attackBeam(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 25);
-    const color = getProjectileColor(def, tower.level);
+    const color = tower.cachedProjectileColor;
     spawnProjectile({
         x: tower.worldX,
         y: tower.worldY,
@@ -121,7 +122,7 @@ function attackBurst(tower, def, dirX, dirY, baseAngle) {
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 25);
     const burstCount = def.burstCount || 3;
     const delayStep = def.burstDelay ?? 0.07;
-    const color = getProjectileColor(def, tower.level);
+    const color = tower.cachedProjectileColor;
     for (let i = 0; i < burstCount; i++) {
         const delay = i * delayStep;
         spawnProjectile({
@@ -148,7 +149,7 @@ function attackBurst(tower, def, dirX, dirY, baseAngle) {
 function attackExplosive(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 20);
-    const color = getProjectileColor(def, tower.level);
+    const color = tower.cachedProjectileColor;
     spawnProjectile({
         x: tower.worldX,
         y: tower.worldY,
@@ -161,7 +162,7 @@ function attackExplosive(tower, def, dirX, dirY, baseAngle) {
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: 'hex',
-        trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+        trailColor: tower.cachedTrailColor,
         trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 15),
         explosionRadius: def.explosionRadius + tower.level * (ls.explosionRadiusPerLevel ?? 4),
         explosionColor: def.explosionColor,
@@ -177,7 +178,7 @@ function attackMortar(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 12);
     const lift = def.mortarLift + (tower.level - 1) * (ls.liftPerLevel ?? 12);
-    const color = getProjectileColor(def, tower.level);
+    const color = tower.cachedProjectileColor;
     spawnProjectile({
         x: tower.worldX,
         y: tower.worldY,
@@ -190,7 +191,7 @@ function attackMortar(tower, def, dirX, dirY, baseAngle) {
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: 'orb',
-        trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+        trailColor: tower.cachedTrailColor,
         trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 14),
         gravity: def.gravity,
         explosionRadius: def.explosionRadius + tower.level * (ls.explosionRadiusPerLevel ?? 5),
@@ -206,7 +207,7 @@ function attackMortar(tower, def, dirX, dirY, baseAngle) {
 function attackDefault(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 20);
-    const color = getProjectileColor(def, tower.level);
+    const color = tower.cachedProjectileColor;
     spawnProjectile({
         x: tower.worldX,
         y: tower.worldY,
@@ -219,7 +220,7 @@ function attackDefault(tower, def, dirX, dirY, baseAngle) {
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: def.shape === 'triangle' ? 'triangle' : 'circle',
-        trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
+        trailColor: tower.cachedTrailColor,
         trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 12),
         hitRadius: (ls.hitRadiusBase ?? 16) + tower.level * (ls.hitRadiusPerLevel ?? 1.2)
     });
@@ -283,7 +284,7 @@ function handleLaserAttack(tower, dt, def) {
     const targetX = target.x;
     const targetY = target.y;
     const killed = damageEnemyAtIndex(targetIndex, appliedDamage);
-    const beamColor = def.beamColor || getProjectileColor(def, tower.level);
+    const beamColor = def.beamColor || tower.cachedProjectileColor;
     if (tower.activeBeam) {
         tower.activeBeam.x1 = tower.worldX;
         tower.activeBeam.y1 = tower.worldY;
