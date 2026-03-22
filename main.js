@@ -91,7 +91,7 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     }
 
     gameState.gold -= cost;
-    updateGoldUI();
+    EventBus.emit('gold:changed');
     const towerData = createTowerData(x, y, towerDef.id);
     towers.push(towerData);
     towerPositionSet.add(keyFromGrid(x, y));
@@ -278,7 +278,7 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
             return;
         }
         gameState.gold = Math.max(0, Math.min(999999, Math.floor(value)));
-        updateGoldUI();
+        EventBus.emit('gold:changed');
     };
     GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
     GOLD_INPUT.addEventListener('keydown', (event) => {
@@ -292,7 +292,7 @@ GOLD_ADJUST_BUTTONS.forEach((button) => {
     button.addEventListener('click', () => {
         const delta = Number(button.dataset.delta) || 0;
         gameState.gold = Math.min(999999, Math.max(0, gameState.gold + delta));
-        updateGoldUI();
+        EventBus.emit('gold:changed');
     });
 });
 
@@ -526,8 +526,8 @@ function startLoop() {
 }
 
 updateSpeedControls();
-updateWavePreview();
-updateGoldUI();
+EventBus.emit('wave:changed');
+EventBus.emit('gold:changed');
 if (WAVE_INPUT) {
     WAVE_INPUT.value = gameState.wave;
 }

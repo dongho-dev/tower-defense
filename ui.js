@@ -425,3 +425,11 @@ function updateEnemyStatsFields() {
     setTextIfChanged(ENEMY_STATS_FIELDS.speed, `${(gameState.selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`);
     setTextIfChanged(ENEMY_STATS_FIELDS.reward, `${gameState.selectedEnemy.reward}`);
 }
+
+// ── EventBus listeners ──────────────────────────────────────────────────────
+EventBus.on('gold:changed', updateGoldUI);
+EventBus.on('wave:changed', function (data) {
+    updateWavePreview(data != null ? data.remaining : undefined);
+});
+EventBus.on('tower:selected', updateTowerStatsFields);
+EventBus.on('enemy:selected', updateEnemyStatsFields);
