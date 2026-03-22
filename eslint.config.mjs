@@ -57,6 +57,8 @@ const gameGlobals = {
     calculateUpgradeCost: 'readonly',
     recalcTowerStats: 'readonly',
     NUMBER_FORMAT: 'readonly',
+    getWaveEnemyCount: 'readonly',
+    getWaveEnemyStats: 'readonly',
 
     // map.js
     MAP_DEFINITIONS: 'readonly',
@@ -128,8 +130,6 @@ const gameGlobals = {
     resetBuildPanelOverride: 'readonly',
     setBuildPanelCollapsed: 'readonly',
     getWaveEnemyComposition: 'readonly',
-    getWaveEnemyCount: 'readonly',
-    getWaveEnemyStats: 'readonly',
     updateWavePreview: 'readonly',
     updateSpeedControls: 'readonly',
     setGameSpeed: 'readonly',
