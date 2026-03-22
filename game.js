@@ -71,7 +71,6 @@ function damageEnemyAtIndex(index, amount) {
     return false;
 }
 
-
 function damageEnemy(enemy, amount) {
     const idx = enemies.indexOf(enemy);
     if (idx === -1) {
@@ -111,7 +110,6 @@ function spawnImpactEffect(x, y, radius, color, options = {}) {
     });
 }
 
-
 function applyExplosion(projectile, originX, originY) {
     const radius = projectile.explosionRadius || 0;
     if (radius <= 0) {
@@ -143,7 +141,7 @@ function showTowerStats(tower) {
     }
     ensureTowerMetadata(tower);
     selectedTower = tower;
-    TOWER_STATS_PANEL.classList.remove("hidden");
+    TOWER_STATS_PANEL.classList.remove('hidden');
     updateTowerStatsFields();
     const def = getTowerDefinition(tower.type);
     announce(def.label + ' 포탑 정보');
@@ -154,7 +152,7 @@ function showEnemyStats(enemy) {
         return;
     }
     selectedEnemy = enemy;
-    ENEMY_STATS_PANEL.classList.remove("hidden");
+    ENEMY_STATS_PANEL.classList.remove('hidden');
     updateEnemyStatsFields();
     const typeName = (enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
     announce(typeName + ' 적 정보');
@@ -287,7 +285,9 @@ function showMapSelectOverlay() {
     _mapSelectPreviousFocus = document.activeElement;
     paused = true;
     MAP_SELECT_OVERLAY.classList.remove('hidden');
-    const firstFocusable = MAP_SELECT_OVERLAY.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const firstFocusable = MAP_SELECT_OVERLAY.querySelector(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
     if (firstFocusable) {
         firstFocusable.focus();
     }
@@ -328,7 +328,7 @@ function populateMapList() {
         card.append(nameEl, diffEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
-            cards.forEach(c => {
+            cards.forEach((c) => {
                 const isSelected = c.dataset.mapId === activeMapId;
                 c.classList.toggle('selected', isSelected);
                 c.setAttribute('aria-pressed', String(isSelected));
@@ -425,15 +425,14 @@ function createTowerData(x, y, typeId) {
     };
 }
 
-
 function pickEnemyType(waveNumber) {
     if (waveNumber % 10 === 0 && enemiesToSpawn === 1) {
         return ENEMY_TYPE_MAP['boss'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     if (waveNumber >= 3) {
         const roll = Math.random();
-        if (roll < 0.20) return ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0];
-        if (roll < 0.50) return ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0];
+        if (roll < 0.2) return ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0];
+        if (roll < 0.5) return ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     return ENEMY_TYPE_DEFINITIONS[0];
 }
@@ -456,7 +455,6 @@ function spawnEnemy() {
         pulseSeed: Math.random() * Math.PI * 2
     });
 }
-
 
 function findTarget(tower) {
     let chosen = null;
@@ -537,9 +535,9 @@ function handleTowerFireVisuals(tower, def, angle) {
 function attackShotgun(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
     const pellets = def.pellets || 4;
-    const spread = def.spread || (Math.PI / 4);
+    const spread = def.spread || Math.PI / 4;
     for (let i = 0; i < pellets; i++) {
-        const ratio = pellets === 1 ? 0 : (i / (pellets - 1)) - 0.5;
+        const ratio = pellets === 1 ? 0 : i / (pellets - 1) - 0.5;
         const jitter = (Math.random() - 0.5) * 0.35;
         const angle = baseAngle + (ratio + jitter) * spread;
         const speed = def.projectileSpeed * (0.9 + Math.random() * 0.3);
@@ -717,7 +715,6 @@ function performTowerAttack(tower, target, def) {
     attackFn(tower, def, dirX, dirY, baseAngle);
 }
 
-
 function handleLaserAttack(tower, dt, def) {
     const hadBeam = Boolean(tower.activeBeam && tower.activeBeam.alpha > 0.2);
     if (tower.activeBeam) {
@@ -735,7 +732,10 @@ function handleLaserAttack(tower, dt, def) {
     let targetIndex = result.index;
     if (enemies[targetIndex] !== target) {
         targetIndex = enemies.indexOf(target);
-        if (targetIndex === -1) { tower.activeBeam = null; return; }
+        if (targetIndex === -1) {
+            tower.activeBeam = null;
+            return;
+        }
     }
     const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
     tower.aimAngle = angle;
@@ -745,7 +745,7 @@ function handleLaserAttack(tower, dt, def) {
         const turnSpeed = Math.max(4, (def.turnSpeed || 8) * 1.25);
         tower.heading = lerpAngle(tower.heading, angle, Math.min(1, dt * turnSpeed));
     }
-    tower.flashTimer = Math.max(tower.flashTimer || 0, (def.flashDuration || 0.08));
+    tower.flashTimer = Math.max(tower.flashTimer || 0, def.flashDuration || 0.08);
     const damagePerSecond = tower.damage * (def.sustainMultiplier || 1);
     const appliedDamage = damagePerSecond * dt;
     const targetX = target.x;
@@ -760,10 +760,13 @@ function handleLaserAttack(tower, dt, def) {
         tower.activeBeam.alpha = 0.95;
     } else {
         tower.activeBeam = {
-            x1: tower.worldX, y1: tower.worldY,
-            x2: targetX, y2: targetY,
+            x1: tower.worldX,
+            y1: tower.worldY,
+            x2: targetX,
+            y2: targetY,
             width: (def.beamWidth || 6) + (tower.level - 1) * 0.35,
-            color: beamColor, glow: def.beamGlowColor || beamColor,
+            color: beamColor,
+            glow: def.beamGlowColor || beamColor,
             alpha: 0.95
         };
     }
@@ -922,11 +925,17 @@ function update(dt) {
                     applyExplosion(projectile, projectile.x, projectile.y);
                 } else {
                     damageEnemyAtIndex(j, projectile.damage);
-                    spawnImpactEffect(projectile.x, projectile.y, (projectile.radius || 6) * 1.4, projectile.glowColor || projectile.color, {
-                        haloColor: projectile.color,
-                        life: 0.28,
-                        pulse: false
-                    });
+                    spawnImpactEffect(
+                        projectile.x,
+                        projectile.y,
+                        (projectile.radius || 6) * 1.4,
+                        projectile.glowColor || projectile.color,
+                        {
+                            haloColor: projectile.color,
+                            life: 0.28,
+                            pulse: false
+                        }
+                    );
                 }
                 impacted = true;
                 remove = true;

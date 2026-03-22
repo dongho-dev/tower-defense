@@ -32,16 +32,15 @@ let selectedTowerType = DEFAULT_TOWER_TYPE;
 
 const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
 
-const GOLD_LABEL = document.getElementById("gold");
-const LIVES_LABEL = document.getElementById("lives");
-const WAVE_LABEL = document.getElementById("wave");
-const GOLD_INPUT = document.getElementById("gold-input");
-const GOLD_APPLY_BUTTON = document.getElementById("gold-apply");
+const GOLD_LABEL = document.getElementById('gold');
+const LIVES_LABEL = document.getElementById('lives');
+const WAVE_LABEL = document.getElementById('wave');
+const GOLD_INPUT = document.getElementById('gold-input');
+const GOLD_APPLY_BUTTON = document.getElementById('gold-apply');
 const GOLD_ADJUST_BUTTONS = Array.from(document.querySelectorAll('.gold-adjust'));
 
-
-const TOWER_STATS_PANEL = document.getElementById("tower-stats");
-const ENEMY_STATS_PANEL = document.getElementById("enemy-stats");
+const TOWER_STATS_PANEL = document.getElementById('tower-stats');
+const ENEMY_STATS_PANEL = document.getElementById('enemy-stats');
 const TOWER_STATS_FIELDS = {
     type: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-type"]') : null,
     position: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-position"]') : null,
@@ -64,14 +63,16 @@ const SPEED_BUTTONS = Array.from(document.querySelectorAll('.speed-button'));
 const WAVE_INPUT = document.getElementById('wave-input');
 const WAVE_APPLY_BUTTON = document.getElementById('wave-apply');
 const WAVE_PREVIEW_PANEL = document.getElementById('wave-preview');
-const WAVE_PREVIEW_FIELDS = WAVE_PREVIEW_PANEL ? {
-    status: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-status"]'),
-    wave: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-wave"]'),
-    remaining: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-remaining"]'),
-    hp: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-hp"]'),
-    speed: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-speed"]'),
-    reward: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-reward"]')
-} : null;
+const WAVE_PREVIEW_FIELDS = WAVE_PREVIEW_PANEL
+    ? {
+          status: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-status"]'),
+          wave: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-wave"]'),
+          remaining: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-remaining"]'),
+          hp: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-hp"]'),
+          speed: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-speed"]'),
+          reward: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-reward"]')
+      }
+    : null;
 
 const DEFEAT_OVERLAY = document.getElementById('defeat-overlay');
 const RETRY_BUTTON = document.getElementById('retry-button');
@@ -112,7 +113,7 @@ function hideTowerStats() {
         return;
     }
     selectedTower = null;
-    TOWER_STATS_PANEL.classList.add("hidden");
+    TOWER_STATS_PANEL.classList.add('hidden');
 }
 
 function hideEnemyStats() {
@@ -120,7 +121,7 @@ function hideEnemyStats() {
         return;
     }
     selectedEnemy = null;
-    ENEMY_STATS_PANEL.classList.add("hidden");
+    ENEMY_STATS_PANEL.classList.add('hidden');
 }
 
 function hideAllStats() {
@@ -168,9 +169,7 @@ function populateTowerList() {
         const range = typeof def.range === 'number' ? def.range : 0;
         const baseDamage = typeof def.baseDamage === 'number' ? def.baseDamage : 0;
         const fireDelay = typeof def.fireDelay === 'number' && def.fireDelay > 0 ? def.fireDelay : 1;
-        const dps = def.attackPattern === 'laser'
-            ? baseDamage * (def.sustainMultiplier || 1)
-            : baseDamage / fireDelay;
+        const dps = def.attackPattern === 'laser' ? baseDamage * (def.sustainMultiplier || 1) : baseDamage / fireDelay;
         const nameSpan = document.createElement('span');
         nameSpan.className = 'tower-name';
         nameSpan.textContent = def.label;
@@ -335,9 +334,10 @@ function updateTowerStatsFields() {
         setTextIfChanged(TOWER_STATS_FIELDS.range, `${Math.round(selectedTower.range)}px (${tiles}타일)`);
     }
     if (TOWER_STATS_FIELDS.fireDelay) {
-        const text = def.attackPattern === 'laser'
-            ? `지속 (${(selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
-            : `${selectedTower.fireDelay.toFixed(2)}초`;
+        const text =
+            def.attackPattern === 'laser'
+                ? `지속 (${(selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
+                : `${selectedTower.fireDelay.toFixed(2)}초`;
         setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
     }
     setTextIfChanged(TOWER_STATS_FIELDS.damage, formatNumber(selectedTower.damage));
@@ -377,7 +377,7 @@ function updateEnemyStatsFields() {
     }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
-    const waveIndex = typeof selectedEnemy.waveIndex === "number" ? selectedEnemy.waveIndex : wave;
+    const waveIndex = typeof selectedEnemy.waveIndex === 'number' ? selectedEnemy.waveIndex : wave;
     setTextIfChanged(ENEMY_STATS_FIELDS.wave, '' + waveIndex);
     setTextIfChanged(ENEMY_STATS_FIELDS.hp, `${NUMBER_FORMAT.format(currentHp)} / ${NUMBER_FORMAT.format(maxHp)}`);
     setTextIfChanged(ENEMY_STATS_FIELDS.speed, `${(selectedEnemy.speed / TILE_SIZE).toFixed(2)} 타일/초`);

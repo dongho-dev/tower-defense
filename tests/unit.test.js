@@ -44,14 +44,25 @@ class FakeAudioContext {
         this.sampleRate = 44100;
         this.state = 'running';
     }
-    close() { this.state = 'closed'; }
-    resume() { this.state = 'running'; return Promise.resolve(); }
-    createGain() { return new FakeGainNode(); }
-    createOscillator() { return new FakeOscillator(); }
+    close() {
+        this.state = 'closed';
+    }
+    resume() {
+        this.state = 'running';
+        return Promise.resolve();
+    }
+    createGain() {
+        return new FakeGainNode();
+    }
+    createOscillator() {
+        return new FakeOscillator();
+    }
     createBuffer(channels, length) {
         return { getChannelData: () => new Float32Array(length * channels) };
     }
-    createBufferSource() { return new FakeBufferSource(); }
+    createBufferSource() {
+        return new FakeBufferSource();
+    }
 }
 
 function setupDom() {
@@ -77,10 +88,22 @@ function setupDom() {
     global.AudioContext = FakeAudioContext;
 
     window.HTMLCanvasElement.prototype.getContext = () => ({
-        fillStyle: '#000', strokeStyle: '#000', lineWidth: 1,
-        beginPath: noop, moveTo: noop, lineTo: noop, stroke: noop,
-        arc: noop, fillRect: noop, clearRect: noop, fill: noop,
-        save: noop, restore: noop, font: '', textAlign: '', textBaseline: '',
+        fillStyle: '#000',
+        strokeStyle: '#000',
+        lineWidth: 1,
+        beginPath: noop,
+        moveTo: noop,
+        lineTo: noop,
+        stroke: noop,
+        arc: noop,
+        fillRect: noop,
+        clearRect: noop,
+        fill: noop,
+        save: noop,
+        restore: noop,
+        font: '',
+        textAlign: '',
+        textBaseline: '',
         fillText: noop,
         createRadialGradient: () => ({ addColorStop: noop }),
         createLinearGradient: () => ({ addColorStop: noop }),
@@ -214,11 +237,7 @@ describe('Unit tests', () => {
 
     it('calculateUpgradeCost: level scaling', () => {
         const def40 = { baseUpgradeCost: 40 };
-        assert.strictEqual(
-            calculateUpgradeCost(def40, 1),
-            40,
-            'calculateUpgradeCost: 레벨 1 비용 = baseUpgradeCost'
-        );
+        assert.strictEqual(calculateUpgradeCost(def40, 1), 40, 'calculateUpgradeCost: 레벨 1 비용 = baseUpgradeCost');
         assert.strictEqual(
             calculateUpgradeCost(def40, 2),
             Math.round(40 * 1.6),
@@ -245,7 +264,10 @@ describe('Unit tests', () => {
     it('getWaveEnemyStats: high wave Infinity defense', () => {
         const statsHigh = getWaveEnemyStats(9999);
         assert.ok(Number.isFinite(statsHigh.hp), 'getWaveEnemyStats: 웨이브 9999 체력은 유한수');
-        assert.ok(statsHigh.hp <= Number.MAX_SAFE_INTEGER, 'getWaveEnemyStats: 웨이브 9999 체력은 MAX_SAFE_INTEGER 이하');
+        assert.ok(
+            statsHigh.hp <= Number.MAX_SAFE_INTEGER,
+            'getWaveEnemyStats: 웨이브 9999 체력은 MAX_SAFE_INTEGER 이하'
+        );
     });
 
     it('getWaveEnemyStats: reward scaling', () => {
@@ -256,25 +278,41 @@ describe('Unit tests', () => {
     });
 
     it('getWaveEnemyStats: armored type', () => {
-        const armoredType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'armored');
+        const armoredType = ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'armored');
         const armoredStats = getWaveEnemyStats(1, armoredType);
         assert.strictEqual(armoredStats.hp, Math.round(78 * 3.0), 'getWaveEnemyStats: 장갑 웨이브 1 체력 = 78 * 3.0');
-        assert.strictEqual(armoredStats.speed, Math.round(49 * 0.6 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 장갑 웨이브 1 속도 = 49 * 0.6 * speedBonus');
-        assert.strictEqual(armoredStats.reward, Math.round((14 + 1 * 1.5) * 2.0), 'getWaveEnemyStats: 장갑 보상 = base * 2.0');
+        assert.strictEqual(
+            armoredStats.speed,
+            Math.round(49 * 0.6 * (1 + 1 * 0.005)),
+            'getWaveEnemyStats: 장갑 웨이브 1 속도 = 49 * 0.6 * speedBonus'
+        );
+        assert.strictEqual(
+            armoredStats.reward,
+            Math.round((14 + 1 * 1.5) * 2.0),
+            'getWaveEnemyStats: 장갑 보상 = base * 2.0'
+        );
     });
 
     it('getWaveEnemyStats: fast type', () => {
-        const fastType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'fast');
+        const fastType = ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'fast');
         const fastStats = getWaveEnemyStats(1, fastType);
         assert.strictEqual(fastStats.hp, Math.round(78 * 0.4), 'getWaveEnemyStats: 고속 웨이브 1 체력 = 78 * 0.4');
-        assert.strictEqual(fastStats.speed, Math.round(49 * 2.5 * (1 + 1 * 0.005)), 'getWaveEnemyStats: 고속 웨이브 1 속도 = 49 * 2.5 * speedBonus');
+        assert.strictEqual(
+            fastStats.speed,
+            Math.round(49 * 2.5 * (1 + 1 * 0.005)),
+            'getWaveEnemyStats: 고속 웨이브 1 속도 = 49 * 2.5 * speedBonus'
+        );
     });
 
     it('getWaveEnemyStats: boss type', () => {
-        const bossType = ENEMY_TYPE_DEFINITIONS.find(t => t.id === 'boss');
+        const bossType = ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'boss');
         const bossStats = getWaveEnemyStats(1, bossType);
         assert.strictEqual(bossStats.hp, Math.round(78 * 12.0), 'getWaveEnemyStats: 보스 웨이브 1 체력 = 78 * 12.0');
-        assert.strictEqual(bossStats.reward, Math.round((14 + 1 * 1.5) * 8.0), 'getWaveEnemyStats: 보스 보상 = base * 8.0');
+        assert.strictEqual(
+            bossStats.reward,
+            Math.round((14 + 1 * 1.5) * 8.0),
+            'getWaveEnemyStats: 보스 보상 = base * 8.0'
+        );
     });
 
     it('hexToRgba: color conversion', () => {
@@ -298,12 +336,24 @@ describe('Unit tests', () => {
         towers.length = 0;
         towerPositionSet.clear();
         const mockTower = {
-            x: 0, y: 0, worldX: 15, worldY: 15,
-            type: 'basic', level: 1, spentGold: 100,
-            cooldown: 0, activeBeam: null, heading: 0,
-            aimAngle: null, flashTimer: 0, recoil: 0,
-            auraOffset: 0, range: 165, fireDelay: 0.6,
-            damage: 20, upgradeCost: 40
+            x: 0,
+            y: 0,
+            worldX: 15,
+            worldY: 15,
+            type: 'basic',
+            level: 1,
+            spentGold: 100,
+            cooldown: 0,
+            activeBeam: null,
+            heading: 0,
+            aimAngle: null,
+            flashTimer: 0,
+            recoil: 0,
+            auraOffset: 0,
+            range: 165,
+            fireDelay: 0.6,
+            damage: 20,
+            upgradeCost: 40
         };
         towers.push(mockTower);
         towerPositionSet.add('0,0');
@@ -321,12 +371,24 @@ describe('Unit tests', () => {
         towers.length = 0;
         towerPositionSet.clear();
         const mockTower2 = {
-            x: 1, y: 1, worldX: 45, worldY: 45,
-            type: 'basic', level: 1, spentGold: 100,
-            cooldown: 0, activeBeam: null, heading: 0,
-            aimAngle: null, flashTimer: 0, recoil: 0,
-            auraOffset: 0, range: 165, fireDelay: 0.6,
-            damage: 20, upgradeCost: 40
+            x: 1,
+            y: 1,
+            worldX: 45,
+            worldY: 45,
+            type: 'basic',
+            level: 1,
+            spentGold: 100,
+            cooldown: 0,
+            activeBeam: null,
+            heading: 0,
+            aimAngle: null,
+            flashTimer: 0,
+            recoil: 0,
+            auraOffset: 0,
+            range: 165,
+            fireDelay: 0.6,
+            damage: 20,
+            upgradeCost: 40
         };
         towers.push(mockTower2);
         towerPositionSet.add('1,1');
@@ -431,14 +493,32 @@ describe('Unit tests', () => {
         towers.length = 0;
         const testTower = { worldX: 100, worldY: 100, range: 150 };
 
-        enemies.push({ x: 120, y: 120, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, enemyType: mockStyle, waypoint: 2 });
+        enemies.push({
+            x: 120,
+            y: 120,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 2
+        });
         const result = findTarget(testTower);
         assert.ok(result !== null, 'findTarget: 사거리 내 적 발견');
         assert.strictEqual(result.enemy.x, 120, 'findTarget: 올바른 적 반환');
         assert.strictEqual(result.index, 0, 'findTarget: 올바른 인덱스 반환');
 
         enemies.length = 0;
-        enemies.push({ x: 900, y: 900, hp: 50, maxHp: 50, reward: 10, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
+        enemies.push({
+            x: 900,
+            y: 900,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0
+        });
         const noResult = findTarget(testTower);
         assert.strictEqual(noResult, null, 'findTarget: 사거리 밖 적은 타겟 안됨');
         enemies.length = 0;
@@ -448,7 +528,16 @@ describe('Unit tests', () => {
         enemies.length = 0;
         towers.length = 0;
         game.setGold(0);
-        const killEnemy = { x: 50, y: 50, hp: 10, maxHp: 10, reward: 20, waveIndex: 1, enemyType: mockStyle, waypoint: 0 };
+        const killEnemy = {
+            x: 50,
+            y: 50,
+            hp: 10,
+            maxHp: 10,
+            reward: 20,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0
+        };
         enemies.push(killEnemy);
         const killed = damageEnemy(killEnemy, 100);
         assert.strictEqual(killed, true, 'damageEnemy: 치명적 피해 시 true 반환');
@@ -459,7 +548,16 @@ describe('Unit tests', () => {
     it('damageEnemy: no-kill', () => {
         enemies.length = 0;
         game.setGold(0);
-        const tankEnemy = { x: 60, y: 60, hp: 200, maxHp: 200, reward: 15, waveIndex: 1, enemyType: mockStyle, waypoint: 0 };
+        const tankEnemy = {
+            x: 60,
+            y: 60,
+            hp: 200,
+            maxHp: 200,
+            reward: 15,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0
+        };
         enemies.push(tankEnemy);
         const notKilled = damageEnemy(tankEnemy, 50);
         assert.strictEqual(notKilled, false, 'damageEnemy: 비치명적 피해 시 false 반환');
@@ -473,8 +571,26 @@ describe('Unit tests', () => {
         enemies.length = 0;
         towers.length = 0;
         game.setGold(0);
-        enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
-        enemies.push({ x: 500, y: 500, hp: 100, maxHp: 100, reward: 14, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 100,
+            maxHp: 100,
+            reward: 14,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0
+        });
+        enemies.push({
+            x: 500,
+            y: 500,
+            hp: 100,
+            maxHp: 100,
+            reward: 14,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0
+        });
         const mockProjectile = {
             damage: 200,
             explosionRadius: 200,
@@ -510,8 +626,10 @@ describe('Unit tests', () => {
         game.setEnemiesToSpawn(5);
         for (let i = 0; i < 20; i++) {
             const result = pickEnemyType(5);
-            assert.ok(ENEMY_TYPE_DEFINITIONS.some(t => t.id === result.id),
-                'pickEnemyType: 웨이브 5 반환값은 유효한 적 타입');
+            assert.ok(
+                ENEMY_TYPE_DEFINITIONS.some((t) => t.id === result.id),
+                'pickEnemyType: 웨이브 5 반환값은 유효한 적 타입'
+            );
         }
         game.setEnemiesToSpawn(0);
     });
@@ -521,9 +639,9 @@ describe('Unit tests', () => {
         const fullLerp = lerpAngle(0, 1.0, 1);
         assert.ok(Math.abs(fullLerp - 1.0) < 0.0001, 'lerpAngle: t=1이면 목표 각도 도달');
         const wrapResult = lerpAngle(0, -0.1, 1);
-        assert.ok(Math.abs(wrapResult - (-0.1)) < 0.0001, 'lerpAngle: 음의 방향 짧은 경로');
+        assert.ok(Math.abs(wrapResult - -0.1) < 0.0001, 'lerpAngle: 음의 방향 짧은 경로');
         const wrapResult2 = lerpAngle(0.1, Math.PI * 2 - 0.1, 1);
-        assert.ok(Math.abs(wrapResult2 - (-0.1)) < 0.0001, 'lerpAngle: 2pi 경계 wrap-around');
+        assert.ok(Math.abs(wrapResult2 - -0.1) < 0.0001, 'lerpAngle: 2pi 경계 wrap-around');
         assert.strictEqual(lerpAngle(1.5, 1.5, 0.5), 1.5, 'lerpAngle: 동일 각도면 변화 없음');
     });
 
@@ -532,9 +650,26 @@ describe('Unit tests', () => {
         game.setGold(9999);
         game.setGameOver(true);
         enemies.push({ x: 0, y: 0, hp: 1, maxHp: 1, reward: 1, waveIndex: 1, enemyType: mockStyle, waypoint: 0 });
-        towers.push({ x: 0, y: 0, worldX: 15, worldY: 15, type: 'basic', level: 1, spentGold: 35,
-            cooldown: 0, activeBeam: null, heading: 0, aimAngle: null, flashTimer: 0, recoil: 0,
-            auraOffset: 0, range: 165, fireDelay: 0.6, damage: 20, upgradeCost: 40 });
+        towers.push({
+            x: 0,
+            y: 0,
+            worldX: 15,
+            worldY: 15,
+            type: 'basic',
+            level: 1,
+            spentGold: 35,
+            cooldown: 0,
+            activeBeam: null,
+            heading: 0,
+            aimAngle: null,
+            flashTimer: 0,
+            recoil: 0,
+            auraOffset: 0,
+            range: 165,
+            fireDelay: 0.6,
+            damage: 20,
+            upgradeCost: 40
+        });
         resetGame();
         assert.strictEqual(game.gold(), 100, 'resetGame: 골드 100으로 초기화');
         assert.strictEqual(getLives(), 20, 'resetGame: 생명력 20으로 초기화');
@@ -569,8 +704,19 @@ describe('Unit tests', () => {
         const laserTower = createTowerData(5, 5, 'laser');
         towers.push(laserTower);
         towerPositionSet.add('5,5');
-        const laserEnemy = { x: laserTower.worldX + 30, y: laserTower.worldY, hp: 1000, maxHp: 1000,
-            reward: 10, waveIndex: 1, speed: 49, waypoint: 0, enemyType: mockStyle, heading: 0, pulseSeed: 0 };
+        const laserEnemy = {
+            x: laserTower.worldX + 30,
+            y: laserTower.worldY,
+            hp: 1000,
+            maxHp: 1000,
+            reward: 10,
+            waveIndex: 1,
+            speed: 49,
+            waypoint: 0,
+            enemyType: mockStyle,
+            heading: 0,
+            pulseSeed: 0
+        };
         enemies.push(laserEnemy);
         handleLaserAttack(laserTower, 0.1, laserTower.def);
         assert.ok(laserEnemy.hp < 1000, 'handleLaserAttack: dt 기반 지속 피해 적용');
@@ -586,7 +732,11 @@ describe('Unit tests', () => {
 
     it('#73: late wave balance - speed scaling', () => {
         const stats50 = getWaveEnemyStats(50);
-        assert.strictEqual(stats50.speed, Math.round(49 * (1 + Math.min(50 * 0.005, 0.5))), 'getWaveEnemyStats: 웨이브 50 속도 보정 (1.25배)');
+        assert.strictEqual(
+            stats50.speed,
+            Math.round(49 * (1 + Math.min(50 * 0.005, 0.5))),
+            'getWaveEnemyStats: 웨이브 50 속도 보정 (1.25배)'
+        );
         assert.ok(stats50.speed > 49, 'getWaveEnemyStats: 웨이브 50 속도 > 기본 속도');
         const stats200 = getWaveEnemyStats(200);
         assert.strictEqual(stats200.speed, Math.round(49 * 1.5), 'getWaveEnemyStats: 웨이브 200 속도 캡 (1.5배)');
@@ -640,10 +790,18 @@ describe('Unit tests', () => {
     it('#75: ARIA/screen reader accessibility', () => {
         const document = global.document;
         const wavePreview = document.getElementById('wave-preview');
-        assert.strictEqual(wavePreview.getAttribute('aria-live'), 'polite', '#75: wave-preview에 aria-live="polite" 추가됨');
+        assert.strictEqual(
+            wavePreview.getAttribute('aria-live'),
+            'polite',
+            '#75: wave-preview에 aria-live="polite" 추가됨'
+        );
 
         const towerList = document.getElementById('tower-list');
-        assert.strictEqual(towerList.getAttribute('role'), 'radiogroup', '#75: tower-list의 role이 radiogroup으로 변경됨');
+        assert.strictEqual(
+            towerList.getAttribute('role'),
+            'radiogroup',
+            '#75: tower-list의 role이 radiogroup으로 변경됨'
+        );
 
         const goldEl = document.getElementById('gold');
         const goldChip = goldEl.closest('.stat-chip');
@@ -652,15 +810,25 @@ describe('Unit tests', () => {
         const speedBtn = document.querySelector('.speed-button[data-speed="2"]');
         const announcer = document.getElementById('a11y-announcer');
         speedBtn.click();
-        assert.strictEqual(announcer.textContent, '', '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)');
+        assert.strictEqual(
+            announcer.textContent,
+            '',
+            '#75: 속도 버튼 클릭 시 announce가 rAF로 텍스트 설정 (동기 시점 빈 문자열)'
+        );
     });
 
     it('#80: upgrade-tower-button CSS', () => {
         const cssContent = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf-8');
         assert.ok(cssContent.includes('#upgrade-tower-button'), '#80: style.css에 #upgrade-tower-button 규칙 존재');
-        assert.ok(cssContent.includes('#upgrade-tower-button:focus-visible'), '#80: style.css에 #upgrade-tower-button:focus-visible 존재');
+        assert.ok(
+            cssContent.includes('#upgrade-tower-button:focus-visible'),
+            '#80: style.css에 #upgrade-tower-button:focus-visible 존재'
+        );
         const mainJsContent = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf-8');
-        assert.ok(!mainJsContent.includes("'tower-button'") && !mainJsContent.includes('"tower-button"'), '#80: main.js에서 tower-button 클래스 미사용');
+        assert.ok(
+            !mainJsContent.includes("'tower-button'") && !mainJsContent.includes('"tower-button"'),
+            '#80: main.js에서 tower-button 클래스 미사용'
+        );
     });
 
     it('#81: Google Fonts local conversion + CSP', () => {
@@ -676,17 +844,27 @@ describe('Unit tests', () => {
         assert.ok(fontSrcMatch, '#81: CSP에 font-src 지시어 존재');
         assert.ok(!fontSrcMatch[1].includes('https://'), '#81: CSP font-src에 외부 도메인 없음');
 
-        assert.ok(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Regular.woff2')), '#81: NotoSansKR-Regular.woff2 존재');
-        assert.ok(fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Bold.woff2')), '#81: NotoSansKR-Bold.woff2 존재');
+        assert.ok(
+            fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Regular.woff2')),
+            '#81: NotoSansKR-Regular.woff2 존재'
+        );
+        assert.ok(
+            fs.existsSync(path.join(__dirname, '..', 'fonts', 'NotoSansKR-Bold.woff2')),
+            '#81: NotoSansKR-Bold.woff2 존재'
+        );
 
         const cssContent = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf-8');
-        assert.ok(cssContent.includes("@font-face"), '#81: style.css에 @font-face 선언 존재');
-        assert.ok(cssContent.includes("NotoSansKR-Regular.woff2"), '#81: style.css에 Regular 폰트 참조');
-        assert.ok(cssContent.includes("NotoSansKR-Bold.woff2"), '#81: style.css에 Bold 폰트 참조');
+        assert.ok(cssContent.includes('@font-face'), '#81: style.css에 @font-face 선언 존재');
+        assert.ok(cssContent.includes('NotoSansKR-Regular.woff2'), '#81: style.css에 Regular 폰트 참조');
+        assert.ok(cssContent.includes('NotoSansKR-Bold.woff2'), '#81: style.css에 Bold 폰트 참조');
     });
 
     it('#77: prefersReducedMotion default', () => {
-        assert.strictEqual(game.getPrefersReducedMotion(), false, '#77: prefersReducedMotion 기본값은 false (jsdom 환경)');
+        assert.strictEqual(
+            game.getPrefersReducedMotion(),
+            false,
+            '#77: prefersReducedMotion 기본값은 false (jsdom 환경)'
+        );
     });
 
     it('update: startWave on idle', () => {
@@ -708,9 +886,17 @@ describe('Unit tests', () => {
         const waypoints = getWaypoints();
         const lastWp = waypoints[waypoints.length - 1];
         enemies.push({
-            x: lastWp.x, y: lastWp.y, hp: 100, maxHp: 100,
-            speed: 49, waypoint: waypoints.length - 1, reward: 10,
-            waveIndex: 1, heading: 0, enemyType: mockStyle, pulseSeed: 0
+            x: lastWp.x,
+            y: lastWp.y,
+            hp: 100,
+            maxHp: 100,
+            speed: 49,
+            waypoint: waypoints.length - 1,
+            reward: 10,
+            waveIndex: 1,
+            heading: 0,
+            enemyType: mockStyle,
+            pulseSeed: 0
         });
         game.setLives(5);
         game.setGameOver(false);
@@ -722,8 +908,17 @@ describe('Unit tests', () => {
     it('damageEnemyAtIndex: valid index kill', () => {
         enemies.length = 0;
         game.setGold(0);
-        enemies.push({ x: 100, y: 100, hp: 10, maxHp: 10, reward: 15,
-            waveIndex: 1, enemyType: mockStyle, waypoint: 0, heading: 0 });
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 10,
+            maxHp: 10,
+            reward: 15,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0,
+            heading: 0
+        });
         const daiKilled = damageEnemyAtIndex(0, 100);
         assert.ok(daiKilled === true, 'damageEnemyAtIndex: 처치 시 true 반환');
         assert.strictEqual(enemies.length, 0, 'damageEnemyAtIndex: 처치 시 배열에서 제거');
@@ -737,8 +932,17 @@ describe('Unit tests', () => {
 
     it('damageEnemyAtIndex: damage without kill', () => {
         enemies.length = 0;
-        enemies.push({ x: 100, y: 100, hp: 100, maxHp: 100, reward: 10,
-            waveIndex: 1, enemyType: mockStyle, waypoint: 0, heading: 0 });
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 100,
+            maxHp: 100,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 0,
+            heading: 0
+        });
         const notKilledDai = damageEnemyAtIndex(0, 30);
         assert.ok(notKilledDai === false, 'damageEnemyAtIndex: 미처치 시 false 반환');
         assert.strictEqual(enemies[0].hp, 70, 'damageEnemyAtIndex: hp 감소');
@@ -788,7 +992,7 @@ describe('Unit tests', () => {
     });
 
     it('ENEMY_TYPE_MAP consistency', () => {
-        ENEMY_TYPE_DEFINITIONS.forEach(t => {
+        ENEMY_TYPE_DEFINITIONS.forEach((t) => {
             assert.ok(ENEMY_TYPE_MAP[t.id] === t, `ENEMY_TYPE_MAP: ${t.id} 매핑 정확`);
         });
     });

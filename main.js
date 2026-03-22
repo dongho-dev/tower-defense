@@ -102,32 +102,32 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
 
 // ── Mouse event handlers ────────────────────────────────────────────────────
 
-canvas.addEventListener("mousemove", event => {
+canvas.addEventListener('mousemove', (event) => {
     const { x, y } = getCanvasCoords(event.clientX, event.clientY);
     handlePointerMove(x, y);
 });
 
-canvas.addEventListener("focus", () => {
+canvas.addEventListener('focus', () => {
     if (!kbCursor) initKbCursor();
     kbCursorActive = true;
     renderDirty = true;
 });
 
-canvas.addEventListener("blur", () => {
+canvas.addEventListener('blur', () => {
     kbCursorActive = false;
     renderDirty = true;
 });
 
-canvas.addEventListener("mouseleave", () => {
+canvas.addEventListener('mouseleave', () => {
     hoverTile = null;
 });
 
-canvas.addEventListener("click", event => {
+canvas.addEventListener('click', (event) => {
     const { x, y } = getCanvasCoords(event.clientX, event.clientY);
     handlePointerDown(x, y, false);
 });
 
-canvas.addEventListener("contextmenu", event => {
+canvas.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     const { x, y } = getCanvasCoords(event.clientX, event.clientY);
     handlePointerDown(x, y, true);
@@ -135,50 +135,68 @@ canvas.addEventListener("contextmenu", event => {
 
 // ── Touch event handlers ────────────────────────────────────────────────────
 
-canvas.addEventListener('touchstart', function(e) {
-    if (e.touches.length > 1) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    if (!touch) return;
-    const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
-    _touchStartX = touch.clientX;
-    _touchStartY = touch.clientY;
-    _longPressFired = false;
-    if (_longPressTimer) clearTimeout(_longPressTimer);
-    _longPressTimer = setTimeout(() => {
-        _longPressFired = true;
-        handlePointerDown(x, y, true);
-    }, LONG_PRESS_DURATION);
-}, { passive: false });
+canvas.addEventListener(
+    'touchstart',
+    function (e) {
+        if (e.touches.length > 1) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+        _touchStartX = touch.clientX;
+        _touchStartY = touch.clientY;
+        _longPressFired = false;
+        if (_longPressTimer) clearTimeout(_longPressTimer);
+        _longPressTimer = setTimeout(() => {
+            _longPressFired = true;
+            handlePointerDown(x, y, true);
+        }, LONG_PRESS_DURATION);
+    },
+    { passive: false }
+);
 
-canvas.addEventListener('touchmove', function(e) {
-    if (e.touches.length > 1) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    if (!touch) return;
-    const dx = touch.clientX - _touchStartX;
-    const dy = touch.clientY - _touchStartY;
-    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
-        if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
-    }
-    const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
-    handlePointerMove(x, y);
-}, { passive: false });
-
-canvas.addEventListener('touchend', function(e) {
-    if (e.touches.length > 0) return;
-    e.preventDefault();
-    if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
-    if (!_longPressFired) {
-        const touch = e.changedTouches[0];
-        if (touch) {
-            const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
-            handlePointerDown(x, y, false);
+canvas.addEventListener(
+    'touchmove',
+    function (e) {
+        if (e.touches.length > 1) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        const dx = touch.clientX - _touchStartX;
+        const dy = touch.clientY - _touchStartY;
+        if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+            if (_longPressTimer) {
+                clearTimeout(_longPressTimer);
+                _longPressTimer = null;
+            }
         }
-    }
-    _longPressFired = false;
-    hoverTile = null;
-}, { passive: false });
+        const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+        handlePointerMove(x, y);
+    },
+    { passive: false }
+);
+
+canvas.addEventListener(
+    'touchend',
+    function (e) {
+        if (e.touches.length > 0) return;
+        e.preventDefault();
+        if (_longPressTimer) {
+            clearTimeout(_longPressTimer);
+            _longPressTimer = null;
+        }
+        if (!_longPressFired) {
+            const touch = e.changedTouches[0];
+            if (touch) {
+                const { x, y } = getCanvasCoords(touch.clientX, touch.clientY);
+                handlePointerDown(x, y, false);
+            }
+        }
+        _longPressFired = false;
+        hoverTile = null;
+    },
+    { passive: false }
+);
 
 populateTowerList();
 
@@ -226,7 +244,7 @@ if (SOUND_TOGGLE) {
     });
 }
 
-SPEED_BUTTONS.forEach(button => {
+SPEED_BUTTONS.forEach((button) => {
     button.addEventListener('click', () => {
         const multiplier = Number(button.dataset.speed) || 1;
         setGameSpeed(multiplier);
@@ -245,7 +263,7 @@ if (WAVE_APPLY_BUTTON && WAVE_INPUT) {
     };
     WAVE_APPLY_BUTTON.addEventListener('click', applyWaveFromInput);
     WAVE_INPUT.addEventListener('change', applyWaveFromInput);
-    WAVE_INPUT.addEventListener('keydown', event => {
+    WAVE_INPUT.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             applyWaveFromInput();
         }
@@ -263,14 +281,14 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
         updateGoldUI();
     };
     GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
-    GOLD_INPUT.addEventListener('keydown', event => {
+    GOLD_INPUT.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             applyGold();
         }
     });
 }
 
-GOLD_ADJUST_BUTTONS.forEach(button => {
+GOLD_ADJUST_BUTTONS.forEach((button) => {
     button.addEventListener('click', () => {
         const delta = Number(button.dataset.delta) || 0;
         gold = Math.min(999999, Math.max(0, gold + delta));
@@ -319,13 +337,13 @@ if (START_GAME_BUTTON) {
 }
 
 if (DEFEAT_OVERLAY) {
-    DEFEAT_OVERLAY.addEventListener('click', event => {
+    DEFEAT_OVERLAY.addEventListener('click', (event) => {
         if (event.target === DEFEAT_OVERLAY) {
             hideDefeatDialog();
         }
     });
 
-    DEFEAT_OVERLAY.addEventListener('keydown', event => {
+    DEFEAT_OVERLAY.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             event.preventDefault();
             hideDefeatDialog();
@@ -334,7 +352,7 @@ if (DEFEAT_OVERLAY) {
         if (event.key !== 'Tab') return;
         const focusable = Array.from(
             DEFEAT_OVERLAY.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-        ).filter(el => !el.disabled);
+        ).filter((el) => !el.disabled);
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -353,7 +371,7 @@ if (DEFEAT_OVERLAY) {
 }
 
 if (MAP_SELECT_OVERLAY) {
-    MAP_SELECT_OVERLAY.addEventListener('keydown', event => {
+    MAP_SELECT_OVERLAY.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             event.preventDefault();
             // 맵 선택은 필수 단계이므로 Escape 무시
@@ -361,8 +379,10 @@ if (MAP_SELECT_OVERLAY) {
         }
         if (event.key !== 'Tab') return;
         const focusable = Array.from(
-            MAP_SELECT_OVERLAY.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-        ).filter(el => !el.disabled);
+            MAP_SELECT_OVERLAY.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            )
+        ).filter((el) => !el.disabled);
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -380,13 +400,14 @@ if (MAP_SELECT_OVERLAY) {
     });
 }
 
-document.addEventListener("keydown", event => {
+document.addEventListener('keydown', (event) => {
     const tag = event.target ? event.target.tagName : '';
     const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-    const overlayOpen = (DEFEAT_OVERLAY && !DEFEAT_OVERLAY.classList.contains('hidden'))
-        || (MAP_SELECT_OVERLAY && !MAP_SELECT_OVERLAY.classList.contains('hidden'));
+    const overlayOpen =
+        (DEFEAT_OVERLAY && !DEFEAT_OVERLAY.classList.contains('hidden')) ||
+        (MAP_SELECT_OVERLAY && !MAP_SELECT_OVERLAY.classList.contains('hidden'));
 
-    if (event.code === "Space") {
+    if (event.code === 'Space') {
         if (lives === 0 || gameOver || overlayOpen) {
             return;
         }
@@ -412,12 +433,28 @@ document.addEventListener("keydown", event => {
 
     if (!isInput && !overlayOpen) {
         switch (event.key) {
-            case 'ArrowUp':    event.preventDefault(); moveKbCursor(0, -1); return;
-            case 'ArrowDown':  event.preventDefault(); moveKbCursor(0, 1); return;
-            case 'ArrowLeft':  event.preventDefault(); moveKbCursor(-1, 0); return;
-            case 'ArrowRight': event.preventDefault(); moveKbCursor(1, 0); return;
-            case 'Enter':      event.preventDefault(); activateKbCursor(event.shiftKey); return;
-            case 's': case 'S':
+            case 'ArrowUp':
+                event.preventDefault();
+                moveKbCursor(0, -1);
+                return;
+            case 'ArrowDown':
+                event.preventDefault();
+                moveKbCursor(0, 1);
+                return;
+            case 'ArrowLeft':
+                event.preventDefault();
+                moveKbCursor(-1, 0);
+                return;
+            case 'ArrowRight':
+                event.preventDefault();
+                moveKbCursor(1, 0);
+                return;
+            case 'Enter':
+                event.preventDefault();
+                activateKbCursor(event.shiftKey);
+                return;
+            case 's':
+            case 'S':
                 if (selectedTower && !gameOver) sellTower(selectedTower);
                 return;
             case 'Escape':
@@ -436,7 +473,9 @@ let lastTime = performance.now();
 let rafHandle = 0;
 let loopErrorCount = 0;
 let renderDirty = true;
-function markRenderDirty() { renderDirty = true; }
+function markRenderDirty() {
+    renderDirty = true;
+}
 const MAX_LOOP_ERRORS = 10;
 function loop(timestamp) {
     try {
@@ -460,7 +499,11 @@ function loop(timestamp) {
             console.error('Game loop halted after repeated errors.');
             gameLoopHalted = true;
             announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
-            try { render(); } catch (renderErr) { console.error('Render error during halt:', renderErr); }
+            try {
+                render();
+            } catch (renderErr) {
+                console.error('Render error during halt:', renderErr);
+            }
             return;
         }
     }
@@ -494,10 +537,30 @@ showMapSelectOverlay();
 
 if (typeof module !== 'undefined') {
     module.exports = {
-        calculateTowerDamage, calculateUpgradeCost, getWaveEnemyCount, getWaveEnemyStats,
-        applyExplosion, sellTower, hexToRgba, applyAlpha, enemies, towers, gold: () => gold,
-        canBuildAt, findTarget, createTowerData, upgradeTower, damageEnemy, damageEnemyAtIndex,
-        pickEnemyType, pathTiles, ENEMY_TYPE_DEFINITIONS, ENEMY_TYPE_MAP, GRID_COLS, GRID_ROWS, TOWER_MAX_LEVEL,
+        calculateTowerDamage,
+        calculateUpgradeCost,
+        getWaveEnemyCount,
+        getWaveEnemyStats,
+        applyExplosion,
+        sellTower,
+        hexToRgba,
+        applyAlpha,
+        enemies,
+        towers,
+        gold: () => gold,
+        canBuildAt,
+        findTarget,
+        createTowerData,
+        upgradeTower,
+        damageEnemy,
+        damageEnemyAtIndex,
+        pickEnemyType,
+        pathTiles,
+        ENEMY_TYPE_DEFINITIONS,
+        ENEMY_TYPE_MAP,
+        GRID_COLS,
+        GRID_ROWS,
+        TOWER_MAX_LEVEL,
         projectiles,
         setGameSpeed,
         getGameSpeed: () => gameSpeed,
@@ -506,16 +569,22 @@ if (typeof module !== 'undefined') {
             gold = Math.max(0, Math.min(999999, Math.floor(v)));
         },
         getGameOver: () => gameOver,
-        setGameOver: (v) => { gameOver = v; },
+        setGameOver: (v) => {
+            gameOver = v;
+        },
         getEnemiesToSpawn: () => enemiesToSpawn,
-        setEnemiesToSpawn: (v) => { enemiesToSpawn = v; },
+        setEnemiesToSpawn: (v) => {
+            enemiesToSpawn = v;
+        },
         lerpAngle,
         resetGame,
         buildStaticLayer,
         buildMapData,
         startWave,
         handleLaserAttack,
-        initKbCursor, moveKbCursor, activateKbCursor,
+        initKbCursor,
+        moveKbCursor,
+        activateKbCursor,
         getKbCursor: () => kbCursor,
         getKbCursorActive: () => kbCursorActive,
         getWaypoints: () => waypoints,
@@ -523,8 +592,12 @@ if (typeof module !== 'undefined') {
         getLives: () => lives,
         getNextWaveTimer: () => nextWaveTimer,
         getWaveInProgress: () => waveInProgress,
-        setWaveInProgress: (v) => { waveInProgress = v; },
-        setNextWaveTimer: (v) => { nextWaveTimer = v; },
+        setWaveInProgress: (v) => {
+            waveInProgress = v;
+        },
+        setNextWaveTimer: (v) => {
+            nextWaveTimer = v;
+        },
         setWave: (v) => {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
             wave = Math.max(1, Math.min(WAVE_MAX, Math.floor(v)));
@@ -538,8 +611,9 @@ if (typeof module !== 'undefined') {
         spawnEnemy,
         handlePointerDown,
         getPaused: () => paused,
-        setPaused: (v) => { paused = !!v; },
-        getGameSpeed: () => gameSpeed,
+        setPaused: (v) => {
+            paused = !!v;
+        },
         getAdjustedPickRadius,
         getGameLoopHalted: () => gameLoopHalted,
         towerPositionSet,
