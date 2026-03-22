@@ -610,23 +610,24 @@ describe('Unit tests', () => {
     });
 
     it('pickEnemyType: wave-based type selection', () => {
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = false;
         const normalType = pickEnemyType(1);
         assert.strictEqual(normalType.id, 'normal', 'pickEnemyType: 웨이브 1은 일반 적');
         const normalType2 = pickEnemyType(2);
         assert.strictEqual(normalType2.id, 'normal', 'pickEnemyType: 웨이브 2는 일반 적');
 
-        game.setEnemiesToSpawn(1);
+        gameState.bossSpawned = false;
         const bossResult = pickEnemyType(10);
-        assert.strictEqual(bossResult.id, 'boss', 'pickEnemyType: 웨이브 10 + 마지막 적 = 보스');
+        assert.strictEqual(bossResult.id, 'boss', 'pickEnemyType: 웨이브 10 + bossSpawned=false = 보스');
+        gameState.bossSpawned = false;
         const bossResult2 = pickEnemyType(20);
-        assert.strictEqual(bossResult2.id, 'boss', 'pickEnemyType: 웨이브 20 + 마지막 적 = 보스');
+        assert.strictEqual(bossResult2.id, 'boss', 'pickEnemyType: 웨이브 20 + bossSpawned=false = 보스');
 
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = true;
         const noBoss = pickEnemyType(10);
-        assert.ok(noBoss.id !== 'boss', 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님');
+        assert.ok(noBoss.id !== 'boss', 'pickEnemyType: bossSpawned=true이면 보스 아님');
 
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = false;
         for (let i = 0; i < 20; i++) {
             const result = pickEnemyType(5);
             assert.ok(
@@ -634,7 +635,7 @@ describe('Unit tests', () => {
                 'pickEnemyType: 웨이브 5 반환값은 유효한 적 타입'
             );
         }
-        game.setEnemiesToSpawn(0);
+        gameState.bossSpawned = false;
     });
 
     it('lerpAngle: angle interpolation', () => {
@@ -1462,5 +1463,47 @@ describe('Unit tests', () => {
             threw = true;
         }
         assert.strictEqual(threw, false, '#146: 알 수 없는 shape에서도 에러 없이 renderDefault 실행');
+    });
+
+    // ── #158: bossSpawned 플래그로 보스 중복 방지 ──
+
+    it('#158: startWave에서 bossSpawned 초기화', () => {
+        gameState.bossSpawned = true;
+        game.startWave();
+        assert.strictEqual(gameState.bossSpawned, false, '#158: startWave 시 bossSpawned가 false로 초기화');
+        // 정리
+        enemies.length = 0;
+        game.setWaveInProgress(false);
+        game.setNextWaveTimer(0);
+    });
+
+    it('#158: 보스 스폰 후 중복 방지', () => {
+        enemies.length = 0;
+        game.setWave(10);
+        gameState.bossSpawned = false;
+        // 첫 스폰은 보스
+        const firstType = pickEnemyType(10);
+        assert.strictEqual(firstType.id, 'boss', '#158: bossSpawned=false면 보스 선택');
+        // 보스 스폰 시뮬레이션
+        gameState.bossSpawned = true;
+        // 두 번째 스폰은 보스가 아님
+        const secondType = pickEnemyType(10);
+        assert.ok(secondType.id !== 'boss', '#158: bossSpawned=true면 보스 중복 방지');
+        gameState.bossSpawned = false;
+        enemies.length = 0;
+    });
+
+    it('#158: spawnEnemy에서 보스 스폰 시 bossSpawned 설정', () => {
+        enemies.length = 0;
+        game.setWave(10);
+        gameState.bossSpawned = false;
+        game.setEnemiesToSpawn(5);
+        spawnEnemy();
+        // 웨이브 10 + bossSpawned=false이면 보스가 스폰되고 bossSpawned=true
+        assert.strictEqual(gameState.bossSpawned, true, '#158: 보스 스폰 후 bossSpawned=true');
+        assert.strictEqual(enemies.length, 1, '#158: 적이 1개 스폰됨');
+        assert.strictEqual(enemies[0].enemyType.id, 'boss', '#158: 스폰된 적이 보스');
+        enemies.length = 0;
+        gameState.bossSpawned = false;
     });
 });
