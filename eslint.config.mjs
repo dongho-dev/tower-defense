@@ -31,6 +31,7 @@ const gameGlobals = {
     ENEMY_TYPE_DEFINITIONS: 'readonly',
     ENEMY_TYPE_MAP: 'readonly',
     TARGET_PRIORITIES: 'readonly',
+    EventBus: 'readonly',
     gameState: 'readonly',
 
     // towers.js
