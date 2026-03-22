@@ -1,8 +1,8 @@
-const canvas = document.getElementById("game");
+const canvas = document.getElementById('game');
 if (!canvas) {
     throw new Error('Canvas element #game not found');
 }
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext('2d');
 if (!ctx) {
     throw new Error('Failed to get 2D rendering context');
 }
@@ -25,7 +25,7 @@ const TOWER_DAMAGE_GROWTH = 1.5;
 const TOWER_UPGRADE_COST_MULTIPLIER = 1.6;
 const TOWER_MAX_LEVEL = 15;
 const WAVE_MAX = 9999;
-const DEFAULT_TOWER_TYPE = "basic";
+const DEFAULT_TOWER_TYPE = 'basic';
 const AUTOCOLLAPSE_WIDTH = 1180;
 
 let prefersReducedMotion = false;
@@ -38,11 +38,57 @@ if (typeof window !== 'undefined' && window.matchMedia) {
 }
 
 const ENEMY_TYPE_DEFINITIONS = [
-    { id: 'normal',  label: '일반', hpMult: 1.0,  speedMult: 1.0, rewardMult: 1.0, body: "#d65a57", core: "#ffe6c2", outline: "#321816", thruster: "#ff9a6d", halo: "rgba(214, 90, 87, 0.55)" },
-    { id: 'armored', label: '장갑', hpMult: 3.0,  speedMult: 0.6, rewardMult: 2.0, body: "#5d7dff", core: "#d8e1ff", outline: "#19224f", thruster: "#8aa8ff", halo: "rgba(93, 125, 255, 0.55)" },
-    { id: 'fast',    label: '고속', hpMult: 0.4,  speedMult: 2.5, rewardMult: 1.5, body: "#58d6a4", core: "#d4ffe7", outline: "#12392a", thruster: "#7ef2c9", halo: "rgba(88, 214, 164, 0.55)" },
-    { id: 'boss',    label: '보스', hpMult: 12.0, speedMult: 0.7, rewardMult: 8.0, body: "#c95de9", core: "#f5d1ff", outline: "#3d1649", thruster: "#ff96f3", halo: "rgba(201, 93, 233, 0.55)" }
+    {
+        id: 'normal',
+        label: '일반',
+        hpMult: 1.0,
+        speedMult: 1.0,
+        rewardMult: 1.0,
+        body: '#d65a57',
+        core: '#ffe6c2',
+        outline: '#321816',
+        thruster: '#ff9a6d',
+        halo: 'rgba(214, 90, 87, 0.55)'
+    },
+    {
+        id: 'armored',
+        label: '장갑',
+        hpMult: 3.0,
+        speedMult: 0.6,
+        rewardMult: 2.0,
+        body: '#5d7dff',
+        core: '#d8e1ff',
+        outline: '#19224f',
+        thruster: '#8aa8ff',
+        halo: 'rgba(93, 125, 255, 0.55)'
+    },
+    {
+        id: 'fast',
+        label: '고속',
+        hpMult: 0.4,
+        speedMult: 2.5,
+        rewardMult: 1.5,
+        body: '#58d6a4',
+        core: '#d4ffe7',
+        outline: '#12392a',
+        thruster: '#7ef2c9',
+        halo: 'rgba(88, 214, 164, 0.55)'
+    },
+    {
+        id: 'boss',
+        label: '보스',
+        hpMult: 12.0,
+        speedMult: 0.7,
+        rewardMult: 8.0,
+        body: '#c95de9',
+        core: '#f5d1ff',
+        outline: '#3d1649',
+        thruster: '#ff96f3',
+        halo: 'rgba(201, 93, 233, 0.55)'
+    }
 ];
 
 const ENEMY_TYPE_MAP = {};
-ENEMY_TYPE_DEFINITIONS.forEach(t => { ENEMY_TYPE_MAP[t.id] = t; });
+ENEMY_TYPE_DEFINITIONS.forEach((t) => {
+    ENEMY_TYPE_MAP[t.id] = t;
+});

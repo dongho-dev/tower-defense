@@ -14,7 +14,9 @@ function ensureAudioContext() {
             // fall through to create new context
         } else {
             if (audioContext.state === 'suspended') {
-                audioContext.resume().catch((err) => { console.warn('AudioContext resume failed:', err); });
+                audioContext.resume().catch((err) => {
+                    console.warn('AudioContext resume failed:', err);
+                });
             }
             return audioContext;
         }
@@ -25,8 +27,8 @@ function ensureAudioContext() {
         soundMuted = true;
         if (SOUND_TOGGLE) {
             SOUND_TOGGLE.disabled = true;
-            SOUND_TOGGLE.textContent = "🔇";
-            SOUND_TOGGLE.title = "사운드를 사용할 수 없습니다";
+            SOUND_TOGGLE.textContent = '🔇';
+            SOUND_TOGGLE.title = '사운드를 사용할 수 없습니다';
         }
         return null;
     }
@@ -110,18 +112,21 @@ function playNoise(duration = 0.25, volume = 0.24) {
 
 const SOUND_LIBRARY = {
     select: () => playToneSequence([{ freq: 540, duration: 0.08, volume: 0.18 }]),
-    build: () => playToneSequence([
-        { freq: 360, duration: 0.08, volume: 0.22 },
-        { freq: 520, duration: 0.09, volume: 0.24, delay: 0.01 }
-    ]),
-    upgrade: () => playToneSequence([
-        { freq: 520, duration: 0.09, volume: 0.24 },
-        { freq: 680, duration: 0.12, volume: 0.22, type: 'triangle', delay: 0.02 }
-    ]),
-    kill: () => playToneSequence([
-        { freq: 420, duration: 0.08, volume: 0.18, type: 'square' },
-        { freq: 260, duration: 0.12, volume: 0.16, delay: 0.02 }
-    ]),
+    build: () =>
+        playToneSequence([
+            { freq: 360, duration: 0.08, volume: 0.22 },
+            { freq: 520, duration: 0.09, volume: 0.24, delay: 0.01 }
+        ]),
+    upgrade: () =>
+        playToneSequence([
+            { freq: 520, duration: 0.09, volume: 0.24 },
+            { freq: 680, duration: 0.12, volume: 0.22, type: 'triangle', delay: 0.02 }
+        ]),
+    kill: () =>
+        playToneSequence([
+            { freq: 420, duration: 0.08, volume: 0.18, type: 'square' },
+            { freq: 260, duration: 0.12, volume: 0.16, delay: 0.02 }
+        ]),
     explosion: () => {
         playNoise(0.22, 0.32);
         playToneSequence([{ freq: 180, duration: 0.12, volume: 0.2, type: 'sawtooth' }]);
