@@ -495,6 +495,18 @@ function pickEnemyType(waveNumber) {
     return ENEMY_TYPE_DEFINITIONS[0];
 }
 
+function getWaveEnemyComposition(waveNumber) {
+    if (waveNumber < 3) {
+        return [{ type: ENEMY_TYPE_DEFINITIONS[0], percent: 100 }];
+    }
+    const result = [
+        { type: ENEMY_TYPE_MAP['normal'] || ENEMY_TYPE_DEFINITIONS[0], percent: 50 },
+        { type: ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0], percent: 20 },
+        { type: ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0], percent: 30 }
+    ];
+    return result;
+}
+
 function spawnEnemy() {
     const start = waypoints[0];
     const enemyType = pickEnemyType(gameState.wave);

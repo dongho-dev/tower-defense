@@ -50,7 +50,9 @@ const WAVE_PREVIEW_PANEL = document.getElementById('wave-preview');
 const WAVE_PREVIEW_FIELDS = WAVE_PREVIEW_PANEL
     ? {
           status: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-status"]'),
+          countdown: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-countdown"]'),
           wave: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-wave"]'),
+          composition: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-composition"]'),
           remaining: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-remaining"]'),
           hp: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-hp"]'),
           speed: WAVE_PREVIEW_PANEL.querySelector('[data-field="preview-speed"]'),
@@ -304,7 +306,25 @@ function updateWavePreview(remainingOverride) {
         status = '대기';
     }
     setTextIfChanged(WAVE_PREVIEW_FIELDS.status, status);
+
+    if (WAVE_PREVIEW_FIELDS.countdown) {
+        let countdownText;
+        if (gameState.nextWaveTimer > 0 && !gameState.waveInProgress && !gameState.gameOver) {
+            countdownText = Math.ceil(gameState.nextWaveTimer) + '초';
+        } else {
+            countdownText = '-';
+        }
+        setTextIfChanged(WAVE_PREVIEW_FIELDS.countdown, countdownText);
+    }
+
     setTextIfChanged(WAVE_PREVIEW_FIELDS.wave, '' + gameState.wave);
+
+    if (WAVE_PREVIEW_FIELDS.composition) {
+        const composition = getWaveEnemyComposition(gameState.wave);
+        const compositionText = composition.map((c) => c.type.label + ' ' + c.percent + '%').join(' / ');
+        setTextIfChanged(WAVE_PREVIEW_FIELDS.composition, compositionText);
+    }
+
     setTextIfChanged(WAVE_PREVIEW_FIELDS.remaining, '' + remaining);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.hp, '' + stats.hp);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.speed, `${(stats.speed / TILE_SIZE).toFixed(2)} 타일/초`);
