@@ -56,6 +56,7 @@ const gameGlobals = {
     calculateTowerDamage: 'readonly',
     calculateUpgradeCost: 'readonly',
     recalcTowerStats: 'readonly',
+    NUMBER_FORMAT: 'readonly',
 
     // map.js
     MAP_DEFINITIONS: 'readonly',
@@ -79,7 +80,6 @@ const gameGlobals = {
     _touchStartY: 'writable',
     LONG_PRESS_DURATION: 'readonly',
     LONG_PRESS_MOVE_THRESHOLD: 'readonly',
-    NUMBER_FORMAT: 'readonly',
     GOLD_LABEL: 'readonly',
     LIVES_LABEL: 'readonly',
     WAVE_LABEL: 'readonly',
@@ -125,6 +125,7 @@ const gameGlobals = {
     populateTowerList: 'readonly',
     buildPanelCollapsed: 'writable',
     buildPanelUserOverride: 'writable',
+    resetBuildPanelOverride: 'readonly',
     setBuildPanelCollapsed: 'readonly',
     getWaveEnemyComposition: 'readonly',
     getWaveEnemyCount: 'readonly',
@@ -145,6 +146,7 @@ const gameGlobals = {
     playToneSequence: 'readonly',
     cachedNoiseBuffer: 'writable',
     cachedNoiseDuration: 'writable',
+    resetAudioCache: 'readonly',
     playNoise: 'readonly',
     SOUND_LIBRARY: 'readonly',
     updateSoundToggle: 'readonly',
