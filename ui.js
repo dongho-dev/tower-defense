@@ -90,13 +90,29 @@ const SELECTED_TOWER_INDICATOR = document.getElementById('selected-tower-indicat
 const UPGRADE_TOWER_BUTTON = document.getElementById('upgrade-tower-button');
 const SELL_TOWER_BUTTON = document.getElementById('sell-tower-button');
 
+const announceQueue = [];
+let announceProcessing = false;
+
+function processAnnounceQueue() {
+    if (announceQueue.length === 0) {
+        announceProcessing = false;
+        return;
+    }
+    announceProcessing = true;
+    const msg = announceQueue.shift();
+    A11Y_ANNOUNCER.textContent = '';
+    requestAnimationFrame(() => {
+        A11Y_ANNOUNCER.textContent = msg;
+        setTimeout(processAnnounceQueue, 100);
+    });
+}
+
 function announce(message) {
     if (!A11Y_ANNOUNCER) return;
-    A11Y_ANNOUNCER.textContent = '';
-    // Force DOM update so repeated identical messages also fire
-    requestAnimationFrame(() => {
-        A11Y_ANNOUNCER.textContent = message;
-    });
+    announceQueue.push(message);
+    if (!announceProcessing) {
+        processAnnounceQueue();
+    }
 }
 
 function updateGoldUI() {
