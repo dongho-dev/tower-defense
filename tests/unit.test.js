@@ -1758,4 +1758,138 @@ describe('Unit tests', () => {
         towerPositionSet.clear();
         projectiles.length = 0;
     });
+
+    // ── #191: utils.js 순수 함수 테스트 ──
+
+    it('#191: formatNumber 정상 정수', () => {
+        assert.strictEqual(formatNumber(0), '0', '#191: formatNumber(0) = "0"');
+        assert.strictEqual(formatNumber(42), '42', '#191: formatNumber(42) = "42"');
+        assert.strictEqual(formatNumber(-5), '-5', '#191: formatNumber(-5) = "-5"');
+        assert.strictEqual(formatNumber(999), '999', '#191: formatNumber(999) = "999"');
+    });
+
+    it('#191: formatNumber 소수', () => {
+        assert.strictEqual(formatNumber(3.14), '3.14', '#191: formatNumber(3.14) = "3.14"');
+        assert.strictEqual(formatNumber(0.5), '0.50', '#191: formatNumber(0.5) = "0.50"');
+        assert.strictEqual(formatNumber(99.999), '100.00', '#191: formatNumber(99.999) 반올림');
+    });
+
+    it('#191: formatNumber 큰 수 (1000 이상)', () => {
+        const result1000 = formatNumber(1000);
+        assert.ok(typeof result1000 === 'string', '#191: formatNumber(1000)은 문자열');
+        assert.ok(result1000.length >= 4, '#191: formatNumber(1000) 길이 >= 4');
+        const result999999 = formatNumber(999999);
+        assert.ok(typeof result999999 === 'string', '#191: formatNumber(999999)은 문자열');
+    });
+
+    it('#191: formatNumber NaN', () => {
+        assert.strictEqual(formatNumber(NaN), '-', '#191: formatNumber(NaN) = "-"');
+    });
+
+    it('#191: formatNumber Infinity', () => {
+        assert.strictEqual(formatNumber(Infinity), '-', '#191: formatNumber(Infinity) = "-"');
+        assert.strictEqual(formatNumber(-Infinity), '-', '#191: formatNumber(-Infinity) = "-"');
+    });
+
+    it('#191: getColorFromArray 정상 인덱스', () => {
+        const colors = ['#ff0000', '#00ff00', '#0000ff'];
+        assert.strictEqual(getColorFromArray(colors, 1, '#fff'), '#ff0000', '#191: level 1 → colors[0]');
+        assert.strictEqual(getColorFromArray(colors, 2, '#fff'), '#00ff00', '#191: level 2 → colors[1]');
+        assert.strictEqual(getColorFromArray(colors, 3, '#fff'), '#0000ff', '#191: level 3 → colors[2]');
+    });
+
+    it('#191: getColorFromArray 범위 초과 darken 폴백', () => {
+        const colors = ['#ff0000', '#00ff00'];
+        const result = getColorFromArray(colors, 4, '#fff');
+        assert.ok(typeof result === 'string', '#191: 범위 초과 시 문자열 반환');
+        assert.ok(result.startsWith('#'), '#191: 범위 초과 시 hex 색상 반환');
+        assert.ok(result !== '#00ff00', '#191: 범위 초과 시 마지막 색상과 다름 (darken 적용)');
+    });
+
+    it('#191: getColorFromArray 빈 배열', () => {
+        assert.strictEqual(getColorFromArray([], 1, '#fff'), '#fff', '#191: 빈 배열 시 fallback 반환');
+        assert.strictEqual(getColorFromArray(null, 1, '#abc'), '#abc', '#191: null 시 fallback 반환');
+        assert.strictEqual(getColorFromArray(undefined, 1, '#def'), '#def', '#191: undefined 시 fallback 반환');
+    });
+
+    it('#191: getTowerColor 타워 정의 기반 색상 반환', () => {
+        const basicDef = getTowerDefinition('basic');
+        const color1 = getTowerColor(basicDef, 1);
+        assert.ok(typeof color1 === 'string', '#191: getTowerColor 반환값은 문자열');
+        assert.ok(color1.startsWith('#'), '#191: getTowerColor 반환값은 hex 색상');
+        assert.strictEqual(color1, basicDef.levelColors[0], '#191: level 1은 levelColors[0]');
+        const color2 = getTowerColor(basicDef, 2);
+        assert.strictEqual(color2, basicDef.levelColors[1], '#191: level 2은 levelColors[1]');
+    });
+
+    it('#191: getProjectileColor 타워 정의 기반 색상 반환', () => {
+        const basicDef = getTowerDefinition('basic');
+        const color1 = getProjectileColor(basicDef, 1);
+        assert.ok(typeof color1 === 'string', '#191: getProjectileColor 반환값은 문자열');
+        assert.strictEqual(color1, basicDef.projectileColors[0], '#191: level 1은 projectileColors[0]');
+    });
+
+    it('#191: getTowerColor/getProjectileColor 높은 레벨 darken 폴백', () => {
+        const basicDef = getTowerDefinition('basic');
+        const highColor = getTowerColor(basicDef, 99);
+        assert.ok(typeof highColor === 'string', '#191: 높은 레벨 getTowerColor 문자열 반환');
+        assert.ok(highColor.startsWith('#'), '#191: 높은 레벨 getTowerColor hex 반환');
+        const highProjColor = getProjectileColor(basicDef, 99);
+        assert.ok(typeof highProjColor === 'string', '#191: 높은 레벨 getProjectileColor 문자열 반환');
+    });
+
+    it('#191: recalcTowerStats range 재계산', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        const def = getTowerDefinition('basic');
+        const origRange = tower.range;
+        tower.level = 5;
+        recalcTowerStats(tower);
+        const expectedRange = def.range + (def.rangeGrowth || 0) * (5 - 1);
+        assert.strictEqual(tower.range, expectedRange, '#191: recalcTowerStats range 재계산');
+        assert.ok(tower.range > origRange, '#191: 레벨 업 시 range 증가');
+    });
+
+    it('#191: recalcTowerStats fireDelay 재계산', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        const def = getTowerDefinition('basic');
+        tower.level = 5;
+        recalcTowerStats(tower);
+        const expectedFireDelay = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * (5 - 1), 0.05);
+        assert.strictEqual(tower.fireDelay, expectedFireDelay, '#191: recalcTowerStats fireDelay 재계산');
+    });
+
+    it('#191: recalcTowerStats damage 재계산', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        tower.level = 3;
+        recalcTowerStats(tower);
+        const def = getTowerDefinition('basic');
+        const expectedDmg = calculateTowerDamage(def, 3);
+        assert.strictEqual(tower.damage, expectedDmg, '#191: recalcTowerStats damage = calculateTowerDamage(def, 3)');
+    });
+
+    it('#191: recalcTowerStats upgradeCost 재계산', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        tower.level = 2;
+        recalcTowerStats(tower);
+        const def = getTowerDefinition('basic');
+        const expectedCost = calculateUpgradeCost(def, 2);
+        assert.strictEqual(tower.upgradeCost, expectedCost, '#191: recalcTowerStats upgradeCost 재계산');
+    });
+
+    it('#191: recalcTowerStats 최대 레벨 시 upgradeCost null', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        tower.level = TOWER_MAX_LEVEL;
+        recalcTowerStats(tower);
+        assert.strictEqual(tower.upgradeCost, null, '#191: 최대 레벨 시 upgradeCost는 null');
+    });
+
+    it('#191: recalcTowerStats cached 색상 업데이트', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        tower.level = 3;
+        recalcTowerStats(tower);
+        const def = getTowerDefinition('basic');
+        assert.strictEqual(tower.cachedTowerColor, getTowerColor(def, 3), '#191: cachedTowerColor 업데이트');
+        assert.strictEqual(tower.cachedProjectileColor, getProjectileColor(def, 3), '#191: cachedProjectileColor 업데이트');
+        assert.strictEqual(tower.cachedTrailColor, getProjectileColor(def, 2), '#191: cachedTrailColor는 이전 레벨 색상');
+    });
 });
