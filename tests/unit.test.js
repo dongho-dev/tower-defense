@@ -1506,4 +1506,36 @@ describe('Unit tests', () => {
         enemies.length = 0;
         gameState.bossSpawned = false;
     });
+
+    // ── #147: drawTowers aura 캐싱 ──
+
+    it('#147: _towerAuraCache가 존재하고 동작', () => {
+        assert.ok(_towerAuraCache instanceof Map, '#147: _towerAuraCache는 Map 인스턴스');
+        _towerAuraCache.clear();
+        const result1 = _getCachedAuraColor('#6296ff');
+        assert.ok(typeof result1 === 'string', '#147: _getCachedAuraColor 반환값은 문자열');
+        assert.ok(result1.includes('rgba'), '#147: _getCachedAuraColor 반환값에 rgba 포함');
+        const result2 = _getCachedAuraColor('#6296ff');
+        assert.strictEqual(result1, result2, '#147: 동일 입력에 캐시 히트');
+        assert.strictEqual(_towerAuraCache.size, 1, '#147: 캐시에 1개 항목');
+        _towerAuraCache.clear();
+    });
+
+    it('#147: drawTowers 에러 없이 실행', () => {
+        enemies.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        const t = createTowerData(2, 2, 'basic');
+        towers.push(t);
+        towerPositionSet.add('2,2');
+        let threw = false;
+        try {
+            drawTowers();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#147: drawTowers 에러 없이 실행');
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
 });
