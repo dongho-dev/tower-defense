@@ -635,7 +635,7 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
         const ratio = pellets === 1 ? 0 : i / (pellets - 1) - 0.5;
         const jitter = (Math.random() - 0.5) * 0.35;
         const angle = baseAngle + (ratio + jitter) * spread;
-        const speed = def.projectileSpeed * (0.9 + Math.random() * 0.3);
+        const speed = (def.projectileSpeed || 580) * (0.9 + Math.random() * 0.3);
         const color = getProjectileColor(def, tower.level);
         spawnProjectile({
             x: tower.worldX,
@@ -659,7 +659,7 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
 
 function attackBeam(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
-    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 25);
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 25);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -681,7 +681,7 @@ function attackBeam(tower, def, dirX, dirY, baseAngle) {
 
 function attackBurst(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
-    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 25);
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 25);
     const burstCount = def.burstCount || 3;
     const delayStep = def.burstDelay ?? 0.07;
     const color = getProjectileColor(def, tower.level);
@@ -710,7 +710,7 @@ function attackBurst(tower, def, dirX, dirY, baseAngle) {
 
 function attackExplosive(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
-    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 20);
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 20);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -738,7 +738,7 @@ function attackExplosive(tower, def, dirX, dirY, baseAngle) {
 
 function attackMortar(tower, def, dirX, dirY, baseAngle) {
     const ls = def.levelScaling || {};
-    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 12);
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 12);
     const lift = def.mortarLift + (tower.level - 1) * (ls.liftPerLevel ?? 12);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
