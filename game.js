@@ -535,6 +535,7 @@ function handleTowerFireVisuals(tower, def, angle) {
 }
 
 function attackShotgun(tower, def, dirX, dirY, baseAngle) {
+    const ls = def.levelScaling || {};
     const pellets = def.pellets || 4;
     const spread = def.spread || (Math.PI / 4);
     for (let i = 0; i < pellets; i++) {
@@ -549,14 +550,14 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             damage: tower.damage,
-            life: def.projectileLife + (tower.level - 1) * 0.05,
-            radius: def.projectileRadius + (tower.level - 1) * 0.7,
+            life: def.projectileLife + (tower.level - 1) * (ls.lifePerLevel ?? 0.05),
+            radius: def.projectileRadius + (tower.level - 1) * (ls.radiusPerLevel ?? 0.7),
             color,
             glowColor: def.glowColor || color,
             outline: '#2e2e2e',
             trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
-            trailLength: def.trailLength + (tower.level - 1) * 10,
-            hitRadius: 14 + tower.level,
+            trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 10),
+            hitRadius: (ls.hitRadiusBase ?? 14) + tower.level * (ls.hitRadiusPerLevel ?? 1),
             spin: (Math.random() - 0.5) * 6,
             shape: 'circle'
         });
@@ -564,7 +565,8 @@ function attackShotgun(tower, def, dirX, dirY, baseAngle) {
 }
 
 function attackBeam(tower, def, dirX, dirY, baseAngle) {
-    const speed = def.projectileSpeed + (tower.level - 1) * 25;
+    const ls = def.levelScaling || {};
+    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 25);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -572,20 +574,21 @@ function attackBeam(tower, def, dirX, dirY, baseAngle) {
         vx: dirX * speed,
         vy: dirY * speed,
         damage: tower.damage,
-        life: def.projectileLife + (tower.level - 1) * 0.2,
-        radius: def.beamWidth + (tower.level - 1) * 1.2,
+        life: def.projectileLife + (tower.level - 1) * (ls.lifePerLevel ?? 0.2),
+        radius: def.beamWidth + (tower.level - 1) * (ls.radiusPerLevel ?? 1.2),
         color,
         glowColor: def.glowColor || color,
         outline: '#ffffff33',
         shape: 'beam',
         trailColor: color,
-        trailLength: def.trailLength + (tower.level - 1) * 30,
-        hitRadius: 24 + tower.level * 1.5
+        trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 30),
+        hitRadius: (ls.hitRadiusBase ?? 24) + tower.level * (ls.hitRadiusPerLevel ?? 1.5)
     });
 }
 
 function attackBurst(tower, def, dirX, dirY, baseAngle) {
-    const speed = def.projectileSpeed + (tower.level - 1) * 25;
+    const ls = def.levelScaling || {};
+    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 25);
     const burstCount = def.burstCount || 3;
     const delayStep = def.burstDelay ?? 0.07;
     const color = getProjectileColor(def, tower.level);
@@ -597,23 +600,24 @@ function attackBurst(tower, def, dirX, dirY, baseAngle) {
             vx: dirX * speed,
             vy: dirY * speed,
             damage: tower.damage,
-            life: def.projectileLife + (tower.level - 1) * 0.08 + delay,
-            radius: def.projectileRadius + (tower.level - 1) * 0.5,
+            life: def.projectileLife + (tower.level - 1) * (ls.lifePerLevel ?? 0.08) + delay,
+            radius: def.projectileRadius + (tower.level - 1) * (ls.radiusPerLevel ?? 0.5),
             color,
             glowColor: def.glowColor || color,
             outline: '#351a05',
             shape: 'triangle',
             trailColor: '#fffbf2',
-            trailLength: def.trailLength + (tower.level - 1) * 12,
+            trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 12),
             delay,
             spin: 6,
-            hitRadius: 18 + tower.level * 1.4
+            hitRadius: (ls.hitRadiusBase ?? 18) + tower.level * (ls.hitRadiusPerLevel ?? 1.4)
         });
     }
 }
 
 function attackExplosive(tower, def, dirX, dirY, baseAngle) {
-    const speed = def.projectileSpeed + (tower.level - 1) * 20;
+    const ls = def.levelScaling || {};
+    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 20);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -621,27 +625,28 @@ function attackExplosive(tower, def, dirX, dirY, baseAngle) {
         vx: dirX * speed,
         vy: dirY * speed,
         damage: tower.damage,
-        life: def.projectileLife + (tower.level - 1) * 0.12,
-        radius: def.projectileRadius + (tower.level - 1) * 0.6,
+        life: def.projectileLife + (tower.level - 1) * (ls.lifePerLevel ?? 0.12),
+        radius: def.projectileRadius + (tower.level - 1) * (ls.radiusPerLevel ?? 0.6),
         color,
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: 'hex',
         trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
-        trailLength: def.trailLength + (tower.level - 1) * 15,
-        explosionRadius: def.explosionRadius + tower.level * 4,
+        trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 15),
+        explosionRadius: def.explosionRadius + tower.level * (ls.explosionRadiusPerLevel ?? 4),
         explosionColor: def.explosionColor,
         explosionHaloColor: def.explosionHaloColor,
         explosionStrokeColor: def.explosionStrokeColor,
         explosionLife: def.explosionLife,
-        hitRadius: 22 + tower.level * 1.5,
+        hitRadius: (ls.hitRadiusBase ?? 22) + tower.level * (ls.hitRadiusPerLevel ?? 1.5),
         detonateOnExpire: true
     });
 }
 
 function attackMortar(tower, def, dirX, dirY, baseAngle) {
-    const speed = def.projectileSpeed + (tower.level - 1) * 12;
-    const lift = def.mortarLift + (tower.level - 1) * 12;
+    const ls = def.levelScaling || {};
+    const speed = def.projectileSpeed + (tower.level - 1) * (ls.speedPerLevel ?? 12);
+    const lift = def.mortarLift + (tower.level - 1) * (ls.liftPerLevel ?? 12);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -649,27 +654,28 @@ function attackMortar(tower, def, dirX, dirY, baseAngle) {
         vx: dirX * speed,
         vy: dirY * speed - lift,
         damage: tower.damage,
-        life: def.projectileLife + (tower.level - 1) * 0.18,
-        radius: def.projectileRadius + (tower.level - 1) * 1.2,
+        life: def.projectileLife + (tower.level - 1) * (ls.lifePerLevel ?? 0.18),
+        radius: def.projectileRadius + (tower.level - 1) * (ls.radiusPerLevel ?? 1.2),
         color,
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: 'orb',
         trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
-        trailLength: def.trailLength + (tower.level - 1) * 14,
+        trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 14),
         gravity: def.gravity,
-        explosionRadius: def.explosionRadius + tower.level * 5,
+        explosionRadius: def.explosionRadius + tower.level * (ls.explosionRadiusPerLevel ?? 5),
         explosionColor: def.explosionColor,
         explosionHaloColor: def.explosionHaloColor,
         explosionStrokeColor: def.explosionStrokeColor,
         explosionLife: def.explosionLife,
-        hitRadius: 26 + tower.level * 2,
+        hitRadius: (ls.hitRadiusBase ?? 26) + tower.level * (ls.hitRadiusPerLevel ?? 2),
         detonateOnExpire: true
     });
 }
 
 function attackDefault(tower, def, dirX, dirY, baseAngle) {
-    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * 20;
+    const ls = def.levelScaling || {};
+    const speed = (def.projectileSpeed || 580) + (tower.level - 1) * (ls.speedPerLevel ?? 20);
     const color = getProjectileColor(def, tower.level);
     spawnProjectile({
         x: tower.worldX,
@@ -677,15 +683,15 @@ function attackDefault(tower, def, dirX, dirY, baseAngle) {
         vx: dirX * speed,
         vy: dirY * speed,
         damage: tower.damage,
-        life: (def.projectileLife || 0.8) + (tower.level - 1) * 0.06,
-        radius: (def.projectileRadius || 6) + (tower.level - 1) * 0.4,
+        life: (def.projectileLife || 0.8) + (tower.level - 1) * (ls.lifePerLevel ?? 0.06),
+        radius: (def.projectileRadius || 6) + (tower.level - 1) * (ls.radiusPerLevel ?? 0.4),
         color,
         glowColor: def.glowColor || color,
         outline: def.outline,
         shape: def.shape === 'triangle' ? 'triangle' : 'circle',
         trailColor: getProjectileColor(def, Math.max(1, tower.level - 1)),
-        trailLength: def.trailLength + (tower.level - 1) * 12,
-        hitRadius: 16 + tower.level * 1.2
+        trailLength: def.trailLength + (tower.level - 1) * (ls.trailPerLevel ?? 12),
+        hitRadius: (ls.hitRadiusBase ?? 16) + tower.level * (ls.hitRadiusPerLevel ?? 1.2)
     });
 }
 

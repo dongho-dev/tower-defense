@@ -128,8 +128,8 @@ function calculateUpgradeCost(definition, level) {
 
 function recalcTowerStats(tower) {
     const def = getTowerDefinition(tower.type);
-    tower.range = def.range;
-    tower.fireDelay = def.fireDelay;
+    tower.range = def.range + (def.rangeGrowth || 0) * (tower.level - 1);
+    tower.fireDelay = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * (tower.level - 1), 0.05);
     tower.damage = calculateTowerDamage(def, tower.level);
     tower.upgradeCost = tower.level >= TOWER_MAX_LEVEL ? null : calculateUpgradeCost(def, tower.level);
 }
