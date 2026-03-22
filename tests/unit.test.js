@@ -16,6 +16,7 @@ describe('Unit tests', () => {
     let getAdjustedPickRadius, getGameLoopHalted, towerPositionSet;
     let getRenderDirty, initKbCursor, moveKbCursor, activateKbCursor;
     let getKbCursor, getKbCursorActive, ENEMY_TYPE_MAP;
+    // #182: renderer globals are loaded via vm.runInThisContext into global scope
     const mockStyle = { body: '#fff', core: '#fff', outline: '#000', halo: 'rgba(255,255,255,0.5)' };
 
     before(() => {
@@ -1504,5 +1505,257 @@ describe('Unit tests', () => {
         const src = fs.readFileSync(path.join(__dirname, '..', 'renderer.js'), 'utf-8');
         assert.ok(src.includes('prefersReducedMotion ? 0.5'), '#192: renderer.js에 prefersReducedMotion 분기 존재');
         assert.ok(src.includes('pulseSeed'), '#192: renderer.js에 pulseSeed 사용');
+    });
+
+    // ── #182: 렌더러 함수 크래시 방지 테스트 ──
+
+    it('#182: drawEnemies 빈 배열에서 에러 없이 실행', () => {
+        enemies.length = 0;
+        let threw = false;
+        try {
+            drawEnemies();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawEnemies 빈 배열 시 크래시 없음');
+    });
+
+    it('#182: drawEnemies 최소 객체로 에러 없이 실행', () => {
+        enemies.length = 0;
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 50,
+            maxHp: 50,
+            heading: 0,
+            pulseSeed: 0,
+            enemyType: mockStyle
+        });
+        let threw = false;
+        try {
+            drawEnemies();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawEnemies 최소 객체 시 크래시 없음');
+        enemies.length = 0;
+    });
+
+    it('#182: drawProjectiles 빈 배열에서 에러 없이 실행', () => {
+        projectiles.length = 0;
+        let threw = false;
+        try {
+            drawProjectiles();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawProjectiles 빈 배열 시 크래시 없음');
+    });
+
+    it('#182: drawProjectiles 최소 객체로 에러 없이 실행', () => {
+        projectiles.length = 0;
+        projectiles.push({
+            x: 100,
+            y: 100,
+            vx: 1,
+            vy: 0,
+            speed: 500,
+            damage: 10,
+            life: 1,
+            initialLife: 1,
+            delay: 0,
+            radius: 4,
+            color: '#fff',
+            shape: 'circle',
+            trailLength: 0
+        });
+        let threw = false;
+        try {
+            drawProjectiles();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawProjectiles 최소 객체 시 크래시 없음');
+        projectiles.length = 0;
+    });
+
+    it('#182: drawImpactEffects 빈 배열에서 에러 없이 실행', () => {
+        impactEffects.length = 0;
+        let threw = false;
+        try {
+            drawImpactEffects();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawImpactEffects 빈 배열 시 크래시 없음');
+    });
+
+    it('#182: drawImpactEffects 최소 객체로 에러 없이 실행', () => {
+        impactEffects.length = 0;
+        impactEffects.push({
+            x: 100,
+            y: 100,
+            radius: 20,
+            life: 0.5,
+            initialLife: 1,
+            color: '#ff0000',
+            halo: '#ff6600',
+            pulse: false
+        });
+        let threw = false;
+        try {
+            drawImpactEffects();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawImpactEffects 최소 객체 시 크래시 없음');
+        impactEffects.length = 0;
+    });
+
+    it('#182: drawMuzzleFlashes 빈 배열에서 에러 없이 실행', () => {
+        muzzleFlashes.length = 0;
+        let threw = false;
+        try {
+            drawMuzzleFlashes();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawMuzzleFlashes 빈 배열 시 크래시 없음');
+    });
+
+    it('#182: drawMuzzleFlashes 최소 객체로 에러 없이 실행', () => {
+        muzzleFlashes.length = 0;
+        muzzleFlashes.push({
+            x: 100,
+            y: 100,
+            radius: 8,
+            life: 0.3,
+            initialLife: 0.3,
+            color: '#fde7a2',
+            angle: 0
+        });
+        let threw = false;
+        try {
+            drawMuzzleFlashes();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawMuzzleFlashes 최소 객체 시 크래시 없음');
+        muzzleFlashes.length = 0;
+    });
+
+    it('#182: drawLaserBeams 빈 towers에서 에러 없이 실행', () => {
+        towers.length = 0;
+        let threw = false;
+        try {
+            drawLaserBeams();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawLaserBeams 빈 towers 시 크래시 없음');
+    });
+
+    it('#182: drawLaserBeams activeBeam이 있는 타워로 에러 없이 실행', () => {
+        towers.length = 0;
+        towers.push({
+            x: 3, y: 3, worldX: 100, worldY: 100,
+            activeBeam: {
+                x1: 100, y1: 100, x2: 200, y2: 200,
+                alpha: 0.8, color: '#00ff00', glow: '#66ff66', width: 6
+            }
+        });
+        let threw = false;
+        try {
+            drawLaserBeams();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawLaserBeams activeBeam 시 크래시 없음');
+        towers.length = 0;
+    });
+
+    it('#182: drawProjectileTrail 에러 없이 실행', () => {
+        const mockProjectile = {
+            x: 100, y: 100, vx: 1, vy: 0,
+            speed: 500, trailLength: 30,
+            color: '#fff', trailColor: '#aaa', radius: 4
+        };
+        let threw = false;
+        try {
+            drawProjectileTrail(mockProjectile);
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawProjectileTrail 에러 없이 실행');
+    });
+
+    it('#182: drawProjectileTrail trailLength=0이면 조기 반환', () => {
+        const noTrail = { x: 50, y: 50, vx: 1, vy: 0, speed: 100, trailLength: 0 };
+        let threw = false;
+        try {
+            drawProjectileTrail(noTrail);
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#182: drawProjectileTrail trailLength=0 시 크래시 없음');
+    });
+
+    it('#182: render 에러 없이 실행', () => {
+        enemies.length = 0;
+        towers.length = 0;
+        projectiles.length = 0;
+        impactEffects.length = 0;
+        muzzleFlashes.length = 0;
+        // 이전 테스트에서 남은 상태 정리
+        kbCursorActive = false;
+        gameState.hoverTile = null;
+        gameState.paused = false;
+        gameState.gameLoopHalted = false;
+        buildStaticLayer();
+        let renderError = null;
+        try {
+            render();
+        } catch (e) {
+            renderError = e;
+        }
+        assert.strictEqual(renderError, null, '#182: render 빈 상태에서 크래시 없음');
+    });
+
+    it('#182: render 적·타워·투사체 조합으로 에러 없이 실행', () => {
+        enemies.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        projectiles.length = 0;
+        impactEffects.length = 0;
+        muzzleFlashes.length = 0;
+        kbCursorActive = false;
+        gameState.hoverTile = null;
+        gameState.paused = false;
+        gameState.gameLoopHalted = false;
+        buildStaticLayer();
+        enemies.push({
+            x: 100, y: 100, hp: 50, maxHp: 50,
+            heading: 0, pulseSeed: 0, enemyType: mockStyle,
+            speed: 49, waypoint: 0, reward: 10, waveIndex: 1
+        });
+        const t = createTowerData(2, 2, 'basic');
+        towers.push(t);
+        towerPositionSet.add('2,2');
+        projectiles.push({
+            x: 80, y: 80, vx: 1, vy: 0, speed: 500,
+            damage: 10, life: 1, initialLife: 1, delay: 0,
+            radius: 4, color: '#fff', shape: 'circle', trailLength: 0
+        });
+        let renderError = null;
+        try {
+            render();
+        } catch (e) {
+            renderError = e;
+        }
+        assert.strictEqual(renderError, null, '#182: render 복합 상태에서 크래시 없음');
+        enemies.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        projectiles.length = 0;
     });
 });
