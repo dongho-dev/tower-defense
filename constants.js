@@ -157,5 +157,8 @@ const gameState = {
     selectedEnemy: null,
     selectedTowerType: DEFAULT_TOWER_TYPE,
     hoverTile: null,
-    buildFailFlash: null
+    buildFailFlash: null,
+    totalKills: 0,
+    totalGoldSpent: 0,
+    towersBuilt: 0
 };

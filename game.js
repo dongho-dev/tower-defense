@@ -63,6 +63,7 @@ function damageEnemyAtIndex(index, amount) {
             hideEnemyStats();
         }
         enemies.splice(index, 1);
+        gameState.totalKills++;
         gameState.gold = Math.min(999999, gameState.gold + enemy.reward);
         EventBus.emit('gold:changed');
         playSound('kill');
@@ -201,6 +202,7 @@ function upgradeTower(tower) {
         return false;
     }
     gameState.gold -= cost;
+    gameState.totalGoldSpent += cost;
     tower.spentGold = (tower.spentGold ?? 0) + cost;
     EventBus.emit('gold:changed');
     tower.level += 1;
@@ -256,6 +258,14 @@ function showDefeatDialog() {
     setGameSpeed(1);
     if (DEFEAT_OVERLAY) {
         _defeatPreviousFocus = document.activeElement;
+        var statWave = document.getElementById('stat-wave');
+        var statKills = document.getElementById('stat-kills');
+        var statTowers = document.getElementById('stat-towers');
+        var statGoldSpent = document.getElementById('stat-gold-spent');
+        if (statWave) statWave.textContent = gameState.wave;
+        if (statKills) statKills.textContent = gameState.totalKills;
+        if (statTowers) statTowers.textContent = gameState.towersBuilt;
+        if (statGoldSpent) statGoldSpent.textContent = formatNumber(gameState.totalGoldSpent);
         DEFEAT_OVERLAY.classList.remove('hidden');
         if (RETRY_BUTTON) {
             RETRY_BUTTON.focus();
@@ -406,6 +416,9 @@ function resetGame() {
     gameState.paused = false;
     gameState.hoverTile = null;
     gameState.buildFailFlash = null;
+    gameState.totalKills = 0;
+    gameState.totalGoldSpent = 0;
+    gameState.towersBuilt = 0;
     hideAllStats();
     towers.length = 0;
     towerPositionSet.clear();
