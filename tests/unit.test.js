@@ -1044,4 +1044,46 @@ describe('Unit tests', () => {
         resetGame();
         assert.strictEqual(gameState.buildFailFlash, null, '#153: resetGame 후 buildFailFlash가 null');
     });
+
+    it('#155: darkenHex 정상 입력', () => {
+        const result = darkenHex('#ff8800', 0.5);
+        assert.strictEqual(result, '#804400', '#155: #ff8800 * 0.5 = #804400');
+    });
+
+    it('#155: darkenHex factor 0', () => {
+        const result = darkenHex('#ff8800', 0);
+        assert.strictEqual(result, '#000000', '#155: factor 0이면 #000000');
+    });
+
+    it('#155: darkenHex factor > 1', () => {
+        const result = darkenHex('#808080', 2);
+        assert.strictEqual(typeof result, 'string', '#155: factor > 1도 문자열 반환');
+        assert.ok(result.match(/^#[0-9a-f]{6}$/), '#155: factor > 1 결과도 유효한 hex');
+        // 0x80 * 2 = 256 -> clamped to 255
+        assert.strictEqual(result, '#ffffff', '#155: 클램프로 255 초과 방지');
+    });
+
+    it('#155: darkenHex non-hex 입력', () => {
+        assert.strictEqual(darkenHex('not-a-color', 0.5), '#000000', '#155: 비정상 문자열은 #000000');
+    });
+
+    it('#155: darkenHex null 입력', () => {
+        assert.strictEqual(darkenHex(null, 0.5), '#000000', '#155: null은 #000000');
+    });
+
+    it('#155: darkenHex 빈 문자열', () => {
+        assert.strictEqual(darkenHex('', 0.5), '#000000', '#155: 빈 문자열은 #000000');
+    });
+
+    it('#155: darkenHex 3자리 hex', () => {
+        const result = darkenHex('#f80', 0.5);
+        assert.ok(result.match(/^#[0-9a-f]{6}$/), '#155: 3자리 hex도 6자리 결과');
+        // #f80 -> #ff8800 * 0.5 = #804400
+        assert.strictEqual(result, '#804400', '#155: 3자리 hex 확장 후 계산');
+    });
+
+    it('#155: darkenHex 결과 형식 검증', () => {
+        const result = darkenHex('#abcdef', 0.8);
+        assert.ok(result.match(/^#[0-9a-f]{6}$/), '#155: 결과는 항상 #xxxxxx 형식');
+    });
 });
