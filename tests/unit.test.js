@@ -1086,4 +1086,34 @@ describe('Unit tests', () => {
         const result = darkenHex('#abcdef', 0.8);
         assert.ok(result.match(/^#[0-9a-f]{6}$/), '#155: 결과는 항상 #xxxxxx 형식');
     });
+
+    it('#156: selectedTower stale 참조 가드', () => {
+        enemies.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        const staleTower = {
+            x: 1,
+            y: 1,
+            worldX: 45,
+            worldY: 45,
+            type: 'basic',
+            level: 1,
+            spentGold: 100,
+            cooldown: 0,
+            activeBeam: null,
+            heading: 0,
+            aimAngle: null,
+            flashTimer: 0,
+            recoil: 0,
+            auraOffset: 0,
+            range: 165,
+            fireDelay: 0.6,
+            damage: 20,
+            upgradeCost: 40
+        };
+        // selectedTower를 설정하지만 towers 배열에는 넣지 않음 (stale 참조)
+        gameState.selectedTower = staleTower;
+        updateTowerStatsFields();
+        assert.strictEqual(gameState.selectedTower, null, '#156: stale tower 참조 시 selectedTower가 null로 초기화');
+    });
 });
