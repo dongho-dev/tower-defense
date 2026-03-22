@@ -6,7 +6,7 @@
                         "doc":  "docs"
                     },
     "scripts":  {
-                    "test":  "node tests/smoke.test.js && node tests/unit.test.js"
+                    "test":  "node --test tests/smoke.test.js tests/unit.test.js"
                 },
     "keywords":  [
 
