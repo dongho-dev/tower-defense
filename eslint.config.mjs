@@ -27,6 +27,7 @@ const gameGlobals = {
     prefersReducedMotion: 'writable',
     ENEMY_TYPE_DEFINITIONS: 'readonly',
     ENEMY_TYPE_MAP: 'readonly',
+    TARGET_PRIORITIES: 'readonly',
     gameState: 'readonly',
 
     // towers.js
@@ -105,6 +106,7 @@ const gameGlobals = {
     SELECTED_TOWER_INDICATOR: 'readonly',
     UPGRADE_TOWER_BUTTON: 'readonly',
     SELL_TOWER_BUTTON: 'readonly',
+    TARGET_PRIORITY_SELECT: 'readonly',
     announceQueue: 'readonly',
     announceProcessing: 'writable',
     processAnnounceQueue: 'readonly',

@@ -93,6 +93,14 @@ ENEMY_TYPE_DEFINITIONS.forEach((t) => {
     ENEMY_TYPE_MAP[t.id] = t;
 });
 
+const TARGET_PRIORITIES = [
+    { key: 'first', label: '선두' },
+    { key: 'last', label: '후미' },
+    { key: 'strongest', label: '강한 적' },
+    { key: 'weakest', label: '약한 적' },
+    { key: 'closest', label: '가까운 적' }
+];
+
 const gameState = {
     gold: 100,
     lives: 20,
