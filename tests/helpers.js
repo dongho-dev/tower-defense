@@ -136,6 +136,8 @@ function setupDom() {
         'map.js',
         'ui.js',
         'audio.js',
+        'combat.js',
+        'overlay.js',
         'game.js',
         'renderer.js',
         'main.js'
