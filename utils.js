@@ -16,9 +16,22 @@ function getTowerDefinition(id) {
 }
 
 function darkenHex(hex, factor) {
-    const r = Math.round(parseInt(hex.slice(1, 3), 16) * factor);
-    const g = Math.round(parseInt(hex.slice(3, 5), 16) * factor);
-    const b = Math.round(parseInt(hex.slice(5, 7), 16) * factor);
+    if (typeof hex !== 'string' || !hex.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)) {
+        return '#000000';
+    }
+    if (typeof factor !== 'number' || !Number.isFinite(factor)) {
+        return '#000000';
+    }
+    var sanitized = hex.slice(1);
+    if (sanitized.length === 3) {
+        sanitized = sanitized[0] + sanitized[0] + sanitized[1] + sanitized[1] + sanitized[2] + sanitized[2];
+    }
+    var r = Math.min(255, Math.max(0, Math.round(parseInt(sanitized.slice(0, 2), 16) * factor)));
+    var g = Math.min(255, Math.max(0, Math.round(parseInt(sanitized.slice(2, 4), 16) * factor)));
+    var b = Math.min(255, Math.max(0, Math.round(parseInt(sanitized.slice(4, 6), 16) * factor)));
+    if (isNaN(r)) r = 0;
+    if (isNaN(g)) g = 0;
+    if (isNaN(b)) b = 0;
     return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 

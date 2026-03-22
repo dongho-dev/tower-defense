@@ -130,9 +130,14 @@ const EventBus = {
     },
     emit: function (event, data) {
         if (!this._listeners[event]) return;
-        this._listeners[event].forEach(function (fn) {
-            fn(data);
-        });
+        var snapshot = this._listeners[event].slice();
+        for (var i = 0; i < snapshot.length; i++) {
+            try {
+                snapshot[i](data);
+            } catch (e) {
+                console.warn('EventBus listener error on "' + event + '":', e);
+            }
+        }
     }
 };
 

@@ -41,6 +41,13 @@ function ensureAudioContext() {
         return audioContext;
     } catch (e) {
         console.warn('AudioContext 생성 실패:', e.message);
+        if (audioContext) {
+            try {
+                audioContext.close();
+            } catch (_) {
+                /* ignore */
+            }
+        }
         audioContext = null;
         masterGain = null;
         return null;
@@ -76,6 +83,10 @@ function playToneSequence(steps) {
         gain.connect(masterGain);
         osc.start(current);
         osc.stop(current + duration + 0.06);
+        osc.onended = function () {
+            osc.disconnect();
+            gain.disconnect();
+        };
         current += duration;
     }
 }
@@ -108,6 +119,10 @@ function playNoise(duration = 0.25, volume = 0.24) {
     gain.connect(masterGain);
     source.start(now);
     source.stop(now + duration + 0.06);
+    source.onended = function () {
+        source.disconnect();
+        gain.disconnect();
+    };
 }
 
 const SOUND_LIBRARY = {
