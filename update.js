@@ -213,8 +213,16 @@ function update(dt) {
     if (gameState.selectedTower) {
         EventBus.emit('tower:selected');
     }
-    EventBus.emit(
-        'wave:changed',
-        gameState.waveInProgress ? { remaining: gameState.enemiesToSpawn + enemies.length } : null
-    );
+    const currentRemaining = gameState.waveInProgress ? gameState.enemiesToSpawn + enemies.length : -1;
+    if (currentRemaining !== _prevWaveRemaining) {
+        _prevWaveRemaining = currentRemaining;
+        if (currentRemaining >= 0) {
+            _wavePayload.remaining = currentRemaining;
+            EventBus.emit('wave:changed', _wavePayload);
+        } else {
+            EventBus.emit('wave:changed', null);
+        }
+    }
 }
+const _wavePayload = { remaining: 0 };
+let _prevWaveRemaining = -1;

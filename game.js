@@ -295,14 +295,26 @@ function pickEnemyType(waveNumber) {
     return eligible[eligible.length - 1];
 }
 
+let _compositionCacheWave = -1;
+let _compositionCacheResult = null;
+
 function getWaveEnemyComposition(waveNumber) {
+    if (waveNumber === _compositionCacheWave && _compositionCacheResult !== null) {
+        return _compositionCacheResult;
+    }
     const eligible = ENEMY_TYPE_DEFINITIONS.filter((t) => !t.bossOnly && waveNumber >= t.minWave);
     const totalWeight = eligible.reduce((sum, t) => sum + t.spawnWeight, 0);
-    if (totalWeight <= 0) return [{ type: ENEMY_TYPE_DEFINITIONS[0], percent: 100 }];
-    return eligible.map((t) => ({
+    if (totalWeight <= 0) {
+        _compositionCacheWave = waveNumber;
+        _compositionCacheResult = [{ type: ENEMY_TYPE_DEFINITIONS[0], percent: 100 }];
+        return _compositionCacheResult;
+    }
+    _compositionCacheWave = waveNumber;
+    _compositionCacheResult = eligible.map((t) => ({
         type: t,
         percent: Math.round((t.spawnWeight / totalWeight) * 100)
     }));
+    return _compositionCacheResult;
 }
 
 function spawnEnemy() {

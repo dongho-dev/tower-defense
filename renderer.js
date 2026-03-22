@@ -598,11 +598,7 @@ function drawTowers() {
             ctx.restore();
         }
 
-        ctx.save();
-        ctx.shadowColor = applyAlpha(glowColor, 0.6 + (tower.flashTimer || 0) * 0.9);
-        ctx.shadowBlur = 0;
         drawTowerShape(tower, color, def.outline, now, def);
-        ctx.restore();
     }
     ctx.restore();
 }
@@ -645,8 +641,6 @@ function drawEnemies() {
 
         ctx.strokeStyle = style.outline || '#1b1f24';
         ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.ellipse(enemy.x, enemy.y, size * 1.05, size * (0.85 + pulse * 0.05), heading, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.fillStyle = applyAlpha(style.core, 0.8 + pulse * 0.15);
@@ -717,22 +711,33 @@ function drawImpactEffects() {
 
 function drawLaserBeams() {
     ctx.save();
+    ctx.lineCap = 'round';
+
+    // Glow pass – shadowBlur on
     for (const tower of towers) {
         const beam = tower.activeBeam;
         if (!beam || beam.alpha <= 0) {
             continue;
         }
+        const glowCol = beam.glow || beam.color;
         ctx.globalAlpha = Math.min(1, beam.alpha);
-        ctx.strokeStyle = beam.glow || beam.color;
+        ctx.strokeStyle = glowCol;
         ctx.lineWidth = (beam.width || 6) * 1.8;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = beam.glow || beam.color;
+        ctx.shadowColor = glowCol;
         ctx.shadowBlur = (beam.width || 6) * 1.5;
         ctx.beginPath();
         ctx.moveTo(beam.x1, beam.y1);
         ctx.lineTo(beam.x2, beam.y2);
         ctx.stroke();
-        ctx.shadowBlur = 0;
+    }
+
+    // Core pass – shadowBlur off
+    ctx.shadowBlur = 0;
+    for (const tower of towers) {
+        const beam = tower.activeBeam;
+        if (!beam || beam.alpha <= 0) {
+            continue;
+        }
         ctx.globalAlpha = Math.min(1, beam.alpha * 0.8);
         ctx.strokeStyle = beam.color;
         ctx.lineWidth = beam.width || 6;
@@ -741,6 +746,7 @@ function drawLaserBeams() {
         ctx.lineTo(beam.x2, beam.y2);
         ctx.stroke();
     }
+
     ctx.restore();
 }
 

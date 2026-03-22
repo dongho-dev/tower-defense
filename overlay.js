@@ -148,6 +148,7 @@ function populateMapList() {
 
         card.setAttribute('role', 'radio');
         card.setAttribute('aria-checked', String(mapDef.id === activeMapId));
+        card.setAttribute('tabindex', mapDef.id === activeMapId ? '0' : '-1');
         card.append(nameEl, previewCanvas, diffEl, paramsEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
@@ -155,11 +156,39 @@ function populateMapList() {
                 const isSelected = c.dataset.mapId === activeMapId;
                 c.classList.toggle('selected', isSelected);
                 c.setAttribute('aria-checked', String(isSelected));
+                c.setAttribute('tabindex', isSelected ? '0' : '-1');
             });
         });
         MAP_LIST_CONTAINER.appendChild(card);
         cards.push(card);
     }
+
+    MAP_LIST_CONTAINER.addEventListener('keydown', (event) => {
+        if (cards.length === 0) return;
+        const currentIndex = cards.indexOf(document.activeElement);
+        if (currentIndex === -1) return;
+
+        let nextIndex = -1;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            nextIndex = (currentIndex + 1) % cards.length;
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+            event.preventDefault();
+            nextIndex = (currentIndex - 1 + cards.length) % cards.length;
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            nextIndex = 0;
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            nextIndex = cards.length - 1;
+        }
+
+        if (nextIndex !== -1) {
+            cards[currentIndex].setAttribute('tabindex', '-1');
+            cards[nextIndex].setAttribute('tabindex', '0');
+            cards[nextIndex].focus();
+        }
+    });
 }
 
 function resetGame() {
