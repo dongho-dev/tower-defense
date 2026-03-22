@@ -31,9 +31,9 @@ function handlePointerMove(canvasX, canvasY) {
     if (tileX >= 0 && tileX < GRID_COLS && tileY >= 0 && tileY < GRID_ROWS) {
         _hoverTileObj.x = tileX;
         _hoverTileObj.y = tileY;
-        hoverTile = _hoverTileObj;
+        gameState.hoverTile = _hoverTileObj;
     } else {
-        hoverTile = null;
+        gameState.hoverTile = null;
     }
     renderDirty = true;
 }
@@ -45,7 +45,7 @@ function handlePointerMove(canvasX, canvasY) {
  * @param {boolean} isRightClick - true for secondary action (upgrade), false for primary (build/select)
  */
 function handlePointerDown(canvasX, canvasY, isRightClick) {
-    if (gameOver) return;
+    if (gameState.gameOver) return;
     if (isRightClick) {
         const tower = getTowerAtPoint(canvasX, canvasY);
         if (!tower) {
@@ -71,26 +71,26 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     const x = Math.floor(canvasX / TILE_SIZE);
     const y = Math.floor(canvasY / TILE_SIZE);
 
-    if (paused) {
+    if (gameState.paused) {
         hideAllStats();
         return;
     }
 
     if (!canBuildAt(x, y)) {
         announce('해당 위치에 설치할 수 없습니다');
-        buildFailFlash = { x, y, timer: 0.3 };
+        gameState.buildFailFlash = { x, y, timer: 0.3 };
         hideAllStats();
         return;
     }
 
-    const towerDef = getTowerDefinition(selectedTowerType);
+    const towerDef = getTowerDefinition(gameState.selectedTowerType);
     const cost = towerDef.cost || 25;
-    if (gold < cost) {
+    if (gameState.gold < cost) {
         flashGoldInsufficient();
         return;
     }
 
-    gold -= cost;
+    gameState.gold -= cost;
     updateGoldUI();
     const towerData = createTowerData(x, y, towerDef.id);
     towers.push(towerData);
@@ -119,7 +119,7 @@ canvas.addEventListener('blur', () => {
 });
 
 canvas.addEventListener('mouseleave', () => {
-    hoverTile = null;
+    gameState.hoverTile = null;
 });
 
 canvas.addEventListener('click', (event) => {
@@ -193,7 +193,7 @@ canvas.addEventListener(
             }
         }
         _longPressFired = false;
-        hoverTile = null;
+        gameState.hoverTile = null;
     },
     { passive: false }
 );
@@ -256,7 +256,7 @@ if (WAVE_APPLY_BUTTON && WAVE_INPUT) {
     const applyWaveFromInput = () => {
         const value = Number(WAVE_INPUT.value);
         if (!Number.isFinite(value)) {
-            WAVE_INPUT.value = wave;
+            WAVE_INPUT.value = gameState.wave;
             return;
         }
         setWave(value);
@@ -274,10 +274,10 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
     const applyGold = () => {
         const value = Number(GOLD_INPUT.value);
         if (!Number.isFinite(value)) {
-            GOLD_INPUT.value = gold;
+            GOLD_INPUT.value = gameState.gold;
             return;
         }
-        gold = Math.max(0, Math.min(999999, Math.floor(value)));
+        gameState.gold = Math.max(0, Math.min(999999, Math.floor(value)));
         updateGoldUI();
     };
     GOLD_APPLY_BUTTON.addEventListener('click', applyGold);
@@ -291,22 +291,22 @@ if (GOLD_APPLY_BUTTON && GOLD_INPUT) {
 GOLD_ADJUST_BUTTONS.forEach((button) => {
     button.addEventListener('click', () => {
         const delta = Number(button.dataset.delta) || 0;
-        gold = Math.min(999999, Math.max(0, gold + delta));
+        gameState.gold = Math.min(999999, Math.max(0, gameState.gold + delta));
         updateGoldUI();
     });
 });
 
 if (UPGRADE_TOWER_BUTTON) {
     UPGRADE_TOWER_BUTTON.addEventListener('click', () => {
-        if (selectedTower && !gameOver) {
-            upgradeTower(selectedTower);
+        if (gameState.selectedTower && !gameState.gameOver) {
+            upgradeTower(gameState.selectedTower);
         }
     });
 }
 
 if (SELL_TOWER_BUTTON) {
     SELL_TOWER_BUTTON.addEventListener('click', () => {
-        if (selectedTower) sellTower(selectedTower);
+        if (gameState.selectedTower) sellTower(gameState.selectedTower);
     });
 }
 
@@ -331,7 +331,7 @@ if (START_GAME_BUTTON) {
         hideMapSelectOverlay();
         resetGame();
         buildStaticLayer();
-        paused = false;
+        gameState.paused = false;
         startLoop();
     });
 }
@@ -408,22 +408,22 @@ document.addEventListener('keydown', (event) => {
         (MAP_SELECT_OVERLAY && !MAP_SELECT_OVERLAY.classList.contains('hidden'));
 
     if (event.code === 'Space') {
-        if (lives === 0 || gameOver || overlayOpen) {
+        if (gameState.lives === 0 || gameState.gameOver || overlayOpen) {
             return;
         }
-        paused = !paused;
+        gameState.paused = !gameState.paused;
         renderDirty = true;
-        announce(paused ? '일시 정지' : '게임 재개');
+        announce(gameState.paused ? '일시 정지' : '게임 재개');
         event.preventDefault();
         return;
     }
 
     if ((event.key === 'u' || event.key === 'U') && !isInput) {
-        if (selectedTower && !gameOver) {
-            const success = upgradeTower(selectedTower);
-            if (!success && selectedTower) {
-                const cost = selectedTower.upgradeCost;
-                if (cost != null && gold < cost) {
+        if (gameState.selectedTower && !gameState.gameOver) {
+            const success = upgradeTower(gameState.selectedTower);
+            if (!success && gameState.selectedTower) {
+                const cost = gameState.selectedTower.upgradeCost;
+                if (cost != null && gameState.gold < cost) {
                     flashGoldInsufficient();
                 }
             }
@@ -455,12 +455,12 @@ document.addEventListener('keydown', (event) => {
                 return;
             case 's':
             case 'S':
-                if (selectedTower && !gameOver) sellTower(selectedTower);
+                if (gameState.selectedTower && !gameState.gameOver) sellTower(gameState.selectedTower);
                 return;
             case 'Escape':
                 kbCursorActive = false;
                 kbCursor = null;
-                hoverTile = null;
+                gameState.hoverTile = null;
                 hideAllStats();
                 renderDirty = true;
                 return;
@@ -482,8 +482,8 @@ function loop(timestamp) {
         const rawDt = (timestamp - lastTime) / 1000;
         const dt = Math.min(rawDt, 0.1);
         lastTime = timestamp;
-        if (!paused) {
-            const scaledDt = dt * gameSpeed;
+        if (!gameState.paused) {
+            const scaledDt = dt * gameState.gameSpeed;
             elapsedTime += scaledDt;
             update(scaledDt);
             render();
@@ -497,7 +497,7 @@ function loop(timestamp) {
         loopErrorCount++;
         if (loopErrorCount >= MAX_LOOP_ERRORS) {
             console.error('Game loop halted after repeated errors.');
-            gameLoopHalted = true;
+            gameState.gameLoopHalted = true;
             announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
             try {
                 render();
@@ -507,7 +507,7 @@ function loop(timestamp) {
             return;
         }
     }
-    if (gameLoopHalted) return;
+    if (gameState.gameLoopHalted) return;
     rafHandle = requestAnimationFrame(loop);
 }
 
@@ -529,7 +529,7 @@ updateSpeedControls();
 updateWavePreview();
 updateGoldUI();
 if (WAVE_INPUT) {
-    WAVE_INPUT.value = wave;
+    WAVE_INPUT.value = gameState.wave;
 }
 
 populateMapList();
@@ -547,7 +547,7 @@ if (typeof module !== 'undefined') {
         applyAlpha,
         enemies,
         towers,
-        gold: () => gold,
+        gold: () => gameState.gold,
         canBuildAt,
         findTarget,
         createTowerData,
@@ -563,18 +563,18 @@ if (typeof module !== 'undefined') {
         TOWER_MAX_LEVEL,
         projectiles,
         setGameSpeed,
-        getGameSpeed: () => gameSpeed,
+        getGameSpeed: () => gameState.gameSpeed,
         setGold: (v) => {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
-            gold = Math.max(0, Math.min(999999, Math.floor(v)));
+            gameState.gold = Math.max(0, Math.min(999999, Math.floor(v)));
         },
-        getGameOver: () => gameOver,
+        getGameOver: () => gameState.gameOver,
         setGameOver: (v) => {
-            gameOver = v;
+            gameState.gameOver = v;
         },
-        getEnemiesToSpawn: () => enemiesToSpawn,
+        getEnemiesToSpawn: () => gameState.enemiesToSpawn,
         setEnemiesToSpawn: (v) => {
-            enemiesToSpawn = v;
+            gameState.enemiesToSpawn = v;
         },
         lerpAngle,
         resetGame,
@@ -588,34 +588,35 @@ if (typeof module !== 'undefined') {
         getKbCursor: () => kbCursor,
         getKbCursorActive: () => kbCursorActive,
         getWaypoints: () => waypoints,
-        getWave: () => wave,
-        getLives: () => lives,
-        getNextWaveTimer: () => nextWaveTimer,
-        getWaveInProgress: () => waveInProgress,
+        getWave: () => gameState.wave,
+        getLives: () => gameState.lives,
+        getNextWaveTimer: () => gameState.nextWaveTimer,
+        getWaveInProgress: () => gameState.waveInProgress,
         setWaveInProgress: (v) => {
-            waveInProgress = v;
+            gameState.waveInProgress = v;
         },
         setNextWaveTimer: (v) => {
-            nextWaveTimer = v;
+            gameState.nextWaveTimer = v;
         },
         setWave: (v) => {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
-            wave = Math.max(1, Math.min(WAVE_MAX, Math.floor(v)));
+            gameState.wave = Math.max(1, Math.min(WAVE_MAX, Math.floor(v)));
         },
         setLives: (v) => {
             if (typeof v !== 'number' || !Number.isFinite(v)) return;
-            lives = Math.max(0, Math.floor(v));
+            gameState.lives = Math.max(0, Math.floor(v));
         },
         getPrefersReducedMotion: () => prefersReducedMotion,
         update,
         spawnEnemy,
         handlePointerDown,
-        getPaused: () => paused,
+        getPaused: () => gameState.paused,
         setPaused: (v) => {
-            paused = !!v;
+            gameState.paused = !!v;
         },
         getAdjustedPickRadius,
-        getGameLoopHalted: () => gameLoopHalted,
+        getGameLoopHalted: () => gameState.gameLoopHalted,
+        gameState,
         towerPositionSet,
         markRenderDirty,
         getRenderDirty: () => renderDirty
