@@ -1,8 +1,10 @@
 let audioContext = null;
 let masterGain = null;
 let soundMuted = false;
+let audioContextCreating = false;
 
 function ensureAudioContext() {
+    if (audioContextCreating) return null;
     if (audioContext) {
         if (audioContext.state === 'closed') {
             audioContext = null;
@@ -12,7 +14,7 @@ function ensureAudioContext() {
             // fall through to create new context
         } else {
             if (audioContext.state === 'suspended') {
-                audioContext.resume().catch(() => {});
+                audioContext.resume().catch((err) => { console.warn('AudioContext resume failed:', err); });
             }
             return audioContext;
         }
@@ -28,6 +30,7 @@ function ensureAudioContext() {
         }
         return null;
     }
+    audioContextCreating = true;
     try {
         audioContext = new AudioCtx();
         masterGain = audioContext.createGain();
@@ -39,6 +42,8 @@ function ensureAudioContext() {
         audioContext = null;
         masterGain = null;
         return null;
+    } finally {
+        audioContextCreating = false;
     }
 }
 

@@ -66,7 +66,11 @@ function applyAlpha(color, alpha) {
     if (!color) return 'rgba(255, 255, 255, ' + alpha + ')';
     const key = color + '|' + alpha;
     let cached = alphaCache.get(key);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+        alphaCache.delete(key);
+        alphaCache.set(key, cached);
+        return cached;
+    }
 
     let result;
     if (color.startsWith('#')) {
@@ -84,7 +88,7 @@ function applyAlpha(color, alpha) {
     }
 
     if (alphaCache.size >= ALPHA_CACHE_MAX) {
-        const keys = Array.from(alphaCache.keys()).slice(0, ALPHA_CACHE_MAX >> 1);
+        const keys = Array.from(alphaCache.keys()).slice(0, 128);
         for (let i = 0; i < keys.length; i++) alphaCache.delete(keys[i]);
     }
     alphaCache.set(key, result);
