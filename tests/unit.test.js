@@ -18,6 +18,7 @@ class FakeGainNode {
         };
     }
     connect() {}
+    disconnect() {}
 }
 
 class FakeOscillator {
@@ -26,12 +27,14 @@ class FakeOscillator {
         this.type = 'sine';
     }
     connect() {}
+    disconnect() {}
     start() {}
     stop() {}
 }
 
 class FakeBufferSource {
     connect() {}
+    disconnect() {}
     start() {}
     stop() {}
     set buffer(_) {}
@@ -1115,5 +1118,113 @@ describe('Unit tests', () => {
         gameState.selectedTower = staleTower;
         updateTowerStatsFields();
         assert.strictEqual(gameState.selectedTower, null, '#156: stale tower 참조 시 selectedTower가 null로 초기화');
+    });
+
+    it('#164: playToneSequence osc.onended disconnect', () => {
+        soundMuted = false;
+        audioContext = null;
+        masterGain = null;
+        ensureAudioContext();
+        const ctx = audioContext;
+        const origCreateOsc = ctx.createOscillator.bind(ctx);
+        let oscDisconnected = false;
+        let gainDisconnected = false;
+        let onendedFn = null;
+        ctx.createOscillator = function () {
+            const osc = origCreateOsc();
+            osc.disconnect = function () {
+                oscDisconnected = true;
+            };
+            Object.defineProperty(osc, 'onended', {
+                set: function (fn) {
+                    onendedFn = fn;
+                },
+                get: function () {
+                    return onendedFn;
+                }
+            });
+            return osc;
+        };
+        const origCreateGain = ctx.createGain.bind(ctx);
+        ctx.createGain = function () {
+            const g = origCreateGain();
+            g.disconnect = function () {
+                gainDisconnected = true;
+            };
+            return g;
+        };
+        playToneSequence([{ freq: 440, duration: 0.1 }]);
+        assert.ok(typeof onendedFn === 'function', '#164: osc.onended에 함수가 설정됨');
+        onendedFn();
+        assert.strictEqual(oscDisconnected, true, '#164: onended 호출 시 osc.disconnect 실행');
+        assert.strictEqual(gainDisconnected, true, '#164: onended 호출 시 gain.disconnect 실행');
+    });
+
+    it('#164: playNoise source.onended disconnect', () => {
+        soundMuted = false;
+        audioContext = null;
+        masterGain = null;
+        ensureAudioContext();
+        const ctx = audioContext;
+        let sourceDisconnected = false;
+        let gainDisconnected = false;
+        let onendedFn = null;
+        const origCreateBufferSource = ctx.createBufferSource.bind(ctx);
+        ctx.createBufferSource = function () {
+            const src = origCreateBufferSource();
+            src.disconnect = function () {
+                sourceDisconnected = true;
+            };
+            Object.defineProperty(src, 'onended', {
+                set: function (fn) {
+                    onendedFn = fn;
+                },
+                get: function () {
+                    return onendedFn;
+                }
+            });
+            return src;
+        };
+        const origCreateGain = ctx.createGain.bind(ctx);
+        ctx.createGain = function () {
+            const g = origCreateGain();
+            g.disconnect = function () {
+                gainDisconnected = true;
+            };
+            return g;
+        };
+        cachedNoiseBuffer = null;
+        playNoise(0.1, 0.2);
+        assert.ok(typeof onendedFn === 'function', '#164: source.onended에 함수가 설정됨');
+        onendedFn();
+        assert.strictEqual(sourceDisconnected, true, '#164: onended 호출 시 source.disconnect 실행');
+        assert.strictEqual(gainDisconnected, true, '#164: onended 호출 시 gain.disconnect 실행');
+    });
+
+    it('#164: ensureAudioContext catch에서 close 호출', () => {
+        audioContext = null;
+        masterGain = null;
+        let closeCalled = false;
+        const OrigCtx = window.AudioContext;
+        window.AudioContext = function () {
+            this.state = 'running';
+            this.destination = {};
+            this.currentTime = 0;
+            this.sampleRate = 44100;
+            this.createGain = function () {
+                throw new Error('gain creation failed');
+            };
+            this.close = function () {
+                closeCalled = true;
+            };
+        };
+        const result = ensureAudioContext();
+        assert.strictEqual(result, null, '#164: 생성 실패 시 null 반환');
+        assert.strictEqual(closeCalled, true, '#164: catch에서 audioContext.close() 호출');
+        assert.strictEqual(audioContext, null, '#164: 실패 후 audioContext가 null');
+        window.AudioContext = OrigCtx;
+        // 복원
+        audioContext = null;
+        masterGain = null;
     });
 });
