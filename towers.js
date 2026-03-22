@@ -272,7 +272,8 @@ const TOWER_TYPES = {
         turnSpeed: 9.5,
         outline: '#0b3c4f',
         levelColors: ['#b1f4ff', '#9be9ff', '#84deff', '#6dd2ff', '#55c6ff', '#3ab8ff', '#24a7f5'],
-        projectileColors: ['#e6fdff', '#d0f8ff', '#bbf3ff', '#a4ecff', '#90e5ff', '#79ddff', '#61d3ff']
+        projectileColors: ['#e6fdff', '#d0f8ff', '#bbf3ff', '#a4ecff', '#90e5ff', '#79ddff', '#61d3ff'],
+        levelScaling: {}
     },
     mortar: {
         id: 'mortar',
