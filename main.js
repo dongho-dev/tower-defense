@@ -91,6 +91,8 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     }
 
     gameState.gold -= cost;
+    gameState.totalGoldSpent += cost;
+    gameState.towersBuilt++;
     EventBus.emit('gold:changed');
     const towerData = createTowerData(x, y, towerDef.id);
     towers.push(towerData);

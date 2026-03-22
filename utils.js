@@ -144,6 +144,21 @@ function calculateUpgradeCost(definition, level) {
     return Math.min(Math.round(base * Math.pow(TOWER_UPGRADE_COST_MULTIPLIER, level - 1)), Number.MAX_SAFE_INTEGER);
 }
 
+function getWaveEnemyCount(waveNumber) {
+    return 8 + Math.floor(waveNumber * 1.5);
+}
+
+function getWaveEnemyStats(waveNumber, enemyType) {
+    if (!enemyType) enemyType = ENEMY_TYPE_DEFINITIONS[0];
+    const growth = Math.pow(ENEMY_HP_GROWTH_RATE, Math.max(0, waveNumber - 1));
+    const hp = Math.round(Math.min(ENEMY_BASE_HP * growth * enemyType.hpMult, Number.MAX_SAFE_INTEGER));
+    const speedBonus = 1 + Math.min(waveNumber * 0.005, 0.5);
+    const speed = Math.round(ENEMY_SPEED * enemyType.speedMult * speedBonus);
+    const reward = Math.round((ENEMY_BASE_REWARD + waveNumber * 1.5) * enemyType.rewardMult);
+    const count = getWaveEnemyCount(waveNumber);
+    return { hp, speed, reward, count };
+}
+
 function recalcTowerStats(tower) {
     const def = getTowerDefinition(tower.type);
     tower.range = def.range + (def.rangeGrowth || 0) * (tower.level - 1);

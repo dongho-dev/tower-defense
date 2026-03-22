@@ -448,6 +448,23 @@ canvas {
     color: var(--text-muted);
 }
 
+.defeat-stats {
+    margin: 16px 0;
+    text-align: left;
+}
+
+.defeat-stats p {
+    margin: 4px 0;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+}
+
+.defeat-stats span {
+    color: var(--text-primary, #e2e2e2);
+    font-weight: 600;
+}
+
 .overlay-actions {
     display: flex;
     gap: 12px;
