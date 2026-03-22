@@ -1038,4 +1038,10 @@ describe('Unit tests', () => {
         EventBus.emit('test:off');
         assert.strictEqual(called, false, '#152: off 후 리스너 호출 안됨');
     });
+
+    it('#153: resetGame() buildFailFlash 초기화', () => {
+        gameState.buildFailFlash = { x: 1, y: 2, timer: 0.5 };
+        resetGame();
+        assert.strictEqual(gameState.buildFailFlash, null, '#153: resetGame 후 buildFailFlash가 null');
+    });
 });

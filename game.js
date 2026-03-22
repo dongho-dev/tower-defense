@@ -405,6 +405,7 @@ function resetGame() {
     gameState.gameOver = false;
     gameState.paused = false;
     gameState.hoverTile = null;
+    gameState.buildFailFlash = null;
     hideAllStats();
     towers.length = 0;
     towerPositionSet.clear();
