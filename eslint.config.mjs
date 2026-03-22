@@ -208,6 +208,8 @@ const gameGlobals = {
     getEnemiesInRange: 'readonly',
     findTarget: 'readonly',
     _findTargetResult: 'readonly',
+
+    // update.js
     update: 'readonly',
 
     // renderer.js

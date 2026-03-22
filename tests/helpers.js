@@ -139,6 +139,7 @@ function setupDom() {
         'combat.js',
         'overlay.js',
         'game.js',
+        'update.js',
         'renderer.js',
         'main.js'
     ];
