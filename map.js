@@ -1,27 +1,50 @@
 const MAP_DEFINITIONS = {
     map1: {
-        id: 'map1', name: '기본 맵', difficulty: '보통',
+        id: 'map1',
+        name: '기본 맵',
+        difficulty: '보통',
         rawWaypoints: [
-            { x: -2, y: 8 }, { x: 2, y: 8 }, { x: 2, y: 4 },
-            { x: 10, y: 4 }, { x: 10, y: 12 }, { x: 18, y: 12 },
-            { x: 18, y: 6 }, { x: 26, y: 6 }, { x: 26, y: 14 },
+            { x: -2, y: 8 },
+            { x: 2, y: 8 },
+            { x: 2, y: 4 },
+            { x: 10, y: 4 },
+            { x: 10, y: 12 },
+            { x: 18, y: 12 },
+            { x: 18, y: 6 },
+            { x: 26, y: 6 },
+            { x: 26, y: 14 },
             { x: GRID_COLS + 1, y: 14 }
         ]
     },
     map2: {
-        id: 'map2', name: 'S자 맵', difficulty: '어려움',
+        id: 'map2',
+        name: 'S자 맵',
+        difficulty: '어려움',
         rawWaypoints: [
-            { x: -2, y: 3 }, { x: 8, y: 3 }, { x: 8, y: 17 },
-            { x: 16, y: 17 }, { x: 16, y: 3 }, { x: 24, y: 3 },
-            { x: 24, y: 17 }, { x: GRID_COLS + 1, y: 17 }
+            { x: -2, y: 3 },
+            { x: 8, y: 3 },
+            { x: 8, y: 17 },
+            { x: 16, y: 17 },
+            { x: 16, y: 3 },
+            { x: 24, y: 3 },
+            { x: 24, y: 17 },
+            { x: GRID_COLS + 1, y: 17 }
         ]
     },
     map3: {
-        id: 'map3', name: '나선 맵', difficulty: '쉬움',
+        id: 'map3',
+        name: '나선 맵',
+        difficulty: '쉬움',
         rawWaypoints: [
-            { x: -2, y: 10 }, { x: 4, y: 10 }, { x: 4, y: 2 },
-            { x: 26, y: 2 }, { x: 26, y: 18 }, { x: 4, y: 18 },
-            { x: 4, y: 12 }, { x: 20, y: 12 }, { x: 20, y: 6 },
+            { x: -2, y: 10 },
+            { x: 4, y: 10 },
+            { x: 4, y: 2 },
+            { x: 26, y: 2 },
+            { x: 26, y: 18 },
+            { x: 4, y: 18 },
+            { x: 4, y: 12 },
+            { x: 20, y: 12 },
+            { x: 20, y: 6 },
             { x: GRID_COLS + 1, y: 6 }
         ]
     }
@@ -33,7 +56,7 @@ let pathTiles = new Set();
 
 function buildMapData(mapId) {
     const mapDef = MAP_DEFINITIONS[mapId] || MAP_DEFINITIONS['map1'];
-    waypoints = mapDef.rawWaypoints.map(point => ({
+    waypoints = mapDef.rawWaypoints.map((point) => ({
         x: point.x * TILE_SIZE + TILE_CENTER_OFFSET,
         y: point.y * TILE_SIZE + TILE_CENTER_OFFSET
     }));

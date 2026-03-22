@@ -32,11 +32,11 @@ function getColorFromArray(colors, level, fallback) {
 }
 
 function getTowerColor(definition, level) {
-    return getColorFromArray(definition.levelColors, level, "#6296ff");
+    return getColorFromArray(definition.levelColors, level, '#6296ff');
 }
 
 function getProjectileColor(definition, level) {
-    return getColorFromArray(definition.projectileColors, level, "#ffd966");
+    return getColorFromArray(definition.projectileColors, level, '#ffd966');
 }
 
 function hexToRgba(hex, alpha) {
@@ -46,7 +46,10 @@ function hexToRgba(hex, alpha) {
     const sanitized = hex.replace('#', '');
     let normalized;
     if (sanitized.length === 3) {
-        normalized = sanitized.split('').map(ch => ch + ch).join('');
+        normalized = sanitized
+            .split('')
+            .map((ch) => ch + ch)
+            .join('');
     } else if (sanitized.length > 6) {
         normalized = sanitized.substring(0, 6);
     } else {
@@ -77,7 +80,7 @@ function applyAlpha(color, alpha) {
         result = hexToRgba(color, alpha);
     } else if (color.startsWith('rgba')) {
         result = color.replace(/rgba\(([^)]+)\)/, (_, inner) => {
-            const parts = inner.split(',').map(part => part.trim());
+            const parts = inner.split(',').map((part) => part.trim());
             if (parts.length < 3) return color;
             return 'rgba(' + parts[0] + ', ' + parts[1] + ', ' + parts[2] + ', ' + alpha + ')';
         });
@@ -108,7 +111,7 @@ function lerpAngle(current, target, t) {
 
 function formatNumber(value) {
     if (!Number.isFinite(value)) {
-        return "-";
+        return '-';
     }
     if (Math.abs(value) < 1000) {
         return Number.isInteger(value) ? `${value}` : value.toFixed(2);
@@ -128,8 +131,8 @@ function calculateUpgradeCost(definition, level) {
 
 function recalcTowerStats(tower) {
     const def = getTowerDefinition(tower.type);
-    tower.range = def.range;
-    tower.fireDelay = def.fireDelay;
+    tower.range = def.range + (def.rangeGrowth || 0) * (tower.level - 1);
+    tower.fireDelay = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * (tower.level - 1), 0.05);
     tower.damage = calculateTowerDamage(def, tower.level);
     tower.upgradeCost = tower.level >= TOWER_MAX_LEVEL ? null : calculateUpgradeCost(def, tower.level);
 }

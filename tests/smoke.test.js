@@ -44,16 +44,27 @@ class FakeAudioContext {
         this.sampleRate = 44100;
         this.state = 'running';
     }
-    close() { this.state = 'closed'; }
-    resume() { this.state = 'running'; return Promise.resolve(); }
-    createGain() { return new FakeGainNode(); }
-    createOscillator() { return new FakeOscillator(); }
+    close() {
+        this.state = 'closed';
+    }
+    resume() {
+        this.state = 'running';
+        return Promise.resolve();
+    }
+    createGain() {
+        return new FakeGainNode();
+    }
+    createOscillator() {
+        return new FakeOscillator();
+    }
     createBuffer(channels, length) {
         return {
             getChannelData: () => new Float32Array(length * channels)
         };
     }
-    createBufferSource() { return new FakeBufferSource(); }
+    createBufferSource() {
+        return new FakeBufferSource();
+    }
 }
 
 function setupDom() {
@@ -79,10 +90,22 @@ function setupDom() {
     global.AudioContext = FakeAudioContext;
 
     window.HTMLCanvasElement.prototype.getContext = () => ({
-        fillStyle: '#000', strokeStyle: '#000', lineWidth: 1,
-        beginPath: noop, moveTo: noop, lineTo: noop, stroke: noop,
-        arc: noop, fillRect: noop, clearRect: noop, fill: noop,
-        save: noop, restore: noop, font: '', textAlign: '', textBaseline: '',
+        fillStyle: '#000',
+        strokeStyle: '#000',
+        lineWidth: 1,
+        beginPath: noop,
+        moveTo: noop,
+        lineTo: noop,
+        stroke: noop,
+        arc: noop,
+        fillRect: noop,
+        clearRect: noop,
+        fill: noop,
+        save: noop,
+        restore: noop,
+        font: '',
+        textAlign: '',
+        textBaseline: '',
         fillText: noop,
         createRadialGradient: () => ({ addColorStop: noop }),
         createLinearGradient: () => ({ addColorStop: noop }),
@@ -138,7 +161,7 @@ describe('Smoke tests', () => {
     it('should have 3 speed buttons with 1x active by default', () => {
         const speedButtons = Array.from(document.querySelectorAll('.speed-button'));
         assert.ok(speedButtons.length === 3, 'Speed buttons missing');
-        const active = speedButtons.filter(btn => btn.classList.contains('active'));
+        const active = speedButtons.filter((btn) => btn.classList.contains('active'));
         assert.ok(active.length === 1, 'Exactly one speed button should be active');
         assert.ok(active[0].dataset.speed === '1', 'Default active speed is not 1x');
     });
@@ -146,7 +169,10 @@ describe('Smoke tests', () => {
     it('should have sound toggle with aria-pressed true', () => {
         const soundToggle = document.getElementById('sound-toggle');
         assert.ok(soundToggle, 'Sound toggle button not found');
-        assert.ok(soundToggle.getAttribute('aria-pressed') === 'true', 'Sound toggle default pressed state should be true');
+        assert.ok(
+            soundToggle.getAttribute('aria-pressed') === 'true',
+            'Sound toggle default pressed state should be true'
+        );
     });
 
     it('should have a valid canvas element', () => {
