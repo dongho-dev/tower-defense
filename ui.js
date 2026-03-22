@@ -76,6 +76,7 @@ const SELECTED_TOWER_INDICATOR = document.getElementById('selected-tower-indicat
 const UPGRADE_TOWER_BUTTON = document.getElementById('upgrade-tower-button');
 const SELL_TOWER_BUTTON = document.getElementById('sell-tower-button');
 const TARGET_PRIORITY_SELECT = document.getElementById('target-priority-select');
+const SEND_NEXT_WAVE_BUTTON = document.getElementById('send-next-wave');
 
 if (TARGET_PRIORITY_SELECT) {
     TARGET_PRIORITIES.forEach((p) => {
@@ -329,6 +330,11 @@ function updateWavePreview(remainingOverride) {
     setTextIfChanged(WAVE_PREVIEW_FIELDS.hp, '' + stats.hp);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.speed, `${(stats.speed / TILE_SIZE).toFixed(2)} 타일/초`);
     setTextIfChanged(WAVE_PREVIEW_FIELDS.reward, '' + stats.reward);
+
+    if (SEND_NEXT_WAVE_BUTTON) {
+        const showButton = !gameState.gameOver && !gameState.waveInProgress && gameState.nextWaveTimer > 0;
+        SEND_NEXT_WAVE_BUTTON.classList.toggle('hidden', !showButton);
+    }
 }
 
 function updateSpeedControls() {

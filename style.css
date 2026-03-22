@@ -557,6 +557,28 @@ canvas {
     border-color: var(--danger);
 }
 
+/* 다음 웨이브 즉시 시작 버튼 */
+.send-wave-button {
+    margin-top: 8px;
+    width: 100%;
+    min-height: 44px;
+    background: rgba(72, 199, 142, 0.12);
+    border: 1px solid rgba(72, 199, 142, 0.4);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 14px;
+    color: #48c78e;
+    cursor: pointer;
+    transition:
+        background var(--transition),
+        border var(--transition);
+}
+
+.send-wave-button:hover {
+    background: rgba(72, 199, 142, 0.25);
+    border-color: #48c78e;
+}
+
 /* 골드 부족 피드백 */
 @keyframes gold-flash {
     0% {
