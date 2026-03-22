@@ -8,8 +8,9 @@
   "scripts": {
     "test": "node --test tests/smoke.test.js tests/unit.test.js",
     "test:coverage": "node --test --experimental-test-coverage tests/smoke.test.js tests/unit.test.js",
-    "lint": "eslint *.js tests/**/*.js",
+    "lint": "eslint --max-warnings 0 *.js tests/**/*.js",
     "lint:fix": "eslint --fix *.js tests/**/*.js",
+    "check-globals": "node scripts/check-globals.mjs",
     "format": "prettier --write \"*.js\" \"*.mjs\" \"tests/**/*.js\"",
     "format:check": "prettier --check \"*.js\" \"*.mjs\" \"tests/**/*.js\"",
     "prepare": "husky"
