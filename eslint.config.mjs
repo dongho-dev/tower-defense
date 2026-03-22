@@ -21,6 +21,8 @@ const gameGlobals = {
     TOWER_DAMAGE_GROWTH: 'readonly',
     TOWER_UPGRADE_COST_MULTIPLIER: 'readonly',
     TOWER_MAX_LEVEL: 'readonly',
+    WAVE_CLEAR_BONUS_BASE: 'readonly',
+    WAVE_CLEAR_BONUS_PER_WAVE: 'readonly',
     WAVE_MAX: 'readonly',
     DEFAULT_TOWER_TYPE: 'readonly',
     AUTOCOLLAPSE_WIDTH: 'readonly',
