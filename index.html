@@ -42,8 +42,12 @@
                         <label for="gold-input" class="control-label">골드</label>
                         <input type="number" id="gold-input" min="0" max="999999" step="10" value="100" />
                         <button type="button" id="gold-apply">설정</button>
-                        <button type="button" class="gold-adjust" data-delta="100" aria-label="골드 100 추가">+100</button>
-                        <button type="button" class="gold-adjust" data-delta="500" aria-label="골드 500 추가">+500</button>
+                        <button type="button" class="gold-adjust" data-delta="100" aria-label="골드 100 추가">
+                            +100
+                        </button>
+                        <button type="button" class="gold-adjust" data-delta="500" aria-label="골드 500 추가">
+                            +500
+                        </button>
                     </div>
                     <div class="control-row wave-control">
                         <label for="wave-input" class="control-label">웨이브 이동</label>
@@ -121,14 +125,14 @@
                 </main>
 
                 <aside class="info-column">
-                    <div id="wave-preview" class="stats-panel card" aria-live="polite" aria-atomic="true">
+                    <div id="wave-preview" class="stats-panel card" aria-live="polite">
                         <h3>다음 웨이브 정보</h3>
                         <button id="send-next-wave" class="send-wave-button hidden">다음 웨이브</button>
                         <p>상태: <span data-field="preview-status">대기</span></p>
-                        <p>카운트다운: <span data-field="preview-countdown">-</span></p>
+                        <p aria-live="off">카운트다운: <span data-field="preview-countdown">-</span></p>
                         <p>웨이브: <span data-field="preview-wave">1</span></p>
                         <p>적 구성: <span data-field="preview-composition">-</span></p>
-                        <p>남은 적: <span data-field="preview-remaining">0</span></p>
+                        <p aria-live="off">남은 적: <span data-field="preview-remaining">0</span></p>
                         <p>체력: <span data-field="preview-hp">-</span></p>
                         <p>이동 속도: <span data-field="preview-speed">-</span></p>
                         <p>획득 골드: <span data-field="preview-reward">-</span></p>

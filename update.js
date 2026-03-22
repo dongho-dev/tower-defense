@@ -1,3 +1,6 @@
+const _wavePayload = { remaining: 0 };
+let _prevWaveRemaining = -1;
+
 function update(dt) {
     if (gameState.buildFailFlash) {
         gameState.buildFailFlash.timer -= dt;
@@ -213,8 +216,17 @@ function update(dt) {
     if (gameState.selectedTower) {
         EventBus.emit('tower:selected');
     }
-    EventBus.emit(
-        'wave:changed',
-        gameState.waveInProgress ? { remaining: gameState.enemiesToSpawn + enemies.length } : null
-    );
+    if (gameState.waveInProgress) {
+        const remaining = gameState.enemiesToSpawn + enemies.length;
+        if (remaining !== _prevWaveRemaining) {
+            _prevWaveRemaining = remaining;
+            _wavePayload.remaining = remaining;
+            EventBus.emit('wave:changed', _wavePayload);
+        }
+    } else {
+        if (_prevWaveRemaining !== -1) {
+            _prevWaveRemaining = -1;
+            EventBus.emit('wave:changed');
+        }
+    }
 }

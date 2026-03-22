@@ -354,6 +354,11 @@ body {
     box-shadow: 0 14px 24px rgba(19, 58, 110, 0.45);
 }
 
+.tower-card.cannot-afford {
+    opacity: 0.45;
+    pointer-events: auto;
+}
+
 .tower-name {
     font-weight: 600;
     font-size: 15px;

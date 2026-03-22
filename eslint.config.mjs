@@ -134,6 +134,7 @@ const gameGlobals = {
     updateSpeedControls: 'readonly',
     setGameSpeed: 'readonly',
     setTextIfChanged: 'readonly',
+    updateTowerCardAffordability: 'readonly',
     updateTowerStatsFields: 'readonly',
     updateEnemyStatsFields: 'readonly',
 
@@ -182,6 +183,8 @@ const gameGlobals = {
     resetGame: 'readonly',
 
     // game.js
+    _compositionCache: 'writable',
+    _compositionCacheWave: 'writable',
     clearCurrentWave: 'readonly',
     ensureTowerMetadata: 'readonly',
     setWave: 'readonly',
@@ -210,6 +213,8 @@ const gameGlobals = {
     _findTargetResult: 'readonly',
 
     // update.js
+    _wavePayload: 'readonly',
+    _prevWaveRemaining: 'writable',
     update: 'readonly',
 
     // renderer.js
