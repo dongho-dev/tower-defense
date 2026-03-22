@@ -197,11 +197,11 @@ function upgradeTower(tower) {
         return false;
     }
     const cost = tower.upgradeCost;
-    if (cost == null || gameState.gold < cost) {
+    if (cost === null || cost === undefined || gameState.gold < cost) {
         return false;
     }
     gameState.gold -= cost;
-    tower.spentGold = (tower.spentGold || 0) + cost;
+    tower.spentGold = (tower.spentGold ?? 0) + cost;
     EventBus.emit('gold:changed');
     tower.level += 1;
     recalcTowerStats(tower);
@@ -218,7 +218,7 @@ function sellTower(tower) {
     if (gameState.gameOver) return false;
     const idx = towers.indexOf(tower);
     if (idx === -1) return false;
-    const refund = Math.floor((tower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
+    const refund = Math.floor((tower.spentGold ?? 0) * TOWER_SELL_REFUND_RATE);
     towers.splice(idx, 1);
     towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
     gameState.gold = Math.min(999999, gameState.gold + refund);
@@ -378,7 +378,7 @@ function populateMapList() {
 
         var paramsEl = document.createElement('span');
         paramsEl.className = 'map-card-params';
-        paramsEl.textContent = '골드: ' + (mapDef.initialGold || 100) + ' / 생명력: ' + (mapDef.initialLives || 20);
+        paramsEl.textContent = '골드: ' + (mapDef.initialGold ?? 100) + ' / 생명력: ' + (mapDef.initialLives ?? 20);
 
         card.setAttribute('aria-pressed', String(mapDef.id === activeMapId));
         card.append(nameEl, previewCanvas, diffEl, paramsEl);
@@ -399,8 +399,8 @@ function resetGame() {
     buildMapData(activeMapId);
     staticLayer = null;
     var currentMapDef = MAP_DEFINITIONS[activeMapId] || MAP_DEFINITIONS['map1'];
-    gameState.gold = currentMapDef.initialGold || 100;
-    gameState.lives = currentMapDef.initialLives || 20;
+    gameState.gold = currentMapDef.initialGold ?? 100;
+    gameState.lives = currentMapDef.initialLives ?? 20;
     gameState.wave = 1;
     gameState.gameOver = false;
     gameState.paused = false;
@@ -480,7 +480,7 @@ function createTowerData(x, y, typeId) {
         flashTimer: 0,
         recoil: 0,
         auraOffset: Math.random() * Math.PI * 2,
-        spentGold: def.cost || 0,
+        spentGold: def.cost ?? 0,
         targetPriority: 'first'
     };
 }

@@ -419,21 +419,21 @@ function updateTowerStatsFields() {
     setTextIfChanged(TOWER_STATS_FIELDS.level, '' + gameState.selectedTower.level);
     if (TOWER_STATS_FIELDS.upgradeCost) {
         const cost = gameState.selectedTower.upgradeCost;
-        setTextIfChanged(TOWER_STATS_FIELDS.upgradeCost, cost == null ? 'MAX' : formatNumber(cost));
+        setTextIfChanged(TOWER_STATS_FIELDS.upgradeCost, cost === null ? 'MAX' : formatNumber(cost));
     }
     if (UPGRADE_TOWER_BUTTON) {
-        const atMax = gameState.selectedTower.upgradeCost == null;
+        const atMax = gameState.selectedTower.upgradeCost === null;
         UPGRADE_TOWER_BUTTON.disabled = atMax || gameState.gameOver;
         const label = atMax ? '최대 레벨' : `업그레이드 (${formatNumber(gameState.selectedTower.upgradeCost)}G)`;
         setTextIfChanged(UPGRADE_TOWER_BUTTON, label);
         UPGRADE_TOWER_BUTTON.setAttribute('aria-label', label);
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
-        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
+        const refund = Math.floor((gameState.selectedTower.spentGold ?? 0) * TOWER_SELL_REFUND_RATE);
         setTextIfChanged(TOWER_STATS_FIELDS.sellRefund, formatNumber(refund));
     }
     if (SELL_TOWER_BUTTON) {
-        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
+        const refund = Math.floor((gameState.selectedTower.spentGold ?? 0) * TOWER_SELL_REFUND_RATE);
         SELL_TOWER_BUTTON.setAttribute('aria-label', `판매 (${refund}G 환급)`);
     }
     if (TARGET_PRIORITY_SELECT) {
