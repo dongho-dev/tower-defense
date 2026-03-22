@@ -415,24 +415,9 @@ function drawTowers() {
         const color = getTowerColor(def, tower.level);
         const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
         const glowColor = def.glowColor || color;
-        const auraRadius =
-            size * (1.8 + (prefersReducedMotion ? 0 : Math.sin(now * 2.4 + (tower.auraOffset || 0)) * 0.35));
+        const auraRadius = size * 1.8;
         ctx.save();
-        if (prefersReducedMotion) {
-            ctx.fillStyle = applyAlpha(glowColor, 0.2);
-        } else {
-            const gradient = ctx.createRadialGradient(
-                tower.worldX,
-                tower.worldY,
-                size * 0.3,
-                tower.worldX,
-                tower.worldY,
-                auraRadius
-            );
-            gradient.addColorStop(0, applyAlpha(glowColor, 0.4 + (tower.flashTimer || 0) * 0.6));
-            gradient.addColorStop(1, applyAlpha(glowColor, 0));
-            ctx.fillStyle = gradient;
-        }
+        ctx.fillStyle = applyAlpha(glowColor, 0.2);
         ctx.globalAlpha = 0.75;
         ctx.beginPath();
         ctx.arc(tower.worldX, tower.worldY, auraRadius, 0, Math.PI * 2);
@@ -453,7 +438,7 @@ function drawTowers() {
 
         ctx.save();
         ctx.shadowColor = applyAlpha(glowColor, 0.6 + (tower.flashTimer || 0) * 0.9);
-        ctx.shadowBlur = prefersReducedMotion ? 0 : size * (1.2 + (tower.flashTimer || 0) * 2.1);
+        ctx.shadowBlur = 0;
         drawTowerShape(tower, color, def.outline, now, def);
         ctx.restore();
     }
@@ -467,7 +452,7 @@ function drawEnemies() {
     for (const enemy of enemies) {
         const style = enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0];
         const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
-        const pulse = prefersReducedMotion ? 0.5 : Math.sin(time * 3.2 + (enemy.pulseSeed || 0)) * 0.5 + 0.5;
+        const pulse = 0.5;
         const size = enemy.enemyType && enemy.enemyType.id === 'boss' ? ENEMY_RADIUS * 1.5 : ENEMY_RADIUS;
 
         ctx.save();
@@ -475,14 +460,7 @@ function drawEnemies() {
         ctx.rotate(heading + Math.PI);
         const thrusterLength = size * (1.1 + pulse * 0.45);
         const thrusterWidth = size * 0.7;
-        if (prefersReducedMotion) {
-            ctx.fillStyle = applyAlpha(style.thruster || '#ff9a6d', 0.5);
-        } else {
-            const thrusterGradient = ctx.createLinearGradient(-size * 0.2, 0, -thrusterLength - size * 0.2, 0);
-            thrusterGradient.addColorStop(0, applyAlpha(style.thruster || '#ff9a6d', 0));
-            thrusterGradient.addColorStop(1, applyAlpha(style.thruster || '#ff9a6d', 0.85));
-            ctx.fillStyle = thrusterGradient;
-        }
+        ctx.fillStyle = applyAlpha(style.thruster || '#ff9a6d', 0.5);
         ctx.beginPath();
         ctx.moveTo(-size * 0.25, -thrusterWidth / 2);
         ctx.lineTo(-thrusterLength - size * 0.35, 0);
@@ -493,27 +471,12 @@ function drawEnemies() {
         ctx.restore();
 
         ctx.globalAlpha = 0.9;
-        if (prefersReducedMotion) {
-            ctx.fillStyle = applyAlpha(style.body, 0.3);
-        } else {
-            const auraGradient = ctx.createRadialGradient(enemy.x, enemy.y, size * 0.4, enemy.x, enemy.y, size * 1.9);
-            auraGradient.addColorStop(0, applyAlpha(style.body, 0.4 + pulse * 0.25));
-            auraGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = auraGradient;
-        }
+        ctx.fillStyle = applyAlpha(style.body, 0.3);
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, size * (1.7 + pulse * 0.25), 0, Math.PI * 2);
         ctx.fill();
 
-        if (prefersReducedMotion) {
-            ctx.fillStyle = style.body;
-        } else {
-            const bodyGradient = ctx.createRadialGradient(enemy.x, enemy.y, size * 0.2, enemy.x, enemy.y, size * 1.05);
-            bodyGradient.addColorStop(0, applyAlpha(style.core, 0.95));
-            bodyGradient.addColorStop(0.6, style.body);
-            bodyGradient.addColorStop(1, applyAlpha(style.body, 0.4));
-            ctx.fillStyle = bodyGradient;
-        }
+        ctx.fillStyle = style.body;
         ctx.beginPath();
         ctx.ellipse(enemy.x, enemy.y, size * 1.05, size * (0.85 + pulse * 0.05), heading, 0, Math.PI * 2);
         ctx.fill();
@@ -548,15 +511,11 @@ function drawProjectileTrail(projectile) {
     const ty = projectile.y - (projectile.vy / norm) * projectile.trailLength;
     ctx.save();
     const color = projectile.trailColor || projectile.color;
-    const gradient = ctx.createLinearGradient(tx, ty, projectile.x, projectile.y);
-    gradient.addColorStop(0, applyAlpha(color, 0));
-    gradient.addColorStop(0.65, applyAlpha(color, 0.4));
-    gradient.addColorStop(1, applyAlpha(color, 0.9));
-    ctx.strokeStyle = gradient;
+    ctx.strokeStyle = applyAlpha(color, 0.5);
     ctx.lineWidth = Math.max(1.5, (projectile.radius || 4) * 0.7);
     ctx.lineCap = 'round';
     ctx.shadowColor = applyAlpha(color, 0.45);
-    ctx.shadowBlur = prefersReducedMotion ? 0 : ctx.lineWidth * 1.8;
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(projectile.x, projectile.y);
@@ -575,12 +534,8 @@ function drawImpactEffects() {
         const alpha = Math.max(0, effect.life / effect.initialLife);
         const radius =
             effect.radius * (effect.pulse ? 1 + Math.sin((1 - alpha) * Math.PI) * 0.25 : 1 + (1 - alpha) * 0.35);
-        const gradient = ctx.createRadialGradient(effect.x, effect.y, radius * 0.15, effect.x, effect.y, radius);
-        gradient.addColorStop(0, applyAlpha('#ffffff', Math.min(0.9, 0.6 + alpha * 0.4)));
-        gradient.addColorStop(0.45, applyAlpha(effect.halo || effect.color, Math.min(1, 0.5 + alpha * 0.5)));
-        gradient.addColorStop(1, applyAlpha(effect.color, 0));
         ctx.globalAlpha = Math.min(1, alpha + 0.15);
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = applyAlpha(effect.halo || effect.color, Math.min(1, 0.5 + alpha * 0.5));
         ctx.beginPath();
         ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -637,12 +592,8 @@ function drawMuzzleFlashes() {
     for (const flash of muzzleFlashes) {
         const alpha = Math.max(0, flash.life / flash.initialLife);
         const radius = flash.radius;
-        const gradient = ctx.createRadialGradient(flash.x, flash.y, radius * 0.1, flash.x, flash.y, radius);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-        gradient.addColorStop(0.45, applyAlpha(flash.color, Math.min(1, 0.7 + alpha * 0.3)));
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = applyAlpha(flash.color, Math.min(1, 0.7 + alpha * 0.3));
         ctx.beginPath();
         ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -670,7 +621,7 @@ function drawProjectiles() {
         const alpha = projectile.initialLife > 0 ? Math.max(0.25, projectile.life / projectile.initialLife) : 1;
         ctx.save();
         ctx.globalAlpha = Math.min(1, alpha);
-        if (projectile.trailLength && !prefersReducedMotion) {
+        if (projectile.trailLength) {
             ctx.save();
             ctx.globalAlpha = Math.min(0.8, alpha);
             drawProjectileTrail(projectile);
@@ -678,7 +629,7 @@ function drawProjectiles() {
         }
         const glowColor = projectile.glowColor || projectile.color;
         ctx.shadowColor = applyAlpha(glowColor, 0.6);
-        ctx.shadowBlur = prefersReducedMotion ? 0 : (projectile.radius || 6) * 1.4;
+        ctx.shadowBlur = 0;
         switch (projectile.shape) {
             case 'beam': {
                 const length = projectile.trailLength || 40;
@@ -724,17 +675,7 @@ function drawProjectiles() {
             }
             case 'orb': {
                 const radius = projectile.radius || 6;
-                const gradient = ctx.createRadialGradient(
-                    projectile.x,
-                    projectile.y,
-                    radius * 0.2,
-                    projectile.x,
-                    projectile.y,
-                    radius
-                );
-                gradient.addColorStop(0, '#ffffff');
-                gradient.addColorStop(1, projectile.color);
-                ctx.fillStyle = gradient;
+                ctx.fillStyle = projectile.color;
                 ctx.beginPath();
                 ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
                 ctx.fill();
