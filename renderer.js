@@ -439,7 +439,7 @@ function drawTowers() {
         ctx.fill();
         ctx.restore();
 
-        if (selectedTower === tower) {
+        if (gameState.selectedTower === tower) {
             ctx.save();
             ctx.strokeStyle = applyAlpha(glowColor, 0.35);
             ctx.lineWidth = 2;
@@ -775,7 +775,7 @@ function moveKbCursor(dx, dy) {
     kbCursor.x = Math.max(0, Math.min(GRID_COLS - 1, kbCursor.x + dx));
     kbCursor.y = Math.max(0, Math.min(GRID_ROWS - 1, kbCursor.y + dy));
     kbCursorActive = true;
-    hoverTile = { x: kbCursor.x, y: kbCursor.y };
+    gameState.hoverTile = { x: kbCursor.x, y: kbCursor.y };
     renderDirty = true;
     const tileInfo = canBuildAt(kbCursor.x, kbCursor.y) ? '빈 타일' : '배치 불가';
     announce(`${kbCursor.x + 1}, ${kbCursor.y + 1} ${tileInfo}`);
@@ -796,10 +796,10 @@ function drawHover() {
         ctx.strokeRect(kbCursor.x * TILE_SIZE + 1, kbCursor.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
         ctx.restore();
     }
-    if (!hoverTile) {
+    if (!gameState.hoverTile) {
         return;
     }
-    const { x, y } = hoverTile;
+    const { x, y } = gameState.hoverTile;
     if (!canBuildAt(x, y)) {
         ctx.fillStyle = 'rgba(215, 80, 80, 0.35)';
     } else {
@@ -820,7 +820,7 @@ function drawHover() {
         const def = getTowerDefinition(existingTower.type);
         rangeColor = applyAlpha(def.glowColor || getTowerColor(def, existingTower.level), 0.3);
     } else if (canBuildAt(x, y)) {
-        const def = getTowerDefinition(selectedTowerType);
+        const def = getTowerDefinition(gameState.selectedTowerType);
         rangeRadius = def.range;
     }
 
@@ -842,7 +842,7 @@ function drawHover() {
 }
 
 function drawState() {
-    if (gameLoopHalted) {
+    if (gameState.gameLoopHalted) {
         ctx.save();
         ctx.fillStyle = 'rgba(80, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -857,7 +857,7 @@ function drawState() {
         ctx.restore();
         return;
     }
-    if (!paused) {
+    if (!gameState.paused) {
         return;
     }
     ctx.save();
@@ -867,7 +867,7 @@ function drawState() {
     ctx.font = "48px 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const label = gameOver ? '패배' : '일시 정지';
+    const label = gameState.gameOver ? '패배' : '일시 정지';
     ctx.fillText(label, canvas.width / 2, canvas.height / 2);
     ctx.restore();
 }
@@ -913,10 +913,15 @@ function render() {
         drawPath();
     }
     drawHover();
-    if (buildFailFlash && buildFailFlash.timer > 0) {
-        const alpha = Math.min(1, buildFailFlash.timer * 3);
+    if (gameState.buildFailFlash && gameState.buildFailFlash.timer > 0) {
+        const alpha = Math.min(1, gameState.buildFailFlash.timer * 3);
         ctx.fillStyle = `rgba(255, 80, 80, ${(0.45 * alpha).toFixed(2)})`;
-        ctx.fillRect(buildFailFlash.x * TILE_SIZE, buildFailFlash.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        ctx.fillRect(
+            gameState.buildFailFlash.x * TILE_SIZE,
+            gameState.buildFailFlash.y * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE
+        );
     }
     drawTowers();
     drawEnemies();
