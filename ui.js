@@ -73,6 +73,21 @@ const A11Y_ANNOUNCER = document.getElementById('a11y-announcer');
 const SELECTED_TOWER_INDICATOR = document.getElementById('selected-tower-indicator');
 const UPGRADE_TOWER_BUTTON = document.getElementById('upgrade-tower-button');
 const SELL_TOWER_BUTTON = document.getElementById('sell-tower-button');
+const TARGET_PRIORITY_SELECT = document.getElementById('target-priority-select');
+
+if (TARGET_PRIORITY_SELECT) {
+    TARGET_PRIORITIES.forEach((p) => {
+        const option = document.createElement('option');
+        option.value = p.key;
+        option.textContent = p.label;
+        TARGET_PRIORITY_SELECT.appendChild(option);
+    });
+    TARGET_PRIORITY_SELECT.addEventListener('change', () => {
+        if (gameState.selectedTower) {
+            gameState.selectedTower.targetPriority = TARGET_PRIORITY_SELECT.value;
+        }
+    });
+}
 
 const announceQueue = [];
 let announceProcessing = false;
@@ -360,6 +375,12 @@ function updateTowerStatsFields() {
     if (SELL_TOWER_BUTTON) {
         const refund = Math.floor((gameState.selectedTower.spentGold || 0) * 0.5);
         SELL_TOWER_BUTTON.setAttribute('aria-label', `판매 (${refund}G 환급)`);
+    }
+    if (TARGET_PRIORITY_SELECT) {
+        const currentPriority = gameState.selectedTower.targetPriority || 'first';
+        if (TARGET_PRIORITY_SELECT.value !== currentPriority) {
+            TARGET_PRIORITY_SELECT.value = currentPriority;
+        }
     }
 }
 
