@@ -94,6 +94,11 @@ function playToneSequence(steps) {
 let cachedNoiseBuffer = null;
 let cachedNoiseDuration = 0;
 
+function resetAudioCache() {
+    cachedNoiseBuffer = null;
+    cachedNoiseDuration = 0;
+}
+
 function playNoise(duration = 0.25, volume = 0.24) {
     if (soundMuted) return;
     const ctx = ensureAudioContext();

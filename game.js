@@ -420,7 +420,7 @@ function resetGame() {
     }
     hideDefeatDialog();
     setGameSpeed(1);
-    buildPanelUserOverride = false;
+    resetBuildPanelOverride();
     if (typeof window !== 'undefined' && window.innerWidth < AUTOCOLLAPSE_WIDTH) {
         setBuildPanelCollapsed(true);
     } else {
@@ -429,10 +429,9 @@ function resetGame() {
     EventBus.emit('wave:changed');
     elapsedTime = 0;
     lastTime = performance.now();
-    cachedNoiseBuffer = null;
+    resetAudioCache();
     gameState.gameLoopHalted = false;
     loopErrorCount = 0;
-    cachedNoiseDuration = 0;
 }
 
 function startWave() {

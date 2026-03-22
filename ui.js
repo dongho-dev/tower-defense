@@ -14,8 +14,6 @@ let _touchStartY = 0;
 const LONG_PRESS_DURATION = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
 
-const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
-
 const GOLD_LABEL = document.getElementById('gold');
 const LIVES_LABEL = document.getElementById('lives');
 const WAVE_LABEL = document.getElementById('wave');
@@ -250,6 +248,10 @@ if (TOWER_LIST_CONTAINER) {
 
 let buildPanelCollapsed = false;
 let buildPanelUserOverride = false;
+
+function resetBuildPanelOverride() {
+    buildPanelUserOverride = false;
+}
 
 function setBuildPanelCollapsed(state, options = {}) {
     if (!BUILD_CONTAINER) {
