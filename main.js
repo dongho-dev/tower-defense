@@ -460,10 +460,11 @@ function loop(timestamp) {
             console.error('Game loop halted after repeated errors.');
             gameLoopHalted = true;
             announce('게임에 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
-            try { render(); } catch (_) {}
+            try { render(); } catch (renderErr) { console.error('Render error during halt:', renderErr); }
             return;
         }
     }
+    if (gameLoopHalted) return;
     rafHandle = requestAnimationFrame(loop);
 }
 
