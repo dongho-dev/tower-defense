@@ -45,6 +45,7 @@ function setWave(targetWave) {
 }
 
 function damageEnemyAtIndex(index, amount) {
+    if (!Number.isFinite(amount) || amount < 0) return false;
     const enemy = enemies[index];
     if (!enemy) {
         return false;
@@ -253,7 +254,7 @@ function canBuildAt(x, y) {
 
 function createTowerData(x, y, typeId) {
     const def = getTowerDefinition(typeId);
-    return {
+    const tower = {
         def,
         type: def.id,
         x,
@@ -275,6 +276,8 @@ function createTowerData(x, y, typeId) {
         spentGold: def.cost ?? 0,
         targetPriority: 'first'
     };
+    recalcTowerStats(tower);
+    return tower;
 }
 
 function pickEnemyType(waveNumber) {

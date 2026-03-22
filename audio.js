@@ -196,6 +196,11 @@ function setSoundMuted(state) {
         masterGain.gain.cancelScheduledValues(now);
         masterGain.gain.setTargetAtTime(target, now + 0.01, 0.05);
     }
+    try {
+        localStorage.setItem('td_mute', String(soundMuted));
+    } catch (_) {
+        /* storage unavailable */
+    }
     updateSoundToggle();
 }
 

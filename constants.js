@@ -117,7 +117,7 @@ const TARGET_PRIORITIES = [
 ];
 
 const EventBus = {
-    _listeners: {},
+    _listeners: Object.create(null),
     on: function (event, fn) {
         if (!this._listeners[event]) this._listeners[event] = [];
         this._listeners[event].push(fn);

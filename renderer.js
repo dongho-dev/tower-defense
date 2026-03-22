@@ -614,7 +614,7 @@ function drawEnemies() {
     for (const enemy of enemies) {
         const style = enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0];
         const heading = typeof enemy.heading === 'number' ? enemy.heading : 0;
-        const pulse = 0.5;
+        const pulse = prefersReducedMotion ? 0.5 : Math.abs(Math.sin(time * 2 + enemy.pulseSeed)) * 0.5;
         const size = enemy.enemyType && enemy.enemyType.id === 'boss' ? ENEMY_RADIUS * 1.5 : ENEMY_RADIUS;
 
         ctx.save();

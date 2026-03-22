@@ -246,6 +246,16 @@ if (SOUND_TOGGLE) {
     });
 }
 
+// ── Mute state restore ──────────────────────────────────────────────────────
+try {
+    const savedMute = localStorage.getItem('td_mute');
+    if (savedMute === 'true') {
+        setSoundMuted(true);
+    }
+} catch (_) {
+    /* localStorage unavailable */
+}
+
 // ── Volume slider ────────────────────────────────────────────────────────────
 try {
     const savedVolume = localStorage.getItem('td_volume');
