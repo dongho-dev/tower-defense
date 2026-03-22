@@ -881,7 +881,10 @@ function update(dt) {
         } else if (enemies.length === 0) {
             gameState.waveInProgress = false;
             gameState.nextWaveTimer = 4;
-            announce(`웨이브 ${gameState.wave} 완료`);
+            var waveBonus = WAVE_CLEAR_BONUS_BASE + gameState.wave * WAVE_CLEAR_BONUS_PER_WAVE;
+            gameState.gold = Math.min(gameState.gold + waveBonus, 999999);
+            updateGoldUI();
+            announce('웨이브 ' + gameState.wave + ' 클리어! 보너스 ' + waveBonus + ' 골드');
             gameState.wave = Math.min(gameState.wave + 1, WAVE_MAX);
             if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
             if (WAVE_INPUT) {
