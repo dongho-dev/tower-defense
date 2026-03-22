@@ -30,6 +30,7 @@ function ensureAudioContext() {
             SOUND_TOGGLE.textContent = '🔇';
             SOUND_TOGGLE.title = '사운드를 사용할 수 없습니다';
         }
+        if (typeof updateSoundToggle === 'function') updateSoundToggle();
         return null;
     }
     audioContextCreating = true;

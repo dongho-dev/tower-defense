@@ -656,7 +656,11 @@ describe('Unit tests', () => {
 
         const goldEl = document.getElementById('gold');
         const goldChip = goldEl.closest('.stat-chip');
-        assert.strictEqual(goldChip.getAttribute('aria-live'), null, '#75: 골드 stat-chip에서 aria-live 제거됨');
+        assert.strictEqual(
+            goldChip.getAttribute('aria-live'),
+            'polite',
+            '#166: 골드 stat-chip에 aria-live="polite" 적용'
+        );
 
         const speedBtn = document.querySelector('.speed-button[data-speed="2"]');
         const announcer = document.getElementById('a11y-announcer');

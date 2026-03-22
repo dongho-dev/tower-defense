@@ -146,14 +146,15 @@ function populateMapList() {
         paramsEl.className = 'map-card-params';
         paramsEl.textContent = '골드: ' + (mapDef.initialGold ?? 100) + ' / 생명력: ' + (mapDef.initialLives ?? 20);
 
-        card.setAttribute('aria-pressed', String(mapDef.id === activeMapId));
+        card.setAttribute('role', 'radio');
+        card.setAttribute('aria-checked', String(mapDef.id === activeMapId));
         card.append(nameEl, previewCanvas, diffEl, paramsEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
             cards.forEach((c) => {
                 const isSelected = c.dataset.mapId === activeMapId;
                 c.classList.toggle('selected', isSelected);
-                c.setAttribute('aria-pressed', String(isSelected));
+                c.setAttribute('aria-checked', String(isSelected));
             });
         });
         MAP_LIST_CONTAINER.appendChild(card);
