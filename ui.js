@@ -454,8 +454,19 @@ function updateEnemyStatsFields() {
     setTextIfChanged(ENEMY_STATS_FIELDS.reward, `${gameState.selectedEnemy.reward}`);
 }
 
+function updateTowerCardAffordability() {
+    if (!TOWER_SELECTOR_BUTTONS || TOWER_SELECTOR_BUTTONS.length === 0) return;
+    for (const button of TOWER_SELECTOR_BUTTONS) {
+        const def = getTowerDefinition(button.dataset.tower);
+        if (!def) continue;
+        const cost = typeof def.cost === 'number' ? def.cost : 0;
+        button.classList.toggle('cannot-afford', gameState.gold < cost);
+    }
+}
+
 // ── EventBus listeners ──────────────────────────────────────────────────────
 EventBus.on('gold:changed', updateGoldUI);
+EventBus.on('gold:changed', updateTowerCardAffordability);
 EventBus.on('wave:changed', function (data) {
     updateWavePreview(data != null ? data.remaining : undefined);
 });

@@ -342,6 +342,11 @@ body {
         box-shadow var(--transition);
 }
 
+.tower-card.cannot-afford {
+    opacity: 0.45;
+    filter: grayscale(0.4);
+}
+
 .tower-card:hover {
     transform: translateY(-2px);
     border-color: rgba(106, 168, 255, 0.5);
