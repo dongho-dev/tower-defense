@@ -1,5 +1,7 @@
 let TOWER_SELECTOR_BUTTONS = [];
 
+const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');
+
 function gridFromPosition(point) {
     return {
         x: Math.floor(point.x / TILE_SIZE),
