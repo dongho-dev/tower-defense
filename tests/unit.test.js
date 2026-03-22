@@ -1448,8 +1448,7 @@ describe('Unit tests', () => {
 
     it('#182: drawEnemies 보스 타입 적으로 에러 없이 실행', () => {
         enemies.length = 0;
-        const bossType =
-            ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'boss') || ENEMY_TYPE_DEFINITIONS[0];
+        const bossType = ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'boss') || ENEMY_TYPE_DEFINITIONS[0];
         enemies.push({
             x: 200,
             y: 200,
@@ -1660,10 +1659,7 @@ describe('Unit tests', () => {
 
     it('#182: drawProjectileTrail trailLength 없으면 즉시 반환', () => {
         const proj = { x: 50, y: 50, vx: 1, vy: 0, speed: 1, trailLength: 0 };
-        assert.doesNotThrow(
-            () => drawProjectileTrail(proj),
-            '#182: drawProjectileTrail no trail'
-        );
+        assert.doesNotThrow(() => drawProjectileTrail(proj), '#182: drawProjectileTrail no trail');
     });
 
     it('#182: drawProjectileTrail trailLength 있는 투사체로 에러 없이 실행', () => {
@@ -1678,10 +1674,7 @@ describe('Unit tests', () => {
             trailColor: '#ff8888',
             radius: 4
         };
-        assert.doesNotThrow(
-            () => drawProjectileTrail(proj),
-            '#182: drawProjectileTrail with trail'
-        );
+        assert.doesNotThrow(() => drawProjectileTrail(proj), '#182: drawProjectileTrail with trail');
     });
 
     it('#182: render 에러 없이 실행 (빈 상태)', () => {
@@ -1765,21 +1758,9 @@ describe('Unit tests', () => {
 
     it('#191: getColorFromArray 정상 인덱스', () => {
         const colors = ['#ff0000', '#00ff00', '#0000ff'];
-        assert.strictEqual(
-            getColorFromArray(colors, 1, '#000'),
-            '#ff0000',
-            '#191: level 1 → 첫 번째 색상'
-        );
-        assert.strictEqual(
-            getColorFromArray(colors, 2, '#000'),
-            '#00ff00',
-            '#191: level 2 → 두 번째 색상'
-        );
-        assert.strictEqual(
-            getColorFromArray(colors, 3, '#000'),
-            '#0000ff',
-            '#191: level 3 → 세 번째 색상'
-        );
+        assert.strictEqual(getColorFromArray(colors, 1, '#000'), '#ff0000', '#191: level 1 → 첫 번째 색상');
+        assert.strictEqual(getColorFromArray(colors, 2, '#000'), '#00ff00', '#191: level 2 → 두 번째 색상');
+        assert.strictEqual(getColorFromArray(colors, 3, '#000'), '#0000ff', '#191: level 3 → 세 번째 색상');
     });
 
     it('#191: getColorFromArray 범위 초과 시 darken 폴백', () => {
@@ -1791,21 +1772,9 @@ describe('Unit tests', () => {
     });
 
     it('#191: getColorFromArray 빈 배열 시 fallback 반환', () => {
-        assert.strictEqual(
-            getColorFromArray([], 1, '#abcdef'),
-            '#abcdef',
-            '#191: 빈 배열 → fallback'
-        );
-        assert.strictEqual(
-            getColorFromArray(null, 1, '#123456'),
-            '#123456',
-            '#191: null → fallback'
-        );
-        assert.strictEqual(
-            getColorFromArray(undefined, 1, '#999'),
-            '#999',
-            '#191: undefined → fallback'
-        );
+        assert.strictEqual(getColorFromArray([], 1, '#abcdef'), '#abcdef', '#191: 빈 배열 → fallback');
+        assert.strictEqual(getColorFromArray(null, 1, '#123456'), '#123456', '#191: null → fallback');
+        assert.strictEqual(getColorFromArray(undefined, 1, '#999'), '#999', '#191: undefined → fallback');
     });
 
     it('#191: getTowerColor 정의된 타워에 대한 색상 반환', () => {
@@ -1813,22 +1782,14 @@ describe('Unit tests', () => {
         const color1 = getTowerColor(basicDef, 1);
         assert.ok(typeof color1 === 'string', '#191: getTowerColor 문자열 반환');
         assert.ok(color1.startsWith('#'), '#191: getTowerColor hex 색상');
-        assert.strictEqual(
-            color1,
-            basicDef.levelColors[0],
-            '#191: level 1 → 첫 번째 levelColors'
-        );
+        assert.strictEqual(color1, basicDef.levelColors[0], '#191: level 1 → 첫 번째 levelColors');
     });
 
     it('#191: getTowerColor 다양한 레벨', () => {
         const basicDef = TOWER_TYPES.basic;
         for (let lvl = 1; lvl <= basicDef.levelColors.length; lvl++) {
             const c = getTowerColor(basicDef, lvl);
-            assert.strictEqual(
-                c,
-                basicDef.levelColors[lvl - 1],
-                `#191: getTowerColor level ${lvl}`
-            );
+            assert.strictEqual(c, basicDef.levelColors[lvl - 1], `#191: getTowerColor level ${lvl}`);
         }
     });
 
@@ -1844,22 +1805,14 @@ describe('Unit tests', () => {
         const basicDef = TOWER_TYPES.basic;
         const color1 = getProjectileColor(basicDef, 1);
         assert.ok(typeof color1 === 'string', '#191: getProjectileColor 문자열');
-        assert.strictEqual(
-            color1,
-            basicDef.projectileColors[0],
-            '#191: level 1 → 첫 번째 projectileColors'
-        );
+        assert.strictEqual(color1, basicDef.projectileColors[0], '#191: level 1 → 첫 번째 projectileColors');
     });
 
     it('#191: getProjectileColor 다양한 레벨', () => {
         const basicDef = TOWER_TYPES.basic;
         for (let lvl = 1; lvl <= basicDef.projectileColors.length; lvl++) {
             const c = getProjectileColor(basicDef, lvl);
-            assert.strictEqual(
-                c,
-                basicDef.projectileColors[lvl - 1],
-                `#191: getProjectileColor level ${lvl}`
-            );
+            assert.strictEqual(c, basicDef.projectileColors[lvl - 1], `#191: getProjectileColor level ${lvl}`);
         }
     });
 
@@ -1868,18 +1821,10 @@ describe('Unit tests', () => {
         tower.level = 1;
         recalcTowerStats(tower);
         const def = TOWER_TYPES.basic;
-        assert.strictEqual(
-            tower.range,
-            def.range + (def.rangeGrowth || 0) * 0,
-            '#191: level 1 range'
-        );
+        assert.strictEqual(tower.range, def.range + (def.rangeGrowth || 0) * 0, '#191: level 1 range');
         tower.level = 3;
         recalcTowerStats(tower);
-        assert.strictEqual(
-            tower.range,
-            def.range + (def.rangeGrowth || 0) * 2,
-            '#191: level 3 range'
-        );
+        assert.strictEqual(tower.range, def.range + (def.rangeGrowth || 0) * 2, '#191: level 3 range');
     });
 
     it('#191: recalcTowerStats fireDelay 재계산', () => {
@@ -1887,17 +1832,11 @@ describe('Unit tests', () => {
         const def = TOWER_TYPES.basic;
         tower.level = 1;
         recalcTowerStats(tower);
-        const expected1 = Math.max(
-            def.fireDelay + (def.fireDelayGrowth || 0) * 0,
-            0.05
-        );
+        const expected1 = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * 0, 0.05);
         assert.strictEqual(tower.fireDelay, expected1, '#191: level 1 fireDelay');
         tower.level = 5;
         recalcTowerStats(tower);
-        const expected5 = Math.max(
-            def.fireDelay + (def.fireDelayGrowth || 0) * 4,
-            0.05
-        );
+        const expected5 = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * 4, 0.05);
         assert.strictEqual(tower.fireDelay, expected5, '#191: level 5 fireDelay');
     });
 
@@ -1906,18 +1845,10 @@ describe('Unit tests', () => {
         const def = TOWER_TYPES.basic;
         tower.level = 1;
         recalcTowerStats(tower);
-        assert.strictEqual(
-            tower.damage,
-            calculateTowerDamage(def, 1),
-            '#191: level 1 damage'
-        );
+        assert.strictEqual(tower.damage, calculateTowerDamage(def, 1), '#191: level 1 damage');
         tower.level = 4;
         recalcTowerStats(tower);
-        assert.strictEqual(
-            tower.damage,
-            calculateTowerDamage(def, 4),
-            '#191: level 4 damage'
-        );
+        assert.strictEqual(tower.damage, calculateTowerDamage(def, 4), '#191: level 4 damage');
     });
 
     it('#191: recalcTowerStats upgradeCost 재계산', () => {
@@ -1925,17 +1856,9 @@ describe('Unit tests', () => {
         const def = TOWER_TYPES.basic;
         tower.level = 1;
         recalcTowerStats(tower);
-        assert.strictEqual(
-            tower.upgradeCost,
-            calculateUpgradeCost(def, 1),
-            '#191: level 1 upgradeCost'
-        );
+        assert.strictEqual(tower.upgradeCost, calculateUpgradeCost(def, 1), '#191: level 1 upgradeCost');
         tower.level = TOWER_MAX_LEVEL;
         recalcTowerStats(tower);
-        assert.strictEqual(
-            tower.upgradeCost,
-            null,
-            '#191: max level → upgradeCost null'
-        );
+        assert.strictEqual(tower.upgradeCost, null, '#191: max level → upgradeCost null');
     });
 });
