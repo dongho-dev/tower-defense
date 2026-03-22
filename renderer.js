@@ -415,8 +415,7 @@ function drawTowers() {
         const color = getTowerColor(def, tower.level);
         const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
         const glowColor = def.glowColor || color;
-        const auraRadius =
-            size * 1.8;
+        const auraRadius = size * 1.8;
         ctx.save();
         ctx.fillStyle = applyAlpha(glowColor, 0.2);
         ctx.globalAlpha = 0.75;
