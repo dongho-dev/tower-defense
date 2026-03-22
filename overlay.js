@@ -22,6 +22,7 @@ function showDefeatDialog() {
         if (statKills) statKills.textContent = gameState.totalKills;
         if (statTowers) statTowers.textContent = gameState.towersBuilt;
         if (statGoldSpent) statGoldSpent.textContent = formatNumber(gameState.totalGoldSpent);
+        if (APP_SHELL) APP_SHELL.setAttribute('inert', '');
         DEFEAT_OVERLAY.classList.remove('hidden');
         if (RETRY_BUTTON) {
             RETRY_BUTTON.focus();
@@ -36,6 +37,7 @@ function hideDefeatDialog() {
         return;
     }
     DEFEAT_OVERLAY.classList.add('hidden');
+    if (APP_SHELL) APP_SHELL.removeAttribute('inert');
     if (_defeatPreviousFocus && typeof _defeatPreviousFocus.focus === 'function') {
         _defeatPreviousFocus.focus();
         _defeatPreviousFocus = null;
@@ -50,6 +52,7 @@ function showMapSelectOverlay() {
     }
     _mapSelectPreviousFocus = document.activeElement;
     gameState.paused = true;
+    if (APP_SHELL) APP_SHELL.setAttribute('inert', '');
     MAP_SELECT_OVERLAY.classList.remove('hidden');
     const firstFocusable = MAP_SELECT_OVERLAY.querySelector(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -64,6 +67,7 @@ function hideMapSelectOverlay() {
         return;
     }
     MAP_SELECT_OVERLAY.classList.add('hidden');
+    if (APP_SHELL) APP_SHELL.removeAttribute('inert');
     if (_mapSelectPreviousFocus && typeof _mapSelectPreviousFocus.focus === 'function') {
         _mapSelectPreviousFocus.focus();
         _mapSelectPreviousFocus = null;

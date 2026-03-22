@@ -5,6 +5,7 @@ function clearCurrentWave() {
     muzzleFlashes.length = 0;
     gameState.enemiesToSpawn = 0;
     gameState.spawnCooldown = 0;
+    spatialGridReady = false;
     gameState.waveInProgress = false;
     gameState.nextWaveTimer = 0;
     hideEnemyStats();
@@ -63,6 +64,7 @@ function damageEnemyAtIndex(index, amount) {
         if (gameState.selectedEnemy === enemy) {
             hideEnemyStats();
         }
+        enemy.alive = false;
         enemies.splice(index, 1);
         gameState.totalKills++;
         gameState.gold = Math.min(999999, gameState.gold + enemy.reward);
@@ -336,12 +338,14 @@ function spawnEnemy() {
         waveIndex: gameState.wave,
         heading: 0,
         enemyType,
-        pulseSeed: Math.random() * Math.PI * 2
+        pulseSeed: Math.random() * Math.PI * 2,
+        alive: true
     });
 }
 
 const BUCKET_SIZE = TILE_SIZE * 3;
 let spatialGrid = {};
+let spatialGridReady = false;
 
 function buildSpatialGrid() {
     spatialGrid = {};
@@ -353,6 +357,7 @@ function buildSpatialGrid() {
         if (!spatialGrid[key]) spatialGrid[key] = [];
         spatialGrid[key].push(enemy);
     }
+    spatialGridReady = true;
 }
 
 function getEnemiesInRange(cx, cy, range) {
@@ -380,7 +385,7 @@ function findTarget(tower) {
     let bestScore = -Infinity;
     const rangeSq = tower.range * tower.range;
     const priority = tower.targetPriority || 'first';
-    const hasSpatialData = Object.keys(spatialGrid).length > 0;
+    const hasSpatialData = spatialGridReady;
     const candidates = hasSpatialData ? getEnemiesInRange(tower.worldX, tower.worldY, tower.range) : enemies;
     for (let i = 0; i < candidates.length; i++) {
         const enemy = candidates[i];

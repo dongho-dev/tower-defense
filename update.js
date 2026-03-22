@@ -85,7 +85,7 @@ function update(dt) {
             }
         }
         let target = null;
-        if (tower._cachedTarget && tower._cachedTarget.hp > 0 && enemies.includes(tower._cachedTarget)) {
+        if (tower._cachedTarget && tower._cachedTarget.alive && tower._cachedTarget.hp > 0) {
             const ct = tower._cachedTarget;
             const cdx = ct.x - tower.worldX;
             const cdy = ct.y - tower.worldY;
