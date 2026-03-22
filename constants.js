@@ -129,11 +129,12 @@ const EventBus = {
         });
     },
     emit: function (event, data) {
-        if (!this._listeners[event]) return;
-        var snapshot = this._listeners[event].slice();
-        for (var i = 0; i < snapshot.length; i++) {
+        var list = this._listeners[event];
+        if (!list) return;
+        var len = list.length;
+        for (var i = 0; i < len; i++) {
             try {
-                snapshot[i](data);
+                list[i](data);
             } catch (e) {
                 console.warn('EventBus listener error on "' + event + '":', e);
             }

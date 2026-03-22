@@ -149,7 +149,7 @@ function showEnemyStats(enemy) {
 
 function getAdjustedPickRadius(baseRadius) {
     if (!canvas) return baseRadius;
-    const rect = canvas.getBoundingClientRect();
+    const rect = _cachedCanvasRect || canvas.getBoundingClientRect();
     if (rect.width <= 0) return baseRadius;
     const scale = rect.width / canvas.width;
     if (scale >= 1) return baseRadius;

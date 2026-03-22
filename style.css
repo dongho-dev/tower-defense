@@ -663,6 +663,30 @@ canvas {
     animation: gold-flash 0.55s ease-out forwards;
 }
 
+@keyframes lives-pulse {
+    0%,
+    100% {
+        border-color: var(--danger);
+        background: rgba(255, 131, 100, 0.12);
+    }
+    50% {
+        border-color: rgba(255, 131, 100, 0.5);
+        background: rgba(255, 131, 100, 0.06);
+    }
+}
+
+.stat-chip.lives-danger {
+    border-color: var(--danger);
+    background: rgba(255, 131, 100, 0.1);
+    animation: lives-pulse 2s ease-in-out infinite;
+}
+
+.stat-chip.lives-critical {
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.18);
+    animation: lives-pulse 0.8s ease-in-out infinite;
+}
+
 /* 빌드 패널 접기 버튼 인디케이터 */
 .toggle-arrow,
 .selected-tower-indicator {
