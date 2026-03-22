@@ -555,6 +555,7 @@ if (typeof module !== 'undefined') {
         damageEnemy,
         damageEnemyAtIndex,
         pickEnemyType,
+        getWaveEnemyComposition,
         pathTiles,
         ENEMY_TYPE_DEFINITIONS,
         ENEMY_TYPE_MAP,
