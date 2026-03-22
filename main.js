@@ -84,7 +84,7 @@ function handlePointerDown(canvasX, canvasY, isRightClick) {
     }
 
     const towerDef = getTowerDefinition(gameState.selectedTowerType);
-    const cost = towerDef.cost || 25;
+    const cost = towerDef.cost ?? 25;
     if (gameState.gold < cost) {
         flashGoldInsufficient();
         return;
@@ -452,7 +452,7 @@ document.addEventListener('keydown', (event) => {
             const success = upgradeTower(gameState.selectedTower);
             if (!success && gameState.selectedTower) {
                 const cost = gameState.selectedTower.upgradeCost;
-                if (cost != null && gameState.gold < cost) {
+                if (cost !== null && cost !== undefined && gameState.gold < cost) {
                     flashGoldInsufficient();
                 }
             }
