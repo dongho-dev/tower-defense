@@ -1538,4 +1538,39 @@ describe('Unit tests', () => {
         towers.length = 0;
         towerPositionSet.clear();
     });
+
+    // ── #136: 볼륨 슬라이더 ──
+
+    it('#136: volume-slider DOM 존재', () => {
+        const slider = global.document.getElementById('volume-slider');
+        assert.ok(slider !== null, '#136: volume-slider가 DOM에 존재');
+        assert.strictEqual(slider.type, 'range', '#136: volume-slider type은 range');
+        assert.strictEqual(slider.getAttribute('min'), '0', '#136: min=0');
+        assert.strictEqual(slider.getAttribute('max'), '100', '#136: max=100');
+    });
+
+    it('#136: setVolume 범위 클램핑 및 getVolume', () => {
+        setVolume(0.5);
+        assert.strictEqual(getVolume(), 0.5, '#136: setVolume(0.5) 후 getVolume() = 0.5');
+        setVolume(-1);
+        assert.strictEqual(getVolume(), 0, '#136: setVolume(-1) 클램핑 → 0');
+        setVolume(2);
+        assert.strictEqual(getVolume(), 1, '#136: setVolume(2) 클램핑 → 1');
+        setVolume(NaN);
+        assert.strictEqual(getVolume(), 1, '#136: setVolume(NaN) 무시');
+        // 복원
+        setVolume(0.8);
+    });
+
+    it('#136: setSoundMuted 해제 시 masterVolume 사용', () => {
+        setVolume(0.5);
+        soundMuted = false;
+        audioContext = null;
+        masterGain = null;
+        ensureAudioContext();
+        assert.ok(masterGain !== null, '#136: ensureAudioContext 후 masterGain 존재');
+        assert.strictEqual(masterGain.gain.value, 0.5, '#136: masterGain 초기값이 masterVolume 사용');
+        // 복원
+        setVolume(0.8);
+    });
 });

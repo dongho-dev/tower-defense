@@ -244,6 +244,27 @@ if (SOUND_TOGGLE) {
     });
 }
 
+// ── Volume slider ────────────────────────────────────────────────────────────
+try {
+    const savedVolume = localStorage.getItem('td_volume');
+    if (savedVolume !== null) {
+        const parsed = Number(savedVolume);
+        if (Number.isFinite(parsed)) {
+            setVolume(parsed);
+        }
+    }
+} catch (_) {
+    /* localStorage unavailable */
+}
+
+if (VOLUME_SLIDER) {
+    VOLUME_SLIDER.value = String(Math.round(getVolume() * 100));
+    VOLUME_SLIDER.addEventListener('input', () => {
+        const value = Number(VOLUME_SLIDER.value) / 100;
+        setVolume(value);
+    });
+}
+
 SPEED_BUTTONS.forEach((button) => {
     button.addEventListener('click', () => {
         const multiplier = Number(button.dataset.speed) || 1;

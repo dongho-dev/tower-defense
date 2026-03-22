@@ -106,6 +106,7 @@ const gameGlobals = {
     BUILD_CONTAINER: 'readonly',
     TOWER_LIST_CONTAINER: 'readonly',
     SOUND_TOGGLE: 'readonly',
+    VOLUME_SLIDER: 'readonly',
     A11Y_ANNOUNCER: 'readonly',
     SELECTED_TOWER_INDICATOR: 'readonly',
     UPGRADE_TOWER_BUTTON: 'readonly',
@@ -148,6 +149,9 @@ const gameGlobals = {
     SOUND_LIBRARY: 'readonly',
     updateSoundToggle: 'readonly',
     setSoundMuted: 'readonly',
+    masterVolume: 'writable',
+    setVolume: 'readonly',
+    getVolume: 'readonly',
     playSound: 'readonly',
 
     // game.js
