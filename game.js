@@ -41,7 +41,7 @@ function setWave(targetWave) {
     if (WAVE_INPUT) {
         WAVE_INPUT.value = gameState.wave;
     }
-    updateWavePreview();
+    EventBus.emit('wave:changed');
 }
 
 function damageEnemyAtIndex(index, amount) {
@@ -64,7 +64,7 @@ function damageEnemyAtIndex(index, amount) {
         }
         enemies.splice(index, 1);
         gameState.gold = Math.min(999999, gameState.gold + enemy.reward);
-        updateGoldUI();
+        EventBus.emit('gold:changed');
         playSound('kill');
         return true;
     }
@@ -142,7 +142,7 @@ function showTowerStats(tower) {
     ensureTowerMetadata(tower);
     gameState.selectedTower = tower;
     TOWER_STATS_PANEL.classList.remove('hidden');
-    updateTowerStatsFields();
+    EventBus.emit('tower:selected');
     const def = getTowerDefinition(tower.type);
     announce(def.label + ' 포탑 정보');
 }
@@ -153,7 +153,7 @@ function showEnemyStats(enemy) {
     }
     gameState.selectedEnemy = enemy;
     ENEMY_STATS_PANEL.classList.remove('hidden');
-    updateEnemyStatsFields();
+    EventBus.emit('enemy:selected');
     const typeName = (enemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
     announce(typeName + ' 적 정보');
 }
@@ -202,12 +202,12 @@ function upgradeTower(tower) {
     }
     gameState.gold -= cost;
     tower.spentGold = (tower.spentGold || 0) + cost;
-    updateGoldUI();
+    EventBus.emit('gold:changed');
     tower.level += 1;
     recalcTowerStats(tower);
     playSound('upgrade');
     if (gameState.selectedTower === tower) {
-        updateTowerStatsFields();
+        EventBus.emit('tower:selected');
     }
     const upgDef = getTowerDefinition(tower.type);
     announce(upgDef.label + ' 레벨 ' + tower.level + '로 업그레이드');
@@ -222,7 +222,7 @@ function sellTower(tower) {
     towers.splice(idx, 1);
     towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
     gameState.gold = Math.min(999999, gameState.gold + refund);
-    updateGoldUI();
+    EventBus.emit('gold:changed');
     if (gameState.selectedTower === tower) hideTowerStats();
     playSound('build');
     const sellDef = getTowerDefinition(tower.type);
@@ -261,7 +261,7 @@ function showDefeatDialog() {
             RETRY_BUTTON.focus();
         }
     }
-    updateWavePreview(0);
+    EventBus.emit('wave:changed', { remaining: 0 });
     announce('패배했습니다');
 }
 
@@ -411,7 +411,7 @@ function resetGame() {
     clearCurrentWave();
     gameState.selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(gameState.selectedTowerType);
-    updateGoldUI();
+    EventBus.emit('gold:changed');
     if (LIVES_LABEL) LIVES_LABEL.textContent = gameState.lives;
     if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
@@ -425,7 +425,7 @@ function resetGame() {
     } else {
         setBuildPanelCollapsed(false);
     }
-    updateWavePreview();
+    EventBus.emit('wave:changed');
     elapsedTime = 0;
     lastTime = performance.now();
     cachedNoiseBuffer = null;
@@ -443,7 +443,7 @@ function startWave() {
     if (WAVE_INPUT) {
         WAVE_INPUT.value = gameState.wave;
     }
-    updateWavePreview(gameState.enemiesToSpawn + enemies.length);
+    EventBus.emit('wave:changed', { remaining: gameState.enemiesToSpawn + enemies.length });
     announce(`웨이브 ${gameState.wave} 시작`);
 }
 
@@ -896,14 +896,14 @@ function update(dt) {
             gameState.nextWaveTimer = 4;
             var waveBonus = WAVE_CLEAR_BONUS_BASE + gameState.wave * WAVE_CLEAR_BONUS_PER_WAVE;
             gameState.gold = Math.min(gameState.gold + waveBonus, 999999);
-            updateGoldUI();
+            EventBus.emit('gold:changed');
             announce('웨이브 ' + gameState.wave + ' 클리어! 보너스 ' + waveBonus + ' 골드');
             gameState.wave = Math.min(gameState.wave + 1, WAVE_MAX);
             if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
             if (WAVE_INPUT) {
                 WAVE_INPUT.value = gameState.wave;
             }
-            updateWavePreview();
+            EventBus.emit('wave:changed');
         }
     } else if (gameState.nextWaveTimer > 0) {
         gameState.nextWaveTimer -= dt;
@@ -1067,10 +1067,13 @@ function update(dt) {
     }
 
     if (gameState.selectedEnemy) {
-        updateEnemyStatsFields();
+        EventBus.emit('enemy:selected');
     }
     if (gameState.selectedTower) {
-        updateTowerStatsFields();
+        EventBus.emit('tower:selected');
     }
-    updateWavePreview(gameState.waveInProgress ? gameState.enemiesToSpawn + enemies.length : null);
+    EventBus.emit(
+        'wave:changed',
+        gameState.waveInProgress ? { remaining: gameState.enemiesToSpawn + enemies.length } : null
+    );
 }

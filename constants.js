@@ -116,6 +116,26 @@ const TARGET_PRIORITIES = [
     { key: 'closest', label: '가까운 적' }
 ];
 
+const EventBus = {
+    _listeners: {},
+    on: function (event, fn) {
+        if (!this._listeners[event]) this._listeners[event] = [];
+        this._listeners[event].push(fn);
+    },
+    off: function (event, fn) {
+        if (!this._listeners[event]) return;
+        this._listeners[event] = this._listeners[event].filter(function (f) {
+            return f !== fn;
+        });
+    },
+    emit: function (event, data) {
+        if (!this._listeners[event]) return;
+        this._listeners[event].forEach(function (fn) {
+            fn(data);
+        });
+    }
+};
+
 const gameState = {
     gold: 100,
     lives: 20,
