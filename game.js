@@ -304,6 +304,50 @@ function hideMapSelectOverlay() {
     }
 }
 
+function drawMapPreview(previewCtx, rawWaypoints, width, height) {
+    if (!previewCtx || !rawWaypoints || rawWaypoints.length < 2) return;
+    var xs = rawWaypoints.map(function (p) {
+        return p.x;
+    });
+    var ys = rawWaypoints.map(function (p) {
+        return p.y;
+    });
+    var minX = Math.min.apply(null, xs),
+        maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys),
+        maxY = Math.max.apply(null, ys);
+    var rangeX = maxX - minX || 1;
+    var rangeY = maxY - minY || 1;
+    var padding = 10;
+    var scaleX = (width - padding * 2) / rangeX;
+    var scaleY = (height - padding * 2) / rangeY;
+    var scale = Math.min(scaleX, scaleY);
+    var offsetX = (width - rangeX * scale) / 2;
+    var offsetY = (height - rangeY * scale) / 2;
+    previewCtx.strokeStyle = '#6296ff';
+    previewCtx.lineWidth = 3;
+    previewCtx.lineCap = 'round';
+    previewCtx.lineJoin = 'round';
+    previewCtx.beginPath();
+    for (var i = 0; i < rawWaypoints.length; i++) {
+        var px = (rawWaypoints[i].x - minX) * scale + offsetX;
+        var py = (rawWaypoints[i].y - minY) * scale + offsetY;
+        if (i === 0) previewCtx.moveTo(px, py);
+        else previewCtx.lineTo(px, py);
+    }
+    previewCtx.stroke();
+    var start = rawWaypoints[0];
+    var end = rawWaypoints[rawWaypoints.length - 1];
+    previewCtx.fillStyle = '#4caf50';
+    previewCtx.beginPath();
+    previewCtx.arc((start.x - minX) * scale + offsetX, (start.y - minY) * scale + offsetY, 4, 0, Math.PI * 2);
+    previewCtx.fill();
+    previewCtx.fillStyle = '#f44336';
+    previewCtx.beginPath();
+    previewCtx.arc((end.x - minX) * scale + offsetX, (end.y - minY) * scale + offsetY, 4, 0, Math.PI * 2);
+    previewCtx.fill();
+}
+
 function populateMapList() {
     if (!MAP_LIST_CONTAINER) {
         return;
@@ -324,8 +368,20 @@ function populateMapList() {
         diffEl.className = 'map-card-difficulty';
         diffEl.textContent = '난이도: ' + mapDef.difficulty;
 
+        var previewCanvas = document.createElement('canvas');
+        previewCanvas.width = 150;
+        previewCanvas.height = 100;
+        previewCanvas.className = 'map-preview-canvas';
+        previewCanvas.setAttribute('aria-hidden', 'true');
+        var previewCtx = previewCanvas.getContext('2d');
+        drawMapPreview(previewCtx, mapDef.rawWaypoints, 150, 100);
+
+        var paramsEl = document.createElement('span');
+        paramsEl.className = 'map-card-params';
+        paramsEl.textContent = '골드: ' + (mapDef.initialGold || 100) + ' / 생명력: ' + (mapDef.initialLives || 20);
+
         card.setAttribute('aria-pressed', String(mapDef.id === activeMapId));
-        card.append(nameEl, diffEl);
+        card.append(nameEl, previewCanvas, diffEl, paramsEl);
         card.addEventListener('click', () => {
             activeMapId = mapDef.id;
             cards.forEach((c) => {
@@ -342,8 +398,9 @@ function populateMapList() {
 function resetGame() {
     buildMapData(activeMapId);
     staticLayer = null;
-    gold = 100;
-    lives = 20;
+    var currentMapDef = MAP_DEFINITIONS[activeMapId] || MAP_DEFINITIONS['map1'];
+    gold = currentMapDef.initialGold || 100;
+    lives = currentMapDef.initialLives || 20;
     wave = 1;
     gameOver = false;
     paused = false;

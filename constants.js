@@ -2,7 +2,7 @@ const canvas = document.getElementById('game');
 if (!canvas) {
     throw new Error('Canvas element #game not found');
 }
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
 if (!ctx) {
     throw new Error('Failed to get 2D rendering context');
 }

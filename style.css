@@ -56,7 +56,7 @@ body {
     min-height: 100vh;
     background: var(--bg-gradient);
     color: var(--text-main);
-    font-family: "Noto Sans KR", "Segoe UI", sans-serif;
+    font-family: 'Noto Sans KR', 'Segoe UI', sans-serif;
     display: flex;
     justify-content: center;
     padding: 32px 24px 48px;
@@ -158,7 +158,10 @@ body {
     font-size: 14px;
     min-height: 44px;
     cursor: pointer;
-    transition: transform var(--transition), background var(--transition), border var(--transition);
+    transition:
+        transform var(--transition),
+        background var(--transition),
+        border var(--transition);
 }
 
 .speed-button:hover,
@@ -257,7 +260,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    transition: transform var(--transition), opacity var(--transition);
+    transition:
+        transform var(--transition),
+        opacity var(--transition);
 }
 
 .build-shell.collapsed .build-panel {
@@ -294,7 +299,10 @@ body {
     border-radius: var(--radius-sm);
     padding: 12px 14px;
     text-align: left;
-    transition: transform var(--transition), border var(--transition), box-shadow var(--transition);
+    transition:
+        transform var(--transition),
+        border var(--transition),
+        box-shadow var(--transition);
 }
 
 .tower-card:hover {
@@ -428,7 +436,7 @@ canvas {
 @media (max-width: 1180px) {
     .app-body {
         grid-template-columns: 280px 1fr;
-        grid-template-areas: "build stage" "info info";
+        grid-template-areas: 'build stage' 'info info';
     }
     .info-column {
         grid-area: info;
@@ -511,7 +519,9 @@ canvas {
     font-size: 14px;
     color: var(--accent);
     cursor: pointer;
-    transition: background var(--transition), border var(--transition);
+    transition:
+        background var(--transition),
+        border var(--transition);
 }
 
 #upgrade-tower-button:hover {
@@ -537,7 +547,9 @@ canvas {
     font-size: 14px;
     color: var(--danger);
     cursor: pointer;
-    transition: background var(--transition), border var(--transition);
+    transition:
+        background var(--transition),
+        border var(--transition);
 }
 
 #sell-tower-button:hover {
@@ -547,9 +559,18 @@ canvas {
 
 /* 골드 부족 피드백 */
 @keyframes gold-flash {
-    0%   { border-color: var(--danger); background: rgba(255, 131, 100, 0.18); }
-    60%  { border-color: rgba(255, 131, 100, 0.7); background: rgba(255, 131, 100, 0.22); }
-    100% { border-color: rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.04); }
+    0% {
+        border-color: var(--danger);
+        background: rgba(255, 131, 100, 0.18);
+    }
+    60% {
+        border-color: rgba(255, 131, 100, 0.7);
+        background: rgba(255, 131, 100, 0.22);
+    }
+    100% {
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+    }
 }
 
 .stat-chip.flash-insufficient {
@@ -603,7 +624,11 @@ canvas {
     text-align: left;
     color: var(--text-main);
     width: 100%;
-    transition: transform var(--transition), border var(--transition), box-shadow var(--transition), background var(--transition);
+    transition:
+        transform var(--transition),
+        border var(--transition),
+        box-shadow var(--transition),
+        background var(--transition);
 }
 
 .map-card:hover {
@@ -616,7 +641,9 @@ canvas {
 .map-card.selected {
     background: rgba(106, 168, 255, 0.12);
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft), 0 14px 24px rgba(19, 58, 110, 0.45);
+    box-shadow:
+        0 0 0 2px var(--accent-soft),
+        0 14px 24px rgba(19, 58, 110, 0.45);
 }
 
 .map-card-name {
@@ -629,6 +656,23 @@ canvas {
     color: var(--text-muted);
 }
 
+.map-preview-canvas {
+    display: block;
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+    margin: 6px auto;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.map-card-params {
+    display: block;
+    font-size: 0.85em;
+    color: #b0b8c8;
+    margin-top: 4px;
+}
+
 .restart-button {
     margin-top: 6px;
     background: var(--accent);
@@ -639,7 +683,10 @@ canvas {
     font-weight: 600;
     color: #071432;
     cursor: pointer;
-    transition: background var(--transition), border var(--transition), transform var(--transition);
+    transition:
+        background var(--transition),
+        border var(--transition),
+        transform var(--transition);
 }
 
 .restart-button:hover {
@@ -755,7 +802,9 @@ canvas {
 
 /* ── Reduced motion preference ── */
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
