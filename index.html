@@ -1,144 +1,183 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- NOTE: 서버 배포 시 HTTP 헤더로 CSP 전환 권장 (frame-ancestors 'none' 추가 가능) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; connect-src 'none'; form-action 'none'; frame-src 'none';">
-    <title>타워 디펜스 커맨드</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="app-shell">
-        <header class="top-bar">
-            <div class="bar-left">
-                <h1 class="brand">타워 디펜스 커맨드</h1>
-                <div class="stat-block">
-                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
-                        <span class="stat-label">웨이브</span>
-                        <span class="stat-value" id="wave">1</span>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- NOTE: 서버 배포 시 HTTP 헤더로 CSP 전환 권장 (frame-ancestors 'none' 추가 가능) -->
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; connect-src 'none'; form-action 'none'; frame-src 'none';"
+        />
+        <title>타워 디펜스 커맨드</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="app-shell">
+            <header class="top-bar">
+                <div class="bar-left">
+                    <h1 class="brand">타워 디펜스 커맨드</h1>
+                    <div class="stat-block">
+                        <div class="stat-chip" aria-live="polite" aria-atomic="true">
+                            <span class="stat-label">웨이브</span>
+                            <span class="stat-value" id="wave">1</span>
+                        </div>
+                        <div class="stat-chip" aria-live="polite" aria-atomic="true">
+                            <span class="stat-label">생명력</span>
+                            <span class="stat-value" id="lives">20</span>
+                        </div>
+                        <div class="stat-chip">
+                            <span class="stat-label">골드</span>
+                            <span class="stat-value" id="gold">100</span>
+                        </div>
                     </div>
-                    <div class="stat-chip" aria-live="polite" aria-atomic="true">
-                        <span class="stat-label">생명력</span>
-                        <span class="stat-value" id="lives">20</span>
+                </div>
+                <div class="bar-right">
+                    <div class="control-row speed-controls" role="group" aria-label="게임 속도">
+                        <span class="control-label">속도</span>
+                        <button type="button" class="speed-button active" data-speed="1">1x</button>
+                        <button type="button" class="speed-button" data-speed="2">2x</button>
+                        <button type="button" class="speed-button" data-speed="3">3x</button>
                     </div>
-                    <div class="stat-chip">
-                        <span class="stat-label">골드</span>
-                        <span class="stat-value" id="gold">100</span>
+                    <div class="control-row gold-control">
+                        <label for="gold-input" class="control-label">골드</label>
+                        <input type="number" id="gold-input" min="0" max="999999" step="10" value="100" />
+                        <button type="button" id="gold-apply">설정</button>
+                        <button type="button" class="gold-adjust" data-delta="100">+100</button>
+                        <button type="button" class="gold-adjust" data-delta="500">+500</button>
+                    </div>
+                    <div class="control-row wave-control">
+                        <label for="wave-input" class="control-label">웨이브 이동</label>
+                        <input type="number" id="wave-input" min="1" max="9999" value="1" />
+                        <button type="button" id="wave-apply">이동</button>
+                    </div>
+                    <div class="control-row sound-control">
+                        <button
+                            type="button"
+                            id="sound-toggle"
+                            class="icon-button"
+                            aria-pressed="true"
+                            aria-label="사운드 끄기"
+                            title="사운드 끄기"
+                        >
+                            🔊
+                        </button>
                     </div>
                 </div>
-            </div>
-            <div class="bar-right">
-                <div class="control-row speed-controls" role="group" aria-label="게임 속도">
-                    <span class="control-label">속도</span>
-                    <button type="button" class="speed-button active" data-speed="1">1x</button>
-                    <button type="button" class="speed-button" data-speed="2">2x</button>
-                    <button type="button" class="speed-button" data-speed="3">3x</button>
-                </div>
-                <div class="control-row gold-control">
-                    <label for="gold-input" class="control-label">골드</label>
-                    <input type="number" id="gold-input" min="0" max="999999" step="10" value="100">
-                    <button type="button" id="gold-apply">설정</button>
-                    <button type="button" class="gold-adjust" data-delta="100">+100</button>
-                    <button type="button" class="gold-adjust" data-delta="500">+500</button>
-                </div>
-                <div class="control-row wave-control">
-                    <label for="wave-input" class="control-label">웨이브 이동</label>
-                    <input type="number" id="wave-input" min="1" max="9999" value="1">
-                    <button type="button" id="wave-apply">이동</button>
-                </div>
-                <div class="control-row sound-control">
-                    <button type="button" id="sound-toggle" class="icon-button" aria-pressed="true" aria-label="사운드 끄기" title="사운드 끄기">🔊</button>
-                </div>
-            </div>
-        </header>
+            </header>
 
-        <p class="instructions">왼쪽 패널을 펼친 뒤 원하는 포탑을 선택하고 캔버스를 좌클릭하면 설치됩니다. 우클릭 업그레이드는 최대 레벨 15까지 가능하며 각 포탑은 고유한 사거리·피해·효과(지속/광역/산탄/박격포)를 가집니다. 골드와 웨이브는 상단 HUD에서 즉시 조정할 수 있고, 사운드 토글로 효과음을 켜거나 끌 수 있습니다.</p>
+            <p class="instructions">
+                왼쪽 패널을 펼친 뒤 원하는 포탑을 선택하고 캔버스를 좌클릭하면 설치됩니다. 우클릭 업그레이드는 최대 레벨
+                15까지 가능하며 각 포탑은 고유한 사거리·피해·효과(지속/광역/산탄/박격포)를 가집니다. 골드와 웨이브는
+                상단 HUD에서 즉시 조정할 수 있고, 사운드 토글로 효과음을 켜거나 끌 수 있습니다.
+            </p>
 
-        <div class="app-body">
-            <div class="build-shell">
-                <button type="button" id="build-toggle" class="build-toggle" aria-expanded="true" aria-controls="build-panel" aria-label="포탑 패널 접기" title="포탑 패널 접기">
-                    <span class="toggle-arrow">◀</span>
-                    <span id="selected-tower-indicator" class="selected-tower-indicator"></span>
-                </button>
-                <aside id="build-panel" class="build-panel">
-                    <h2>포탑 제작</h2>
-                    <p class="build-hint">왼쪽에서 포탑을 선택한 뒤 지형을 클릭하세요.</p>
-                    <div id="tower-list" class="tower-list" role="radiogroup" aria-label="포탑 선택"></div>
+            <div class="app-body">
+                <div class="build-shell">
+                    <button
+                        type="button"
+                        id="build-toggle"
+                        class="build-toggle"
+                        aria-expanded="true"
+                        aria-controls="build-panel"
+                        aria-label="포탑 패널 접기"
+                        title="포탑 패널 접기"
+                    >
+                        <span class="toggle-arrow">◀</span>
+                        <span id="selected-tower-indicator" class="selected-tower-indicator"></span>
+                    </button>
+                    <aside id="build-panel" class="build-panel">
+                        <h2>포탑 제작</h2>
+                        <p class="build-hint">왼쪽에서 포탑을 선택한 뒤 지형을 클릭하세요.</p>
+                        <div id="tower-list" class="tower-list" role="radiogroup" aria-label="포탑 선택"></div>
+                    </aside>
+                </div>
+
+                <main class="stage-area">
+                    <div class="canvas-wrapper">
+                        <canvas
+                            id="game"
+                            width="900"
+                            height="600"
+                            tabindex="0"
+                            role="application"
+                            aria-label="타워 디펜스 게임 화면"
+                            aria-describedby="canvas-keys-desc"
+                        ></canvas>
+                        <span id="canvas-keys-desc" class="sr-only"
+                            >방향키: 커서 이동, Enter: 배치/선택, Shift+Enter: 업그레이드, S: 판매, U: 업그레이드,
+                            Space: 일시정지, Escape: 해제</span
+                        >
+                    </div>
+                </main>
+
+                <aside class="info-column">
+                    <div id="wave-preview" class="stats-panel card" aria-live="polite" aria-atomic="true">
+                        <h3>다음 웨이브 정보</h3>
+                        <p>상태: <span data-field="preview-status">대기</span></p>
+                        <p>웨이브: <span data-field="preview-wave">1</span></p>
+                        <p>남은 적: <span data-field="preview-remaining">0</span></p>
+                        <p>체력: <span data-field="preview-hp">-</span></p>
+                        <p>이동 속도: <span data-field="preview-speed">-</span></p>
+                        <p>획득 골드: <span data-field="preview-reward">-</span></p>
+                    </div>
+                    <div id="tower-stats" class="stats-panel card hidden">
+                        <h3>포탑 정보</h3>
+                        <p>종류: <span data-field="tower-type">-</span></p>
+                        <p>좌표: <span data-field="tower-position">-</span></p>
+                        <p>사거리: <span data-field="tower-range">-</span></p>
+                        <p>발사 간격: <span data-field="tower-fire-delay">-</span></p>
+                        <p>피해량: <span data-field="tower-damage">-</span></p>
+                        <p>레벨: <span data-field="tower-level">-</span></p>
+                        <p>업그레이드 비용: <span data-field="tower-upgrade-cost">-</span></p>
+                        <p>판매 환급: <span data-field="tower-sell-refund">-</span></p>
+                        <p>
+                            타겟:
+                            <select id="target-priority-select" aria-label="타겟 우선순위"></select>
+                        </p>
+                        <button type="button" id="upgrade-tower-button">업그레이드</button>
+                        <button type="button" id="sell-tower-button">판매</button>
+                    </div>
+                    <div id="enemy-stats" class="stats-panel card hidden">
+                        <h3>적 정보</h3>
+                        <p>종류: <span data-field="enemy-type">-</span></p>
+                        <p>웨이브: <span data-field="enemy-wave">-</span></p>
+                        <p>체력: <span data-field="enemy-hp">-</span></p>
+                        <p>이동 속도: <span data-field="enemy-speed">-</span></p>
+                        <p>획득 골드: <span data-field="enemy-reward">-</span></p>
+                    </div>
                 </aside>
             </div>
-
-            <main class="stage-area">
-                <div class="canvas-wrapper">
-                    <canvas id="game" width="900" height="600" tabindex="0" role="application" aria-label="타워 디펜스 게임 화면" aria-describedby="canvas-keys-desc"></canvas>
-                    <span id="canvas-keys-desc" class="sr-only">방향키: 커서 이동, Enter: 배치/선택, Shift+Enter: 업그레이드, S: 판매, U: 업그레이드, Space: 일시정지, Escape: 해제</span>
-                </div>
-            </main>
-
-            <aside class="info-column">
-                <div id="wave-preview" class="stats-panel card" aria-live="polite" aria-atomic="true">
-                    <h3>다음 웨이브 정보</h3>
-                    <p>상태: <span data-field="preview-status">대기</span></p>
-                    <p>웨이브: <span data-field="preview-wave">1</span></p>
-                    <p>남은 적: <span data-field="preview-remaining">0</span></p>
-                    <p>체력: <span data-field="preview-hp">-</span></p>
-                    <p>이동 속도: <span data-field="preview-speed">-</span></p>
-                    <p>획득 골드: <span data-field="preview-reward">-</span></p>
-                </div>
-                <div id="tower-stats" class="stats-panel card hidden">
-                    <h3>포탑 정보</h3>
-                    <p>종류: <span data-field="tower-type">-</span></p>
-                    <p>좌표: <span data-field="tower-position">-</span></p>
-                    <p>사거리: <span data-field="tower-range">-</span></p>
-                    <p>발사 간격: <span data-field="tower-fire-delay">-</span></p>
-                    <p>피해량: <span data-field="tower-damage">-</span></p>
-                    <p>레벨: <span data-field="tower-level">-</span></p>
-                    <p>업그레이드 비용: <span data-field="tower-upgrade-cost">-</span></p>
-                    <p>판매 환급: <span data-field="tower-sell-refund">-</span></p>
-                    <button type="button" id="upgrade-tower-button">업그레이드</button>
-                    <button type="button" id="sell-tower-button">판매</button>
-                </div>
-                <div id="enemy-stats" class="stats-panel card hidden">
-                    <h3>적 정보</h3>
-                    <p>종류: <span data-field="enemy-type">-</span></p>
-                    <p>웨이브: <span data-field="enemy-wave">-</span></p>
-                    <p>체력: <span data-field="enemy-hp">-</span></p>
-                    <p>이동 속도: <span data-field="enemy-speed">-</span></p>
-                    <p>획득 골드: <span data-field="enemy-reward">-</span></p>
-                </div>
-            </aside>
         </div>
-    </div>
 
-    <div id="map-select-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="맵 선택">
-        <div class="overlay-content">
-            <h2>맵 선택</h2>
-            <div id="map-list"></div>
-            <button type="button" id="start-game-button" class="restart-button">시작</button>
-        </div>
-    </div>
-
-    <div id="defeat-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="패배">
-        <div class="overlay-content">
-            <h2>패배했습니다</h2>
-            <p>다시 시도하시겠습니까?</p>
-            <div class="overlay-actions">
-                <button type="button" id="retry-button">다시 시작</button>
-                <button type="button" id="cancel-retry-button">닫기</button>
+        <div id="map-select-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="맵 선택">
+            <div class="overlay-content">
+                <h2>맵 선택</h2>
+                <div id="map-list"></div>
+                <button type="button" id="start-game-button" class="restart-button">시작</button>
             </div>
         </div>
-    </div>
 
-    <div id="a11y-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+        <div id="defeat-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="패배">
+            <div class="overlay-content">
+                <h2>패배했습니다</h2>
+                <p>다시 시도하시겠습니까?</p>
+                <div class="overlay-actions">
+                    <button type="button" id="retry-button">다시 시작</button>
+                    <button type="button" id="cancel-retry-button">닫기</button>
+                </div>
+            </div>
+        </div>
 
-    <script src="constants.js"></script>
-    <script src="towers.js"></script>
-    <script src="utils.js"></script>
-    <script src="map.js"></script>
-    <script src="ui.js"></script>
-    <script src="audio.js"></script>
-    <script src="game.js"></script>
-    <script src="renderer.js"></script>
-    <script src="main.js"></script>
-</body>
+        <div id="a11y-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+        <script src="constants.js"></script>
+        <script src="towers.js"></script>
+        <script src="utils.js"></script>
+        <script src="map.js"></script>
+        <script src="ui.js"></script>
+        <script src="audio.js"></script>
+        <script src="game.js"></script>
+        <script src="renderer.js"></script>
+        <script src="main.js"></script>
+    </body>
 </html>

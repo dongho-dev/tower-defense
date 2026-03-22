@@ -478,7 +478,8 @@ function createTowerData(x, y, typeId) {
         flashTimer: 0,
         recoil: 0,
         auraOffset: Math.random() * Math.PI * 2,
-        spentGold: def.cost || 0
+        spentGold: def.cost || 0,
+        targetPriority: 'first'
     };
 }
 
@@ -518,13 +519,31 @@ function findTarget(tower) {
     let chosenIndex = -1;
     let bestScore = -Infinity;
     const rangeSq = tower.range * tower.range;
+    const priority = tower.targetPriority || 'first';
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
         const dx = enemy.x - tower.worldX;
         const dy = enemy.y - tower.worldY;
         const distSq = dx * dx + dy * dy;
         if (distSq > rangeSq) continue;
-        const score = enemy.waypoint * 1000 - distSq;
+        let score;
+        switch (priority) {
+            case 'last':
+                score = -(enemy.waypoint * 1000 - distSq);
+                break;
+            case 'strongest':
+                score = enemy.hp;
+                break;
+            case 'weakest':
+                score = -enemy.hp;
+                break;
+            case 'closest':
+                score = -distSq;
+                break;
+            default:
+                score = enemy.waypoint * 1000 - distSq;
+                break;
+        }
         if (score > bestScore) {
             bestScore = score;
             chosen = enemy;
