@@ -325,14 +325,50 @@ function spawnEnemy() {
     });
 }
 
+const BUCKET_SIZE = TILE_SIZE * 3;
+let spatialGrid = {};
+
+function buildSpatialGrid() {
+    spatialGrid = {};
+    for (let i = 0; i < enemies.length; i++) {
+        const enemy = enemies[i];
+        const bx = Math.floor(enemy.x / BUCKET_SIZE);
+        const by = Math.floor(enemy.y / BUCKET_SIZE);
+        const key = bx + ',' + by;
+        if (!spatialGrid[key]) spatialGrid[key] = [];
+        spatialGrid[key].push(enemy);
+    }
+}
+
+function getEnemiesInRange(cx, cy, range) {
+    const result = [];
+    const bucketRange = Math.ceil(range / BUCKET_SIZE);
+    const bx = Math.floor(cx / BUCKET_SIZE);
+    const by = Math.floor(cy / BUCKET_SIZE);
+    for (let dx = -bucketRange; dx <= bucketRange; dx++) {
+        for (let dy = -bucketRange; dy <= bucketRange; dy++) {
+            const key = bx + dx + ',' + (by + dy);
+            const bucket = spatialGrid[key];
+            if (bucket) {
+                for (let i = 0; i < bucket.length; i++) {
+                    result.push(bucket[i]);
+                }
+            }
+        }
+    }
+    return result;
+}
+
 function findTarget(tower) {
     let chosen = null;
     let chosenIndex = -1;
     let bestScore = -Infinity;
     const rangeSq = tower.range * tower.range;
     const priority = tower.targetPriority || 'first';
-    for (let i = 0; i < enemies.length; i++) {
-        const enemy = enemies[i];
+    const hasSpatialData = Object.keys(spatialGrid).length > 0;
+    const candidates = hasSpatialData ? getEnemiesInRange(tower.worldX, tower.worldY, tower.range) : enemies;
+    for (let i = 0; i < candidates.length; i++) {
+        const enemy = candidates[i];
         const dx = enemy.x - tower.worldX;
         const dy = enemy.y - tower.worldY;
         const distSq = dx * dx + dy * dy;
@@ -363,7 +399,7 @@ function findTarget(tower) {
     }
     if (!chosen) return null;
     _findTargetResult.enemy = chosen;
-    _findTargetResult.index = chosenIndex;
+    _findTargetResult.index = enemies.indexOf(chosen);
     return _findTargetResult;
 }
 const _findTargetResult = { enemy: null, index: -1 };
@@ -438,6 +474,8 @@ function update(dt) {
         }
     }
 
+    buildSpatialGrid();
+
     for (const tower of towers) {
         const def = tower.def || getTowerDefinition(tower.type);
         tower.flashTimer = Math.max(0, (tower.flashTimer || 0) - dt * 4.6);
@@ -452,8 +490,20 @@ function update(dt) {
                 tower.activeBeam = null;
             }
         }
-        const result = findTarget(tower);
-        let target = result ? result.enemy : null;
+        let target = null;
+        if (tower._cachedTarget && tower._cachedTarget.hp > 0 && enemies.includes(tower._cachedTarget)) {
+            const ct = tower._cachedTarget;
+            const cdx = ct.x - tower.worldX;
+            const cdy = ct.y - tower.worldY;
+            if (cdx * cdx + cdy * cdy <= tower.range * tower.range) {
+                target = ct;
+            }
+        }
+        if (!target) {
+            const result = findTarget(tower);
+            target = result ? result.enemy : null;
+        }
+        tower._cachedTarget = target;
         if (target) {
             const angle = Math.atan2(target.y - tower.worldY, target.x - tower.worldX);
             tower.aimAngle = angle;
