@@ -68,6 +68,7 @@ const BUILD_PANEL = document.getElementById('build-panel');
 const BUILD_TOGGLE = document.getElementById('build-toggle');
 const BUILD_CONTAINER = document.querySelector('.build-shell');
 const TOWER_LIST_CONTAINER = document.getElementById('tower-list');
+const APP_SHELL = document.querySelector('.app-shell');
 const SOUND_TOGGLE = document.getElementById('sound-toggle');
 const VOLUME_SLIDER = document.getElementById('volume-slider');
 const A11Y_ANNOUNCER = document.getElementById('a11y-announcer');
