@@ -310,6 +310,14 @@ if (SELL_TOWER_BUTTON) {
     });
 }
 
+if (SEND_NEXT_WAVE_BUTTON) {
+    SEND_NEXT_WAVE_BUTTON.addEventListener('click', () => {
+        if (!gameState.waveInProgress && gameState.nextWaveTimer > 0 && !gameState.gameOver) {
+            gameState.nextWaveTimer = 0;
+        }
+    });
+}
+
 if (RETRY_BUTTON) {
     RETRY_BUTTON.addEventListener('click', () => {
         hideDefeatDialog();
