@@ -375,18 +375,47 @@ function updateTowerStatsFields() {
     const def = getTowerDefinition(gameState.selectedTower.type);
     setTextIfChanged(TOWER_STATS_FIELDS.type, def.label);
     setTextIfChanged(TOWER_STATS_FIELDS.position, `${gameState.selectedTower.x}, ${gameState.selectedTower.y}`);
+    const level = gameState.selectedTower.level;
+    const atMax = level >= TOWER_MAX_LEVEL;
     if (TOWER_STATS_FIELDS.range) {
-        const tiles = (gameState.selectedTower.range / TILE_SIZE).toFixed(1);
-        setTextIfChanged(TOWER_STATS_FIELDS.range, `${Math.round(gameState.selectedTower.range)}px (${tiles}타일)`);
+        const currentRange = gameState.selectedTower.range;
+        const tiles = (currentRange / TILE_SIZE).toFixed(1);
+        let text = `${Math.round(currentRange)}px (${tiles}타일)`;
+        if (!atMax) {
+            const nextRange = def.range + (def.rangeGrowth || 0) * level;
+            const nextTiles = (nextRange / TILE_SIZE).toFixed(1);
+            text += ` → ${Math.round(nextRange)}px (${nextTiles}타일)`;
+        }
+        setTextIfChanged(TOWER_STATS_FIELDS.range, text);
     }
     if (TOWER_STATS_FIELDS.fireDelay) {
-        const text =
-            def.attackPattern === 'laser'
-                ? `지속 (${(gameState.selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1)} DPS)`
-                : `${gameState.selectedTower.fireDelay.toFixed(2)}초`;
-        setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
+        if (def.attackPattern === 'laser') {
+            const currentDps = (gameState.selectedTower.damage * (def.sustainMultiplier || 1)).toFixed(1);
+            let text = `지속 (${currentDps} DPS)`;
+            if (!atMax) {
+                const nextDamage = calculateTowerDamage(def, level + 1);
+                const nextDps = (nextDamage * (def.sustainMultiplier || 1)).toFixed(1);
+                text += ` → ${nextDps} DPS`;
+            }
+            setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
+        } else {
+            const currentDelay = gameState.selectedTower.fireDelay.toFixed(2);
+            let text = `${currentDelay}초`;
+            if (!atMax) {
+                const nextDelay = Math.max(def.fireDelay + (def.fireDelayGrowth || 0) * level, 0.05).toFixed(2);
+                text += ` → ${nextDelay}초`;
+            }
+            setTextIfChanged(TOWER_STATS_FIELDS.fireDelay, text);
+        }
     }
-    setTextIfChanged(TOWER_STATS_FIELDS.damage, formatNumber(gameState.selectedTower.damage));
+    {
+        let dmgText = formatNumber(gameState.selectedTower.damage);
+        if (!atMax) {
+            const nextDamage = calculateTowerDamage(def, level + 1);
+            dmgText += ` → ${formatNumber(nextDamage)}`;
+        }
+        setTextIfChanged(TOWER_STATS_FIELDS.damage, dmgText);
+    }
     setTextIfChanged(TOWER_STATS_FIELDS.level, '' + gameState.selectedTower.level);
     if (TOWER_STATS_FIELDS.upgradeCost) {
         const cost = gameState.selectedTower.upgradeCost;
