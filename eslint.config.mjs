@@ -124,6 +124,7 @@ const gameGlobals = {
     buildPanelCollapsed: 'writable',
     buildPanelUserOverride: 'writable',
     setBuildPanelCollapsed: 'readonly',
+    getWaveEnemyComposition: 'readonly',
     getWaveEnemyCount: 'readonly',
     getWaveEnemyStats: 'readonly',
     updateWavePreview: 'readonly',
@@ -241,11 +242,12 @@ export default [
             sourceType: 'script',
             globals: {
                 ...globals.browser,
-                ...gameGlobals
+                ...gameGlobals,
+                module: 'readonly'
             }
         },
         rules: {
-            'no-undef': 'warn',
+            'no-undef': 'error',
             'no-unused-vars': 'warn',
             'no-redeclare': 'warn'
         }
@@ -261,7 +263,7 @@ export default [
             }
         },
         rules: {
-            'no-undef': 'warn',
+            'no-undef': 'error',
             'no-unused-vars': 'warn',
             'no-redeclare': 'warn'
         }
