@@ -1424,4 +1424,315 @@ describe('Unit tests', () => {
         // 복원
         setVolume(0.8);
     });
+
+    // ── #182: 렌더러 함수 크래시 방지 테스트 ──
+
+    it('#182: drawEnemies 빈 배열로 에러 없이 실행', () => {
+        enemies.length = 0;
+        assert.doesNotThrow(() => drawEnemies(), '#182: drawEnemies 빈 배열');
+    });
+
+    it('#182: drawEnemies 최소 적 객체로 에러 없이 실행', () => {
+        enemies.length = 0;
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 50,
+            maxHp: 100,
+            heading: 0,
+            enemyType: ENEMY_TYPE_DEFINITIONS[0]
+        });
+        assert.doesNotThrow(() => drawEnemies(), '#182: drawEnemies 최소 객체');
+        enemies.length = 0;
+    });
+
+    it('#182: drawEnemies 보스 타입 적으로 에러 없이 실행', () => {
+        enemies.length = 0;
+        const bossType =
+            ENEMY_TYPE_DEFINITIONS.find((t) => t.id === 'boss') || ENEMY_TYPE_DEFINITIONS[0];
+        enemies.push({
+            x: 200,
+            y: 200,
+            hp: 500,
+            maxHp: 1000,
+            heading: Math.PI,
+            enemyType: bossType
+        });
+        assert.doesNotThrow(() => drawEnemies(), '#182: drawEnemies 보스');
+        enemies.length = 0;
+    });
+
+    it('#182: drawProjectiles 빈 배열로 에러 없이 실행', () => {
+        projectiles.length = 0;
+        assert.doesNotThrow(() => drawProjectiles(), '#182: drawProjectiles 빈 배열');
+    });
+
+    it('#182: drawProjectiles 기본 투사체로 에러 없이 실행', () => {
+        projectiles.length = 0;
+        projectiles.push({
+            x: 100,
+            y: 100,
+            vx: 1,
+            vy: 0,
+            speed: 1,
+            radius: 4,
+            color: '#ff0000',
+            life: 1,
+            initialLife: 1,
+            delay: 0,
+            trailLength: 0,
+            shape: 'circle'
+        });
+        assert.doesNotThrow(() => drawProjectiles(), '#182: drawProjectiles 기본');
+        projectiles.length = 0;
+    });
+
+    it('#182: drawProjectiles beam 형태로 에러 없이 실행', () => {
+        projectiles.length = 0;
+        projectiles.push({
+            x: 100,
+            y: 100,
+            vx: 1,
+            vy: 0,
+            speed: 1,
+            radius: 6,
+            color: '#00ff00',
+            life: 1,
+            initialLife: 1,
+            delay: 0,
+            trailLength: 40,
+            shape: 'beam'
+        });
+        assert.doesNotThrow(() => drawProjectiles(), '#182: drawProjectiles beam');
+        projectiles.length = 0;
+    });
+
+    it('#182: drawProjectiles delayed 투사체 스킵 확인', () => {
+        projectiles.length = 0;
+        projectiles.push({
+            x: 50,
+            y: 50,
+            vx: 1,
+            vy: 0,
+            speed: 1,
+            radius: 4,
+            color: '#0000ff',
+            life: 1,
+            initialLife: 1,
+            delay: 0.5,
+            trailLength: 0,
+            shape: 'circle'
+        });
+        assert.doesNotThrow(() => drawProjectiles(), '#182: drawProjectiles delayed');
+        projectiles.length = 0;
+    });
+
+    it('#182: drawImpactEffects 빈 배열로 에러 없이 실행', () => {
+        impactEffects.length = 0;
+        assert.doesNotThrow(() => drawImpactEffects(), '#182: drawImpactEffects 빈 배열');
+    });
+
+    it('#182: drawImpactEffects 최소 이펙트로 에러 없이 실행', () => {
+        impactEffects.length = 0;
+        impactEffects.push({
+            x: 100,
+            y: 100,
+            radius: 10,
+            color: '#ff0000',
+            life: 0.5,
+            initialLife: 1,
+            pulse: false
+        });
+        assert.doesNotThrow(() => drawImpactEffects(), '#182: drawImpactEffects 기본');
+        impactEffects.length = 0;
+    });
+
+    it('#182: drawImpactEffects stroke 포함 이펙트로 에러 없이 실행', () => {
+        impactEffects.length = 0;
+        impactEffects.push({
+            x: 150,
+            y: 150,
+            radius: 15,
+            color: '#00ff00',
+            halo: 'rgba(0,255,0,0.5)',
+            stroke: '#00cc00',
+            lineWidth: 2,
+            life: 0.8,
+            initialLife: 1,
+            pulse: true
+        });
+        assert.doesNotThrow(() => drawImpactEffects(), '#182: drawImpactEffects stroke');
+        impactEffects.length = 0;
+    });
+
+    it('#182: drawMuzzleFlashes 빈 배열로 에러 없이 실행', () => {
+        muzzleFlashes.length = 0;
+        assert.doesNotThrow(() => drawMuzzleFlashes(), '#182: drawMuzzleFlashes 빈 배열');
+    });
+
+    it('#182: drawMuzzleFlashes 최소 플래시로 에러 없이 실행', () => {
+        muzzleFlashes.length = 0;
+        muzzleFlashes.push({
+            x: 100,
+            y: 100,
+            radius: 8,
+            color: '#ffff00',
+            life: 0.3,
+            initialLife: 0.5,
+            angle: null
+        });
+        assert.doesNotThrow(() => drawMuzzleFlashes(), '#182: drawMuzzleFlashes 기본');
+        muzzleFlashes.length = 0;
+    });
+
+    it('#182: drawMuzzleFlashes angle 포함 플래시로 에러 없이 실행', () => {
+        muzzleFlashes.length = 0;
+        muzzleFlashes.push({
+            x: 200,
+            y: 200,
+            radius: 10,
+            color: '#ffa500',
+            life: 0.2,
+            initialLife: 0.4,
+            angle: Math.PI / 4
+        });
+        assert.doesNotThrow(() => drawMuzzleFlashes(), '#182: drawMuzzleFlashes angle');
+        muzzleFlashes.length = 0;
+    });
+
+    it('#182: drawLaserBeams 빈 타워 배열로 에러 없이 실행', () => {
+        towers.length = 0;
+        towerPositionSet.clear();
+        assert.doesNotThrow(() => drawLaserBeams(), '#182: drawLaserBeams 빈 배열');
+    });
+
+    it('#182: drawLaserBeams activeBeam 없는 타워로 에러 없이 실행', () => {
+        towers.length = 0;
+        towerPositionSet.clear();
+        const t = createTowerData(3, 3, 'basic');
+        towers.push(t);
+        towerPositionSet.add('3,3');
+        assert.doesNotThrow(() => drawLaserBeams(), '#182: drawLaserBeams no beam');
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
+
+    it('#182: drawLaserBeams activeBeam 포함 타워로 에러 없이 실행', () => {
+        towers.length = 0;
+        towerPositionSet.clear();
+        const t = createTowerData(4, 4, 'basic');
+        t.activeBeam = {
+            x1: 100,
+            y1: 100,
+            x2: 200,
+            y2: 200,
+            color: '#ff00ff',
+            glow: '#ff88ff',
+            width: 6,
+            alpha: 0.8
+        };
+        towers.push(t);
+        towerPositionSet.add('4,4');
+        assert.doesNotThrow(() => drawLaserBeams(), '#182: drawLaserBeams with beam');
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
+
+    it('#182: drawLaserBeams alpha 0인 빔 스킵 확인', () => {
+        towers.length = 0;
+        towerPositionSet.clear();
+        const t = createTowerData(5, 5, 'basic');
+        t.activeBeam = {
+            x1: 0,
+            y1: 0,
+            x2: 100,
+            y2: 100,
+            color: '#ff00ff',
+            width: 4,
+            alpha: 0
+        };
+        towers.push(t);
+        towerPositionSet.add('5,5');
+        assert.doesNotThrow(() => drawLaserBeams(), '#182: drawLaserBeams alpha=0');
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
+
+    it('#182: drawProjectileTrail trailLength 없으면 즉시 반환', () => {
+        const proj = { x: 50, y: 50, vx: 1, vy: 0, speed: 1, trailLength: 0 };
+        assert.doesNotThrow(
+            () => drawProjectileTrail(proj),
+            '#182: drawProjectileTrail no trail'
+        );
+    });
+
+    it('#182: drawProjectileTrail trailLength 있는 투사체로 에러 없이 실행', () => {
+        const proj = {
+            x: 100,
+            y: 100,
+            vx: 1,
+            vy: 0,
+            speed: 1,
+            trailLength: 30,
+            color: '#ff0000',
+            trailColor: '#ff8888',
+            radius: 4
+        };
+        assert.doesNotThrow(
+            () => drawProjectileTrail(proj),
+            '#182: drawProjectileTrail with trail'
+        );
+    });
+
+    it('#182: render 에러 없이 실행 (빈 상태)', () => {
+        enemies.length = 0;
+        projectiles.length = 0;
+        impactEffects.length = 0;
+        muzzleFlashes.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        // strokeRect가 fake canvas에 없을 수 있으므로 패치
+        if (!ctx.strokeRect) ctx.strokeRect = function () {};
+        assert.doesNotThrow(() => render(), '#182: render 빈 상태');
+    });
+
+    it('#182: render 적·타워·투사체 포함 상태로 에러 없이 실행', () => {
+        enemies.length = 0;
+        projectiles.length = 0;
+        impactEffects.length = 0;
+        muzzleFlashes.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        if (!ctx.strokeRect) ctx.strokeRect = function () {};
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 50,
+            maxHp: 100,
+            heading: 0,
+            enemyType: ENEMY_TYPE_DEFINITIONS[0]
+        });
+        const t = createTowerData(2, 2, 'basic');
+        towers.push(t);
+        towerPositionSet.add('2,2');
+        projectiles.push({
+            x: 80,
+            y: 80,
+            vx: 1,
+            vy: 0,
+            speed: 1,
+            radius: 4,
+            color: '#ff0000',
+            life: 1,
+            initialLife: 1,
+            delay: 0,
+            trailLength: 0,
+            shape: 'circle'
+        });
+        assert.doesNotThrow(() => render(), '#182: render 복합 상태');
+        enemies.length = 0;
+        projectiles.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
 });
