@@ -45,7 +45,14 @@ function update(dt) {
             }
             enemies.splice(i, 1);
             gameState.lives = Math.max(0, gameState.lives - 1);
-            if (LIVES_LABEL) LIVES_LABEL.textContent = gameState.lives;
+            if (LIVES_LABEL) {
+                LIVES_LABEL.textContent = gameState.lives;
+                const chip = LIVES_LABEL.closest('.stat-chip');
+                if (chip) {
+                    chip.classList.toggle('lives-danger', gameState.lives <= 5 && gameState.lives > 1);
+                    chip.classList.toggle('lives-critical', gameState.lives <= 1 && gameState.lives > 0);
+                }
+            }
             if (gameState.lives === 0) {
                 showDefeatDialog();
                 return;

@@ -216,7 +216,13 @@ function resetGame() {
     gameState.selectedTowerType = DEFAULT_TOWER_TYPE;
     setSelectedTowerButton(gameState.selectedTowerType);
     EventBus.emit('gold:changed');
-    if (LIVES_LABEL) LIVES_LABEL.textContent = gameState.lives;
+    if (LIVES_LABEL) {
+        LIVES_LABEL.textContent = gameState.lives;
+        const chip = LIVES_LABEL.closest('.stat-chip');
+        if (chip) {
+            chip.classList.remove('lives-danger', 'lives-critical');
+        }
+    }
     if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = gameState.wave;

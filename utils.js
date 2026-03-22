@@ -106,8 +106,11 @@ function applyAlpha(color, alpha) {
     }
 
     if (alphaCache.size >= ALPHA_CACHE_MAX) {
-        const keys = Array.from(alphaCache.keys()).slice(0, 128);
-        for (let i = 0; i < keys.length; i++) alphaCache.delete(keys[i]);
+        let evictCount = 128;
+        for (const k of alphaCache.keys()) {
+            if (evictCount-- <= 0) break;
+            alphaCache.delete(k);
+        }
     }
     alphaCache.set(key, result);
     return result;

@@ -1,5 +1,14 @@
 const towers = [];
 const towerPositionSet = new Set();
+const ATTACK_PATTERN_LABELS = {
+    projectile: '단발',
+    shotgun: '산탄',
+    beam: '관통 빔',
+    burst: '점사',
+    explosive: '폭발',
+    mortar: '박격포',
+    laser: '레이저'
+};
 const enemies = [];
 const projectiles = [];
 const impactEffects = [];
@@ -31,7 +40,8 @@ const TOWER_STATS_FIELDS = {
     damage: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-damage"]') : null,
     level: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-level"]') : null,
     upgradeCost: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-upgrade-cost"]') : null,
-    sellRefund: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-sell-refund"]') : null
+    sellRefund: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-sell-refund"]') : null,
+    attackType: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-attack-type"]') : null
 };
 const ENEMY_STATS_FIELDS = {
     enemyType: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-type"]') : null,
@@ -420,6 +430,10 @@ function updateTowerStatsFields() {
     if (TOWER_STATS_FIELDS.sellRefund) {
         const refund = Math.floor((gameState.selectedTower.spentGold ?? 0) * TOWER_SELL_REFUND_RATE);
         setTextIfChanged(TOWER_STATS_FIELDS.sellRefund, formatNumber(refund));
+    }
+    if (TOWER_STATS_FIELDS.attackType) {
+        const patternKey = def.attackPattern || 'projectile';
+        setTextIfChanged(TOWER_STATS_FIELDS.attackType, ATTACK_PATTERN_LABELS[patternKey] || patternKey);
     }
     if (SELL_TOWER_BUTTON) {
         const refund = Math.floor((gameState.selectedTower.spentGold ?? 0) * TOWER_SELL_REFUND_RATE);
