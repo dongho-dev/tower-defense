@@ -793,6 +793,39 @@ function drawHover() {
         ctx.fillStyle = "rgba(98, 150, 255, 0.25)";
     }
     ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+    // Range preview circle
+    const centerX = x * TILE_SIZE + TILE_CENTER_OFFSET;
+    const centerY = y * TILE_SIZE + TILE_CENTER_OFFSET;
+    let rangeRadius = 0;
+    let rangeColor = "rgba(98, 150, 255, 0.3)";
+
+    // Check if hovering over an existing tower
+    const existingTower = towers.find(t => t.x === x && t.y === y);
+    if (existingTower) {
+        rangeRadius = existingTower.range;
+        const def = getTowerDefinition(existingTower.type);
+        rangeColor = applyAlpha(def.glowColor || getTowerColor(def, existingTower.level), 0.3);
+    } else if (canBuildAt(x, y)) {
+        const def = getTowerDefinition(selectedTowerType);
+        rangeRadius = def.range;
+    }
+
+    if (rangeRadius > 0) {
+        ctx.save();
+        ctx.strokeStyle = existingTower
+            ? applyAlpha(getTowerColor(getTowerDefinition(existingTower.type), existingTower.level), 0.5)
+            : "rgba(98, 150, 255, 0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.fillStyle = rangeColor;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, rangeRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fill();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
 }
 
 function drawState() {
