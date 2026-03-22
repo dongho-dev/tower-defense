@@ -7,6 +7,7 @@
   },
   "scripts": {
     "test": "node --test tests/smoke.test.js tests/unit.test.js",
+    "test:coverage": "node --test --experimental-test-coverage tests/smoke.test.js tests/unit.test.js",
     "lint": "eslint *.js tests/**/*.js",
     "lint:fix": "eslint --fix *.js tests/**/*.js",
     "format": "prettier --write \"*.js\" \"*.mjs\" \"tests/**/*.js\"",
