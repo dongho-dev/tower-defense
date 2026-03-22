@@ -440,6 +440,7 @@ function startWave() {
     gameState.enemiesToSpawn = getWaveEnemyCount(gameState.wave);
     gameState.spawnCooldown = 0;
     gameState.nextWaveTimer = 0;
+    gameState.bossSpawned = false;
     if (WAVE_LABEL) WAVE_LABEL.textContent = gameState.wave;
     if (WAVE_INPUT) {
         WAVE_INPUT.value = gameState.wave;
@@ -485,7 +486,7 @@ function createTowerData(x, y, typeId) {
 }
 
 function pickEnemyType(waveNumber) {
-    if (waveNumber % 10 === 0 && gameState.enemiesToSpawn === 1) {
+    if (waveNumber % 10 === 0 && !gameState.bossSpawned) {
         return ENEMY_TYPE_MAP['boss'] || ENEMY_TYPE_DEFINITIONS[0];
     }
     const eligible = ENEMY_TYPE_DEFINITIONS.filter((t) => !t.bossOnly && waveNumber >= t.minWave);
@@ -513,6 +514,9 @@ function spawnEnemy() {
     if (!waypoints.length) return;
     const start = waypoints[0];
     const enemyType = pickEnemyType(gameState.wave);
+    if (enemyType.bossOnly) {
+        gameState.bossSpawned = true;
+    }
     const stats = getWaveEnemyStats(gameState.wave, enemyType);
     enemies.push({
         x: start.x,

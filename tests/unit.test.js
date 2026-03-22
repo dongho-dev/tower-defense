@@ -1,161 +1,8 @@
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
-const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
-
-function noop() {}
-
-class FakeGainNode {
-    constructor() {
-        this.gain = {
-            value: 0,
-            setValueAtTime: noop,
-            setTargetAtTime: noop,
-            exponentialRampToValueAtTime: noop,
-            cancelScheduledValues: noop
-        };
-    }
-    connect() {}
-    disconnect() {}
-}
-
-class FakeOscillator {
-    constructor() {
-        this.frequency = { setValueAtTime: noop };
-        this.type = 'sine';
-    }
-    connect() {}
-    disconnect() {}
-    start() {}
-    stop() {}
-}
-
-class FakeBufferSource {
-    connect() {}
-    disconnect() {}
-    start() {}
-    stop() {}
-    set buffer(_) {}
-}
-
-class FakeAudioContext {
-    constructor() {
-        this.destination = {};
-        this.currentTime = 0;
-        this.sampleRate = 44100;
-        this.state = 'running';
-    }
-    close() {
-        this.state = 'closed';
-    }
-    resume() {
-        this.state = 'running';
-        return Promise.resolve();
-    }
-    createGain() {
-        return new FakeGainNode();
-    }
-    createOscillator() {
-        return new FakeOscillator();
-    }
-    createBuffer(channels, length) {
-        return { getChannelData: () => new Float32Array(length * channels) };
-    }
-    createBufferSource() {
-        return new FakeBufferSource();
-    }
-}
-
-function setupDom() {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf-8');
-    const dom = new JSDOM(html, { pretendToBeVisual: true });
-    const { window } = dom;
-    const { document } = window;
-
-    const fakePerformance = { now: () => 0 };
-    global.window = window;
-    global.document = document;
-    global.navigator = window.navigator;
-    global.performance = fakePerformance;
-    window.performance = fakePerformance;
-
-    global.requestAnimationFrame = noop;
-    global.cancelAnimationFrame = noop;
-    window.requestAnimationFrame = noop;
-    window.cancelAnimationFrame = noop;
-
-    window.AudioContext = FakeAudioContext;
-    window.webkitAudioContext = FakeAudioContext;
-    global.AudioContext = FakeAudioContext;
-
-    window.HTMLCanvasElement.prototype.getContext = () => ({
-        fillStyle: '#000',
-        strokeStyle: '#000',
-        lineWidth: 1,
-        beginPath: noop,
-        moveTo: noop,
-        lineTo: noop,
-        stroke: noop,
-        arc: noop,
-        fillRect: noop,
-        clearRect: noop,
-        fill: noop,
-        save: noop,
-        restore: noop,
-        font: '',
-        textAlign: '',
-        textBaseline: '',
-        fillText: noop,
-        createRadialGradient: () => ({ addColorStop: noop }),
-        createLinearGradient: () => ({ addColorStop: noop }),
-        setLineDash: noop,
-        ellipse: noop,
-        resetTransform: noop,
-        globalCompositeOperation: 'source-over',
-        shadowColor: '',
-        shadowBlur: 0,
-        globalAlpha: 1,
-        lineCap: 'butt',
-        lineJoin: 'miter',
-        rotate: noop,
-        translate: noop,
-        closePath: noop,
-        setTransform: noop,
-        measureText: () => ({ width: 0 }),
-        drawImage: noop
-    });
-
-    // Make module available globally so main.js can set module.exports
-    const gameModule = { exports: {} };
-    global.module = gameModule;
-
-    const scriptFiles = [
-        'constants.js',
-        'towers.js',
-        'utils.js',
-        'map.js',
-        'ui.js',
-        'audio.js',
-        'game.js',
-        'renderer.js',
-        'main.js'
-    ];
-    for (const file of scriptFiles) {
-        const filePath = path.join(__dirname, '..', file);
-        const code = fs.readFileSync(filePath, 'utf-8');
-        vm.runInThisContext(code, { filename: filePath });
-    }
-
-    // main.js sets module.exports via its `if (typeof module !== 'undefined')` block
-    const game = gameModule.exports;
-
-    // Remove the global module override
-    delete global.module;
-
-    return { window, document, game };
-}
+const { setupDom } = require('./helpers');
 
 describe('Unit tests', () => {
     let game, window;
@@ -610,23 +457,24 @@ describe('Unit tests', () => {
     });
 
     it('pickEnemyType: wave-based type selection', () => {
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = false;
         const normalType = pickEnemyType(1);
         assert.strictEqual(normalType.id, 'normal', 'pickEnemyType: 웨이브 1은 일반 적');
         const normalType2 = pickEnemyType(2);
         assert.strictEqual(normalType2.id, 'normal', 'pickEnemyType: 웨이브 2는 일반 적');
 
-        game.setEnemiesToSpawn(1);
+        gameState.bossSpawned = false;
         const bossResult = pickEnemyType(10);
-        assert.strictEqual(bossResult.id, 'boss', 'pickEnemyType: 웨이브 10 + 마지막 적 = 보스');
+        assert.strictEqual(bossResult.id, 'boss', 'pickEnemyType: 웨이브 10 + bossSpawned=false = 보스');
+        gameState.bossSpawned = false;
         const bossResult2 = pickEnemyType(20);
-        assert.strictEqual(bossResult2.id, 'boss', 'pickEnemyType: 웨이브 20 + 마지막 적 = 보스');
+        assert.strictEqual(bossResult2.id, 'boss', 'pickEnemyType: 웨이브 20 + bossSpawned=false = 보스');
 
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = true;
         const noBoss = pickEnemyType(10);
-        assert.ok(noBoss.id !== 'boss', 'pickEnemyType: enemiesToSpawn !== 1이면 보스 아님');
+        assert.ok(noBoss.id !== 'boss', 'pickEnemyType: bossSpawned=true이면 보스 아님');
 
-        game.setEnemiesToSpawn(5);
+        gameState.bossSpawned = false;
         for (let i = 0; i < 20; i++) {
             const result = pickEnemyType(5);
             assert.ok(
@@ -634,7 +482,7 @@ describe('Unit tests', () => {
                 'pickEnemyType: 웨이브 5 반환값은 유효한 적 타입'
             );
         }
-        game.setEnemiesToSpawn(0);
+        gameState.bossSpawned = false;
     });
 
     it('lerpAngle: angle interpolation', () => {
@@ -1462,5 +1310,114 @@ describe('Unit tests', () => {
             threw = true;
         }
         assert.strictEqual(threw, false, '#146: 알 수 없는 shape에서도 에러 없이 renderDefault 실행');
+    });
+
+    // ── #158: bossSpawned 플래그로 보스 중복 방지 ──
+
+    it('#158: startWave에서 bossSpawned 초기화', () => {
+        gameState.bossSpawned = true;
+        game.startWave();
+        assert.strictEqual(gameState.bossSpawned, false, '#158: startWave 시 bossSpawned가 false로 초기화');
+        // 정리
+        enemies.length = 0;
+        game.setWaveInProgress(false);
+        game.setNextWaveTimer(0);
+    });
+
+    it('#158: 보스 스폰 후 중복 방지', () => {
+        enemies.length = 0;
+        game.setWave(10);
+        gameState.bossSpawned = false;
+        // 첫 스폰은 보스
+        const firstType = pickEnemyType(10);
+        assert.strictEqual(firstType.id, 'boss', '#158: bossSpawned=false면 보스 선택');
+        // 보스 스폰 시뮬레이션
+        gameState.bossSpawned = true;
+        // 두 번째 스폰은 보스가 아님
+        const secondType = pickEnemyType(10);
+        assert.ok(secondType.id !== 'boss', '#158: bossSpawned=true면 보스 중복 방지');
+        gameState.bossSpawned = false;
+        enemies.length = 0;
+    });
+
+    it('#158: spawnEnemy에서 보스 스폰 시 bossSpawned 설정', () => {
+        enemies.length = 0;
+        game.setWave(10);
+        gameState.bossSpawned = false;
+        game.setEnemiesToSpawn(5);
+        spawnEnemy();
+        // 웨이브 10 + bossSpawned=false이면 보스가 스폰되고 bossSpawned=true
+        assert.strictEqual(gameState.bossSpawned, true, '#158: 보스 스폰 후 bossSpawned=true');
+        assert.strictEqual(enemies.length, 1, '#158: 적이 1개 스폰됨');
+        assert.strictEqual(enemies[0].enemyType.id, 'boss', '#158: 스폰된 적이 보스');
+        enemies.length = 0;
+        gameState.bossSpawned = false;
+    });
+
+    // ── #147: drawTowers aura 캐싱 ──
+
+    it('#147: _towerAuraCache가 존재하고 동작', () => {
+        assert.ok(_towerAuraCache instanceof Map, '#147: _towerAuraCache는 Map 인스턴스');
+        _towerAuraCache.clear();
+        const result1 = _getCachedAuraColor('#6296ff');
+        assert.ok(typeof result1 === 'string', '#147: _getCachedAuraColor 반환값은 문자열');
+        assert.ok(result1.includes('rgba'), '#147: _getCachedAuraColor 반환값에 rgba 포함');
+        const result2 = _getCachedAuraColor('#6296ff');
+        assert.strictEqual(result1, result2, '#147: 동일 입력에 캐시 히트');
+        assert.strictEqual(_towerAuraCache.size, 1, '#147: 캐시에 1개 항목');
+        _towerAuraCache.clear();
+    });
+
+    it('#147: drawTowers 에러 없이 실행', () => {
+        enemies.length = 0;
+        towers.length = 0;
+        towerPositionSet.clear();
+        const t = createTowerData(2, 2, 'basic');
+        towers.push(t);
+        towerPositionSet.add('2,2');
+        let threw = false;
+        try {
+            drawTowers();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#147: drawTowers 에러 없이 실행');
+        towers.length = 0;
+        towerPositionSet.clear();
+    });
+
+    // ── #136: 볼륨 슬라이더 ──
+
+    it('#136: volume-slider DOM 존재', () => {
+        const slider = global.document.getElementById('volume-slider');
+        assert.ok(slider !== null, '#136: volume-slider가 DOM에 존재');
+        assert.strictEqual(slider.type, 'range', '#136: volume-slider type은 range');
+        assert.strictEqual(slider.getAttribute('min'), '0', '#136: min=0');
+        assert.strictEqual(slider.getAttribute('max'), '100', '#136: max=100');
+    });
+
+    it('#136: setVolume 범위 클램핑 및 getVolume', () => {
+        setVolume(0.5);
+        assert.strictEqual(getVolume(), 0.5, '#136: setVolume(0.5) 후 getVolume() = 0.5');
+        setVolume(-1);
+        assert.strictEqual(getVolume(), 0, '#136: setVolume(-1) 클램핑 → 0');
+        setVolume(2);
+        assert.strictEqual(getVolume(), 1, '#136: setVolume(2) 클램핑 → 1');
+        setVolume(NaN);
+        assert.strictEqual(getVolume(), 1, '#136: setVolume(NaN) 무시');
+        // 복원
+        setVolume(0.8);
+    });
+
+    it('#136: setSoundMuted 해제 시 masterVolume 사용', () => {
+        setVolume(0.5);
+        soundMuted = false;
+        audioContext = null;
+        masterGain = null;
+        ensureAudioContext();
+        assert.ok(masterGain !== null, '#136: ensureAudioContext 후 masterGain 존재');
+        assert.strictEqual(masterGain.gain.value, 0.5, '#136: masterGain 초기값이 masterVolume 사용');
+        // 복원
+        setVolume(0.8);
     });
 });
