@@ -3,6 +3,8 @@ const MAP_DEFINITIONS = {
         id: 'map1',
         name: '기본 맵',
         difficulty: '보통',
+        initialGold: 100,
+        initialLives: 20,
         rawWaypoints: [
             { x: -2, y: 8 },
             { x: 2, y: 8 },
@@ -20,6 +22,8 @@ const MAP_DEFINITIONS = {
         id: 'map2',
         name: 'S자 맵',
         difficulty: '어려움',
+        initialGold: 120,
+        initialLives: 15,
         rawWaypoints: [
             { x: -2, y: 3 },
             { x: 8, y: 3 },
@@ -35,6 +39,8 @@ const MAP_DEFINITIONS = {
         id: 'map3',
         name: '나선 맵',
         difficulty: '쉬움',
+        initialGold: 80,
+        initialLives: 25,
         rawWaypoints: [
             { x: -2, y: 10 },
             { x: 4, y: 10 },

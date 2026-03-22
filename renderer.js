@@ -872,9 +872,40 @@ function drawState() {
     ctx.restore();
 }
 
+let contextLostNotified = false;
+
+function tryRecoverContext() {
+    try {
+        ctx = canvas.getContext('2d');
+        if (ctx) {
+            contextLostNotified = false;
+            console.info('Canvas 2D context recovered.');
+            buildStaticLayer();
+            return true;
+        }
+    } catch (e) {
+        console.error('Canvas context recovery failed:', e);
+    }
+    if (!contextLostNotified) {
+        contextLostNotified = true;
+        announce('렌더링 오류가 발생했습니다. 페이지를 새로고침 해주세요.');
+    }
+    return false;
+}
+
 function render() {
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!ctx) {
+        tryRecoverContext();
+        return;
+    }
+    try {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } catch (e) {
+        console.error('Canvas context lost during render:', e);
+        ctx = null;
+        tryRecoverContext();
+        return;
+    }
     if (staticLayer) {
         ctx.drawImage(staticLayer, 0, 0);
     } else {
