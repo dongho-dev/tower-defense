@@ -4,7 +4,7 @@ import globals from 'globals';
 const gameGlobals = {
     // constants.js
     canvas: 'readonly',
-    ctx: 'readonly',
+    ctx: 'writable',
     staticLayer: 'writable',
     TILE_SIZE: 'readonly',
     GRID_COLS: 'readonly',
