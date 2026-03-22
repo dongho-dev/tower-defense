@@ -360,6 +360,10 @@ function updateTowerStatsFields() {
     if (!gameState.selectedTower || !TOWER_STATS_PANEL) {
         return;
     }
+    if (!towers.includes(gameState.selectedTower)) {
+        hideTowerStats();
+        return;
+    }
     ensureTowerMetadata(gameState.selectedTower);
     const def = getTowerDefinition(gameState.selectedTower.type);
     setTextIfChanged(TOWER_STATS_FIELDS.type, def.label);
