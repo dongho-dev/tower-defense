@@ -510,6 +510,7 @@ function getWaveEnemyComposition(waveNumber) {
 }
 
 function spawnEnemy() {
+    if (!waypoints.length) return;
     const start = waypoints[0];
     const enemyType = pickEnemyType(gameState.wave);
     const stats = getWaveEnemyStats(gameState.wave, enemyType);

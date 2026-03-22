@@ -134,12 +134,12 @@ function formatNumber(value) {
 
 function calculateTowerDamage(definition, level) {
     const raw = definition.baseDamage * Math.pow(TOWER_DAMAGE_GROWTH, level - 1);
-    return Math.round(raw * 10000) / 10000;
+    return Math.min(Math.round(raw * 10000) / 10000, Number.MAX_SAFE_INTEGER);
 }
 
 function calculateUpgradeCost(definition, level) {
     const base = definition.baseUpgradeCost ?? TOWER_UPGRADE_BASE_COST;
-    return Math.round(base * Math.pow(TOWER_UPGRADE_COST_MULTIPLIER, level - 1));
+    return Math.min(Math.round(base * Math.pow(TOWER_UPGRADE_COST_MULTIPLIER, level - 1)), Number.MAX_SAFE_INTEGER);
 }
 
 function recalcTowerStats(tower) {

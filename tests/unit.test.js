@@ -1227,4 +1227,240 @@ describe('Unit tests', () => {
         audioContext = null;
         masterGain = null;
     });
+
+    // ── #160: 고웨이브 수치 오버플로우 클램프 ──
+
+    it('#160: calculateTowerDamage 극한 레벨에서 유한수 반환', () => {
+        const extremeDef = { baseDamage: 100 };
+        const result = calculateTowerDamage(extremeDef, 9999);
+        assert.ok(Number.isFinite(result), '#160: 극한 레벨 피해량은 유한수');
+        assert.ok(result <= Number.MAX_SAFE_INTEGER, '#160: 극한 레벨 피해량은 MAX_SAFE_INTEGER 이하');
+    });
+
+    it('#160: calculateUpgradeCost 극한 레벨에서 유한수 반환', () => {
+        const extremeDef = { baseUpgradeCost: 100 };
+        const result = calculateUpgradeCost(extremeDef, 9999);
+        assert.ok(Number.isFinite(result), '#160: 극한 레벨 업그레이드 비용은 유한수');
+        assert.ok(result <= Number.MAX_SAFE_INTEGER, '#160: 극한 레벨 업그레이드 비용은 MAX_SAFE_INTEGER 이하');
+    });
+
+    // ── #157: spawnEnemy() waypoints 방어 ──
+
+    it('#157: spawnEnemy waypoints 빈 상태에서 TypeError 없음', () => {
+        const savedWaypoints = game.getWaypoints();
+        // waypoints를 비우기 위해 length를 0으로 설정
+        savedWaypoints.length = 0;
+        let threw = false;
+        try {
+            spawnEnemy();
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#157: waypoints 빈 상태에서 spawnEnemy 호출 시 에러 없음');
+        // 복원
+        buildMapData('map1');
+    });
+
+    // ── #168: 핵심 게임 함수 테스트 ──
+
+    it('#168: findTarget targetPriority=last', () => {
+        enemies.length = 0;
+        const testTower = { worldX: 100, worldY: 100, range: 300, targetPriority: 'last' };
+        enemies.push({
+            x: 110,
+            y: 100,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 5
+        });
+        enemies.push({
+            x: 120,
+            y: 100,
+            hp: 80,
+            maxHp: 80,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 1
+        });
+        const result = findTarget(testTower);
+        assert.ok(result !== null, '#168: last 우선순위로 타겟 발견');
+        assert.strictEqual(result.enemy.waypoint, 1, '#168: last 우선순위는 가장 뒤처진 적 선택');
+        enemies.length = 0;
+    });
+
+    it('#168: findTarget targetPriority=strongest', () => {
+        enemies.length = 0;
+        const testTower = { worldX: 100, worldY: 100, range: 300, targetPriority: 'strongest' };
+        enemies.push({
+            x: 110,
+            y: 100,
+            hp: 50,
+            maxHp: 100,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 2
+        });
+        enemies.push({
+            x: 120,
+            y: 100,
+            hp: 200,
+            maxHp: 200,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 1
+        });
+        const result = findTarget(testTower);
+        assert.ok(result !== null, '#168: strongest 우선순위로 타겟 발견');
+        assert.strictEqual(result.enemy.hp, 200, '#168: strongest 우선순위는 HP가 가장 높은 적 선택');
+        enemies.length = 0;
+    });
+
+    it('#168: findTarget targetPriority=weakest', () => {
+        enemies.length = 0;
+        const testTower = { worldX: 100, worldY: 100, range: 300, targetPriority: 'weakest' };
+        enemies.push({
+            x: 110,
+            y: 100,
+            hp: 200,
+            maxHp: 200,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 2
+        });
+        enemies.push({
+            x: 120,
+            y: 100,
+            hp: 30,
+            maxHp: 100,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 1
+        });
+        const result = findTarget(testTower);
+        assert.ok(result !== null, '#168: weakest 우선순위로 타겟 발견');
+        assert.strictEqual(result.enemy.hp, 30, '#168: weakest 우선순위는 HP가 가장 낮은 적 선택');
+        enemies.length = 0;
+    });
+
+    it('#168: findTarget targetPriority=closest', () => {
+        enemies.length = 0;
+        const testTower = { worldX: 100, worldY: 100, range: 300, targetPriority: 'closest' };
+        enemies.push({
+            x: 200,
+            y: 100,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 5
+        });
+        enemies.push({
+            x: 105,
+            y: 100,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waveIndex: 1,
+            enemyType: mockStyle,
+            waypoint: 1
+        });
+        const result = findTarget(testTower);
+        assert.ok(result !== null, '#168: closest 우선순위로 타겟 발견');
+        assert.strictEqual(result.enemy.x, 105, '#168: closest 우선순위는 가장 가까운 적 선택');
+        enemies.length = 0;
+    });
+
+    it('#168: spawnEnemy 반환 객체 필드 검증', () => {
+        enemies.length = 0;
+        game.setWave(1);
+        game.setEnemiesToSpawn(5);
+        spawnEnemy();
+        assert.strictEqual(enemies.length, 1, '#168: spawnEnemy 호출 후 enemies에 1개 추가');
+        const enemy = enemies[0];
+        assert.ok('x' in enemy, '#168: enemy에 x 필드 존재');
+        assert.ok('y' in enemy, '#168: enemy에 y 필드 존재');
+        assert.ok('hp' in enemy, '#168: enemy에 hp 필드 존재');
+        assert.ok('maxHp' in enemy, '#168: enemy에 maxHp 필드 존재');
+        assert.ok('speed' in enemy, '#168: enemy에 speed 필드 존재');
+        assert.ok('waypoint' in enemy, '#168: enemy에 waypoint 필드 존재');
+        assert.ok('reward' in enemy, '#168: enemy에 reward 필드 존재');
+        assert.ok('enemyType' in enemy, '#168: enemy에 enemyType 필드 존재');
+        assert.strictEqual(enemy.waypoint, 0, '#168: 초기 waypoint는 0');
+        enemies.length = 0;
+    });
+
+    it('#168: getWaveEnemyComposition 결과 검증', () => {
+        const composition = game.getWaveEnemyComposition(1);
+        assert.ok(Array.isArray(composition), '#168: getWaveEnemyComposition은 배열 반환');
+        assert.ok(composition.length > 0, '#168: 웨이브 1 구성은 최소 1개 타입');
+        composition.forEach((entry) => {
+            assert.ok('type' in entry, '#168: 구성 항목에 type 필드 존재');
+            assert.ok('percent' in entry, '#168: 구성 항목에 percent 필드 존재');
+            assert.ok(typeof entry.percent === 'number', '#168: percent는 숫자');
+        });
+    });
+
+    it('#168: getWaveEnemyComposition 퍼센트 합계 체크', () => {
+        const composition = game.getWaveEnemyComposition(10);
+        const totalPercent = composition.reduce((sum, c) => sum + c.percent, 0);
+        assert.ok(totalPercent >= 95 && totalPercent <= 105, '#168: 퍼센트 합계는 약 100% (반올림 오차 허용)');
+    });
+
+    // ── #133: 다음 웨이브 즉시 시작 버튼 ──
+
+    it('#133: send-next-wave 버튼 존재', () => {
+        const btn = global.document.getElementById('send-next-wave');
+        assert.ok(btn !== null, '#133: send-next-wave 버튼이 DOM에 존재');
+        assert.ok(btn.classList.contains('send-wave-button'), '#133: send-wave-button 클래스 보유');
+    });
+
+    it('#133: send-next-wave 클릭 시 타이머 0', () => {
+        game.setWaveInProgress(false);
+        game.setNextWaveTimer(5);
+        game.setGameOver(false);
+        const btn = global.document.getElementById('send-next-wave');
+        btn.click();
+        assert.strictEqual(game.getNextWaveTimer(), 0, '#133: 클릭 후 nextWaveTimer가 0');
+    });
+
+    it('#133: waveInProgress 시 버튼 클릭 무반응', () => {
+        game.setWaveInProgress(true);
+        game.setNextWaveTimer(5);
+        game.setGameOver(false);
+        const btn = global.document.getElementById('send-next-wave');
+        btn.click();
+        assert.strictEqual(game.getNextWaveTimer(), 5, '#133: waveInProgress 중에는 nextWaveTimer 변경 없음');
+        game.setWaveInProgress(false);
+        game.setNextWaveTimer(0);
+    });
+
+    // ── #146: SHAPE_RENDERERS 테이블 ──
+
+    it('#146: SHAPE_RENDERERS에 8개 shape 키 존재', () => {
+        const expectedShapes = ['turret', 'vulcan', 'rail', 'prism', 'gyro', 'howitzer', 'sentinel', 'artillery'];
+        expectedShapes.forEach((shape) => {
+            assert.ok(typeof SHAPE_RENDERERS[shape] === 'function', `#146: SHAPE_RENDERERS에 ${shape} 렌더러 존재`);
+        });
+        assert.strictEqual(Object.keys(SHAPE_RENDERERS).length, 8, '#146: SHAPE_RENDERERS에 정확히 8개 키');
+    });
+
+    it('#146: 알 수 없는 shape에 renderDefault 동작', () => {
+        let threw = false;
+        try {
+            const mockTower = { worldX: 100, worldY: 100, level: 1, heading: 0, recoil: 0, flashTimer: 0 };
+            drawTowerShape(mockTower, '#fff', '#000', 0, { shape: 'unknown_shape_xyz' });
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#146: 알 수 없는 shape에서도 에러 없이 renderDefault 실행');
+    });
 });

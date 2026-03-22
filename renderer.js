@@ -61,6 +61,468 @@ function drawHexagon(x, y, radius) {
     ctx.closePath();
 }
 
+function renderTurret(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    const baseRadius = size * 1.18;
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#1f2f5a';
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.95, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading);
+    const barrelLength = size * (def.muzzleLengthMultiplier || 1.8) - recoil * size * 0.75;
+    const barrelWidth = size * (def.barrelWidthMultiplier || 0.45);
+    ctx.fillStyle = barrelColor;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.2, -barrelWidth);
+    ctx.lineTo(barrelLength, -barrelWidth);
+    ctx.lineTo(barrelLength, barrelWidth);
+    ctx.lineTo(-size * 0.2, barrelWidth);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.85);
+    ctx.beginPath();
+    ctx.arc(barrelLength, 0, barrelWidth * (0.6 + flashIntensity * 0.4), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.55 + flashIntensity * 0.25);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.58, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderVulcan(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading * 0.15);
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 1.35, size * 1.05, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#0b2b4c';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.88, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading);
+    const barrelLength = size * (def.muzzleLengthMultiplier || 1.45) - recoil * size * 0.6;
+    const barrelWidth = size * 0.46;
+    ctx.fillStyle = barrelColor;
+    ctx.fillRect(-size * 0.25, -barrelWidth * 0.55, barrelLength, barrelWidth * 0.55);
+    ctx.fillRect(-size * 0.25, barrelWidth * 0.05, barrelLength, barrelWidth * 0.55);
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.78 + flashIntensity * 0.22);
+    ctx.beginPath();
+    ctx.arc(barrelLength, -barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
+    ctx.arc(barrelLength, barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.58);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderRail(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - size * 1.3);
+    ctx.lineTo(x + size * 0.95, y);
+    ctx.lineTo(x, y + size * 1.3);
+    ctx.lineTo(x - size * 0.95, y);
+    ctx.closePath();
+    ctx.fillStyle = baseColor;
+    ctx.fill();
+    ctx.strokeStyle = outline || '#27144a';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading);
+    const barrelLength = size * (def.muzzleLengthMultiplier || 2.2) - recoil * size * 0.85;
+    const railWidth = size * 0.32;
+    ctx.fillStyle = barrelColor;
+    ctx.fillRect(-size * 0.2, -railWidth, barrelLength, railWidth * 0.6);
+    ctx.fillRect(-size * 0.2, railWidth * 0.4, barrelLength, railWidth * 0.6);
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.8);
+    ctx.fillRect(-size * 0.1, -railWidth * 0.25, barrelLength, railWidth * 0.5);
+    ctx.restore();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.68, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.48 + flashIntensity * 0.3);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.76, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderPrism(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    ctx.fillStyle = baseColor;
+    drawHexagon(x, y, size * 1.05);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#4a2509';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading);
+    const prongLength = size * (def.muzzleLengthMultiplier || 1.6) - recoil * size * 0.6;
+    ctx.fillStyle = barrelColor;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.25, -size * 0.45);
+    ctx.lineTo(prongLength, -size * 0.18);
+    ctx.lineTo(prongLength, size * 0.18);
+    ctx.lineTo(-size * 0.25, size * 0.45);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.85);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.15, -size * 0.25);
+    ctx.lineTo(prongLength * 0.85, 0);
+    ctx.lineTo(-size * 0.15, size * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.82, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.62 + flashIntensity * 0.23);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.9, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderGyro(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def,
+    tower,
+    time
+) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - size * 1.25);
+    ctx.lineTo(x + size * 1.05, y + size * 1.05);
+    ctx.lineTo(x - size * 1.05, y + size * 1.05);
+    ctx.closePath();
+    ctx.fillStyle = baseColor;
+    ctx.fill();
+    ctx.strokeStyle = outline || '#073519';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.78, 0, Math.PI * 2);
+    ctx.fill();
+
+    const spin = (time || 0) * 6 + (tower.auraOffset || 0);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin);
+    ctx.fillStyle = barrelColor;
+    for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(size * 0.25, -size * 0.12);
+        ctx.lineTo(size * 1.1 - recoil * size * 0.4, 0);
+        ctx.lineTo(size * 0.25, size * 0.12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.rotate((Math.PI * 2) / 3);
+    }
+    ctx.restore();
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.2);
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.46, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function renderHowitzer(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    const baseRadius = size * 1.28;
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#56210a';
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.92, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading - Math.PI / 10);
+    const tubeLength = size * (def.muzzleLengthMultiplier || 1.9) - recoil * size * 1.1;
+    const tubeWidth = size * 0.6;
+    ctx.fillStyle = barrelColor;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.35, -tubeWidth / 2);
+    ctx.lineTo(tubeLength, -tubeWidth * 0.35);
+    ctx.lineTo(tubeLength + size * 0.35, 0);
+    ctx.lineTo(tubeLength, tubeWidth * 0.35);
+    ctx.lineTo(-size * 0.35, tubeWidth / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.58 + flashIntensity * 0.24);
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 1.05, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderSentinel(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    const baseRadius = size * 1.1;
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#0b3c4f';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading);
+    const prongLength = size * (def.muzzleLengthMultiplier || 1.85) - recoil * size * 0.5;
+    const prongWidth = size * 0.5;
+    ctx.fillStyle = barrelColor;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.15, -prongWidth / 2);
+    ctx.lineTo(prongLength, -prongWidth * 0.25);
+    ctx.lineTo(prongLength, prongWidth * 0.25);
+    ctx.lineTo(-size * 0.15, prongWidth / 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.25);
+    ctx.fillRect(-size * 0.12, -prongWidth * 0.3, prongLength, prongWidth * 0.6);
+    ctx.restore();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.75, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = applyAlpha(glowColor, 0.8);
+    ctx.beginPath();
+    ctx.arc(x, y, size * (0.38 + flashIntensity * 0.25), 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function renderArtillery(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def
+) {
+    const baseRadius = size * 1.35;
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline || '#3a2b15';
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.98, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(heading - Math.PI / 5);
+    const tubeLength = size * (def.muzzleLengthMultiplier || 1.75) - recoil * size * 1.05;
+    const tubeWidth = size * 0.58;
+    ctx.fillStyle = barrelColor;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.4, -tubeWidth / 2);
+    ctx.lineTo(tubeLength, -tubeWidth * 0.4);
+    ctx.lineTo(tubeLength + size * 0.3, 0);
+    ctx.lineTo(tubeLength, tubeWidth * 0.4);
+    ctx.lineTo(-size * 0.4, tubeWidth / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = applyAlpha(glowColor, 0.5 + flashIntensity * 0.3);
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 1.12, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function renderDefault(
+    x,
+    y,
+    size,
+    heading,
+    recoil,
+    flashIntensity,
+    baseColor,
+    coreColor,
+    barrelColor,
+    glowColor,
+    outline,
+    def,
+    tower,
+    time,
+    color
+) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    if (outline) {
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+    }
+}
+
+const SHAPE_RENDERERS = {
+    turret: renderTurret,
+    vulcan: renderVulcan,
+    rail: renderRail,
+    prism: renderPrism,
+    gyro: renderGyro,
+    howitzer: renderHowitzer,
+    sentinel: renderSentinel,
+    artillery: renderArtillery
+};
+
 function drawTowerShape(tower, color, outline, time, def) {
     const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
     const x = tower.worldX;
@@ -74,337 +536,24 @@ function drawTowerShape(tower, color, outline, time, def) {
     const glowColor = def.glowColor || color;
     ctx.lineJoin = 'round';
 
-    switch (def.shape) {
-        case 'turret': {
-            const baseRadius = size * 1.18;
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#1f2f5a';
-            ctx.lineWidth = 2.6;
-            ctx.stroke();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.95, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading);
-            const barrelLength = size * (def.muzzleLengthMultiplier || 1.8) - recoil * size * 0.75;
-            const barrelWidth = size * (def.barrelWidthMultiplier || 0.45);
-            ctx.fillStyle = barrelColor;
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.2, -barrelWidth);
-            ctx.lineTo(barrelLength, -barrelWidth);
-            ctx.lineTo(barrelLength, barrelWidth);
-            ctx.lineTo(-size * 0.2, barrelWidth);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.85);
-            ctx.beginPath();
-            ctx.arc(barrelLength, 0, barrelWidth * (0.6 + flashIntensity * 0.4), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.55 + flashIntensity * 0.25);
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.58, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        case 'vulcan': {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading * 0.15);
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, size * 1.35, size * 1.05, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#0b2b4c';
-            ctx.lineWidth = 2.4;
-            ctx.stroke();
-            ctx.restore();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.88, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading);
-            const barrelLength = size * (def.muzzleLengthMultiplier || 1.45) - recoil * size * 0.6;
-            const barrelWidth = size * 0.46;
-            ctx.fillStyle = barrelColor;
-            ctx.fillRect(-size * 0.25, -barrelWidth * 0.55, barrelLength, barrelWidth * 0.55);
-            ctx.fillRect(-size * 0.25, barrelWidth * 0.05, barrelLength, barrelWidth * 0.55);
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.78 + flashIntensity * 0.22);
-            ctx.beginPath();
-            ctx.arc(barrelLength, -barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
-            ctx.arc(barrelLength, barrelWidth * 0.3, barrelWidth * 0.45, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.58);
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.62, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        case 'rail': {
-            ctx.beginPath();
-            ctx.moveTo(x, y - size * 1.3);
-            ctx.lineTo(x + size * 0.95, y);
-            ctx.lineTo(x, y + size * 1.3);
-            ctx.lineTo(x - size * 0.95, y);
-            ctx.closePath();
-            ctx.fillStyle = baseColor;
-            ctx.fill();
-            ctx.strokeStyle = outline || '#27144a';
-            ctx.lineWidth = 2.2;
-            ctx.stroke();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading);
-            const barrelLength = size * (def.muzzleLengthMultiplier || 2.2) - recoil * size * 0.85;
-            const railWidth = size * 0.32;
-            ctx.fillStyle = barrelColor;
-            ctx.fillRect(-size * 0.2, -railWidth, barrelLength, railWidth * 0.6);
-            ctx.fillRect(-size * 0.2, railWidth * 0.4, barrelLength, railWidth * 0.6);
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.8);
-            ctx.fillRect(-size * 0.1, -railWidth * 0.25, barrelLength, railWidth * 0.5);
-            ctx.restore();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.68, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.48 + flashIntensity * 0.3);
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.76, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        case 'prism': {
-            ctx.fillStyle = baseColor;
-            drawHexagon(x, y, size * 1.05);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#4a2509';
-            ctx.lineWidth = 2.2;
-            ctx.stroke();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading);
-            const prongLength = size * (def.muzzleLengthMultiplier || 1.6) - recoil * size * 0.6;
-            ctx.fillStyle = barrelColor;
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.25, -size * 0.45);
-            ctx.lineTo(prongLength, -size * 0.18);
-            ctx.lineTo(prongLength, size * 0.18);
-            ctx.lineTo(-size * 0.25, size * 0.45);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.85);
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.15, -size * 0.25);
-            ctx.lineTo(prongLength * 0.85, 0);
-            ctx.lineTo(-size * 0.15, size * 0.25);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.82, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.62 + flashIntensity * 0.23);
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.9, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        case 'gyro': {
-            ctx.beginPath();
-            ctx.moveTo(x, y - size * 1.25);
-            ctx.lineTo(x + size * 1.05, y + size * 1.05);
-            ctx.lineTo(x - size * 1.05, y + size * 1.05);
-            ctx.closePath();
-            ctx.fillStyle = baseColor;
-            ctx.fill();
-            ctx.strokeStyle = outline || '#073519';
-            ctx.lineWidth = 2.2;
-            ctx.stroke();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.78, 0, Math.PI * 2);
-            ctx.fill();
-
-            const spin = (time || 0) * 6 + (tower.auraOffset || 0);
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(spin);
-            ctx.fillStyle = barrelColor;
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.moveTo(size * 0.25, -size * 0.12);
-                ctx.lineTo(size * 1.1 - recoil * size * 0.4, 0);
-                ctx.lineTo(size * 0.25, size * 0.12);
-                ctx.closePath();
-                ctx.fill();
-                ctx.rotate((Math.PI * 2) / 3);
-            }
-            ctx.restore();
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.2);
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.46, 0, Math.PI * 2);
-            ctx.fill();
-            break;
-        }
-        case 'howitzer': {
-            const baseRadius = size * 1.28;
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#56210a';
-            ctx.lineWidth = 2.6;
-            ctx.stroke();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.92, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading - Math.PI / 10);
-            const tubeLength = size * (def.muzzleLengthMultiplier || 1.9) - recoil * size * 1.1;
-            const tubeWidth = size * 0.6;
-            ctx.fillStyle = barrelColor;
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.35, -tubeWidth / 2);
-            ctx.lineTo(tubeLength, -tubeWidth * 0.35);
-            ctx.lineTo(tubeLength + size * 0.35, 0);
-            ctx.lineTo(tubeLength, tubeWidth * 0.35);
-            ctx.lineTo(-size * 0.35, tubeWidth / 2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.58 + flashIntensity * 0.24);
-            ctx.lineWidth = 2.4;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 1.05, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        case 'sentinel': {
-            const baseRadius = size * 1.1;
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#0b3c4f';
-            ctx.lineWidth = 2.4;
-            ctx.stroke();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading);
-            const prongLength = size * (def.muzzleLengthMultiplier || 1.85) - recoil * size * 0.5;
-            const prongWidth = size * 0.5;
-            ctx.fillStyle = barrelColor;
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.15, -prongWidth / 2);
-            ctx.lineTo(prongLength, -prongWidth * 0.25);
-            ctx.lineTo(prongLength, prongWidth * 0.25);
-            ctx.lineTo(-size * 0.15, prongWidth / 2);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.75 + flashIntensity * 0.25);
-            ctx.fillRect(-size * 0.12, -prongWidth * 0.3, prongLength, prongWidth * 0.6);
-            ctx.restore();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.75, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = applyAlpha(glowColor, 0.8);
-            ctx.beginPath();
-            ctx.arc(x, y, size * (0.38 + flashIntensity * 0.25), 0, Math.PI * 2);
-            ctx.fill();
-            break;
-        }
-        case 'artillery': {
-            const baseRadius = size * 1.35;
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = outline || '#3a2b15';
-            ctx.lineWidth = 2.6;
-            ctx.stroke();
-
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.98, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(heading - Math.PI / 5);
-            const tubeLength = size * (def.muzzleLengthMultiplier || 1.75) - recoil * size * 1.05;
-            const tubeWidth = size * 0.58;
-            ctx.fillStyle = barrelColor;
-            ctx.beginPath();
-            ctx.moveTo(-size * 0.4, -tubeWidth / 2);
-            ctx.lineTo(tubeLength, -tubeWidth * 0.4);
-            ctx.lineTo(tubeLength + size * 0.3, 0);
-            ctx.lineTo(tubeLength, tubeWidth * 0.4);
-            ctx.lineTo(-size * 0.4, tubeWidth / 2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-
-            ctx.strokeStyle = applyAlpha(glowColor, 0.5 + flashIntensity * 0.3);
-            ctx.lineWidth = 2.2;
-            ctx.beginPath();
-            ctx.arc(x, y, size * 1.12, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        }
-        default: {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-            if (outline) {
-                ctx.strokeStyle = outline;
-                ctx.lineWidth = 2.2;
-                ctx.stroke();
-            }
-            break;
-        }
-    }
+    const renderer = SHAPE_RENDERERS[def.shape] || renderDefault;
+    renderer(
+        x,
+        y,
+        size,
+        heading,
+        recoil,
+        flashIntensity,
+        baseColor,
+        coreColor,
+        barrelColor,
+        glowColor,
+        outline,
+        def,
+        tower,
+        time,
+        color
+    );
 }
 
 function drawTowers() {
