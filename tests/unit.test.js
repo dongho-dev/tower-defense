@@ -996,4 +996,46 @@ describe('Unit tests', () => {
             assert.ok(ENEMY_TYPE_MAP[t.id] === t, `ENEMY_TYPE_MAP: ${t.id} 매핑 정확`);
         });
     });
+
+    it('#152: EventBus.emit 리스너 예외 격리', () => {
+        const results = [];
+        const listener1 = () => {
+            results.push('a');
+        };
+        const badListener = () => {
+            throw new Error('boom');
+        };
+        const listener3 = () => {
+            results.push('b');
+        };
+        EventBus.on('test:isolation', listener1);
+        EventBus.on('test:isolation', badListener);
+        EventBus.on('test:isolation', listener3);
+        EventBus.emit('test:isolation');
+        assert.deepStrictEqual(results, ['a', 'b'], '#152: 예외 발생해도 나머지 리스너 실행');
+        EventBus.off('test:isolation', listener1);
+        EventBus.off('test:isolation', badListener);
+        EventBus.off('test:isolation', listener3);
+    });
+
+    it('#152: EventBus.emit 빈 이벤트', () => {
+        let threw = false;
+        try {
+            EventBus.emit('no:listeners:here', { foo: 1 });
+        } catch (e) {
+            threw = true;
+        }
+        assert.strictEqual(threw, false, '#152: 리스너 없는 이벤트 emit 시 에러 없음');
+    });
+
+    it('#152: EventBus.off 후 호출 안됨', () => {
+        let called = false;
+        const fn = () => {
+            called = true;
+        };
+        EventBus.on('test:off', fn);
+        EventBus.off('test:off', fn);
+        EventBus.emit('test:off');
+        assert.strictEqual(called, false, '#152: off 후 리스너 호출 안됨');
+    });
 });
