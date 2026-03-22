@@ -218,7 +218,7 @@ function sellTower(tower) {
     if (gameState.gameOver) return false;
     const idx = towers.indexOf(tower);
     if (idx === -1) return false;
-    const refund = Math.floor((tower.spentGold || 0) * 0.5);
+    const refund = Math.floor((tower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
     towers.splice(idx, 1);
     towerPositionSet.delete(keyFromGrid(tower.x, tower.y));
     gameState.gold = Math.min(999999, gameState.gold + refund);
@@ -487,24 +487,25 @@ function pickEnemyType(waveNumber) {
     if (waveNumber % 10 === 0 && gameState.enemiesToSpawn === 1) {
         return ENEMY_TYPE_MAP['boss'] || ENEMY_TYPE_DEFINITIONS[0];
     }
-    if (waveNumber >= 3) {
-        const roll = Math.random();
-        if (roll < 0.2) return ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0];
-        if (roll < 0.5) return ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0];
+    const eligible = ENEMY_TYPE_DEFINITIONS.filter((t) => !t.bossOnly && waveNumber >= t.minWave);
+    const totalWeight = eligible.reduce((sum, t) => sum + t.spawnWeight, 0);
+    if (totalWeight <= 0) return ENEMY_TYPE_DEFINITIONS[0];
+    let roll = Math.random() * totalWeight;
+    for (const t of eligible) {
+        roll -= t.spawnWeight;
+        if (roll <= 0) return t;
     }
-    return ENEMY_TYPE_DEFINITIONS[0];
+    return eligible[eligible.length - 1];
 }
 
 function getWaveEnemyComposition(waveNumber) {
-    if (waveNumber < 3) {
-        return [{ type: ENEMY_TYPE_DEFINITIONS[0], percent: 100 }];
-    }
-    const result = [
-        { type: ENEMY_TYPE_MAP['normal'] || ENEMY_TYPE_DEFINITIONS[0], percent: 50 },
-        { type: ENEMY_TYPE_MAP['armored'] || ENEMY_TYPE_DEFINITIONS[0], percent: 20 },
-        { type: ENEMY_TYPE_MAP['fast'] || ENEMY_TYPE_DEFINITIONS[0], percent: 30 }
-    ];
-    return result;
+    const eligible = ENEMY_TYPE_DEFINITIONS.filter((t) => !t.bossOnly && waveNumber >= t.minWave);
+    const totalWeight = eligible.reduce((sum, t) => sum + t.spawnWeight, 0);
+    if (totalWeight <= 0) return [{ type: ENEMY_TYPE_DEFINITIONS[0], percent: 100 }];
+    return eligible.map((t) => ({
+        type: t,
+        percent: Math.round((t.spawnWeight / totalWeight) * 100)
+    }));
 }
 
 function spawnEnemy() {

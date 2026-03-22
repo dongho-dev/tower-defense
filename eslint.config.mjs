@@ -23,6 +23,7 @@ const gameGlobals = {
     TOWER_MAX_LEVEL: 'readonly',
     WAVE_CLEAR_BONUS_BASE: 'readonly',
     WAVE_CLEAR_BONUS_PER_WAVE: 'readonly',
+    TOWER_SELL_REFUND_RATE: 'readonly',
     WAVE_MAX: 'readonly',
     DEFAULT_TOWER_TYPE: 'readonly',
     AUTOCOLLAPSE_WIDTH: 'readonly',

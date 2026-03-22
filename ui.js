@@ -389,11 +389,11 @@ function updateTowerStatsFields() {
         UPGRADE_TOWER_BUTTON.setAttribute('aria-label', label);
     }
     if (TOWER_STATS_FIELDS.sellRefund) {
-        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * 0.5);
+        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
         setTextIfChanged(TOWER_STATS_FIELDS.sellRefund, formatNumber(refund));
     }
     if (SELL_TOWER_BUTTON) {
-        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * 0.5);
+        const refund = Math.floor((gameState.selectedTower.spentGold || 0) * TOWER_SELL_REFUND_RATE);
         SELL_TOWER_BUTTON.setAttribute('aria-label', `판매 (${refund}G 환급)`);
     }
     if (TARGET_PRIORITY_SELECT) {

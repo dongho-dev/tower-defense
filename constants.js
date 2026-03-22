@@ -26,6 +26,7 @@ const TOWER_UPGRADE_COST_MULTIPLIER = 1.6;
 const TOWER_MAX_LEVEL = 15;
 const WAVE_CLEAR_BONUS_BASE = 20;
 const WAVE_CLEAR_BONUS_PER_WAVE = 5;
+const TOWER_SELL_REFUND_RATE = 0.5;
 const WAVE_MAX = 9999;
 const DEFAULT_TOWER_TYPE = 'basic';
 const AUTOCOLLAPSE_WIDTH = 1180;
@@ -46,6 +47,9 @@ const ENEMY_TYPE_DEFINITIONS = [
         hpMult: 1.0,
         speedMult: 1.0,
         rewardMult: 1.0,
+        spawnWeight: 50,
+        minWave: 1,
+        bossOnly: false,
         body: '#d65a57',
         core: '#ffe6c2',
         outline: '#321816',
@@ -58,6 +62,9 @@ const ENEMY_TYPE_DEFINITIONS = [
         hpMult: 3.0,
         speedMult: 0.6,
         rewardMult: 2.0,
+        spawnWeight: 20,
+        minWave: 3,
+        bossOnly: false,
         body: '#5d7dff',
         core: '#d8e1ff',
         outline: '#19224f',
@@ -70,6 +77,9 @@ const ENEMY_TYPE_DEFINITIONS = [
         hpMult: 0.4,
         speedMult: 2.5,
         rewardMult: 1.5,
+        spawnWeight: 30,
+        minWave: 3,
+        bossOnly: false,
         body: '#58d6a4',
         core: '#d4ffe7',
         outline: '#12392a',
@@ -82,6 +92,9 @@ const ENEMY_TYPE_DEFINITIONS = [
         hpMult: 12.0,
         speedMult: 0.7,
         rewardMult: 8.0,
+        spawnWeight: 0,
+        minWave: 1,
+        bossOnly: true,
         body: '#c95de9',
         core: '#f5d1ff',
         outline: '#3d1649',
