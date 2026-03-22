@@ -1424,4 +1424,85 @@ describe('Unit tests', () => {
         // 복원
         setVolume(0.8);
     });
+
+    it('#194: EventBus._listeners는 Object.create(null)이므로 __proto__ 안전', () => {
+        const called = [];
+        const fn = () => called.push('called');
+        EventBus.on('__proto__', fn);
+        EventBus.emit('__proto__', {});
+        assert.deepStrictEqual(called, ['called'], '#194: __proto__ 이벤트 정상 발행');
+        EventBus.off('__proto__', fn);
+        // _listeners에 prototype 오염 없음
+        assert.strictEqual(Object.getPrototypeOf(EventBus._listeners), null, '#194: _listeners의 프로토타입이 null');
+    });
+
+    it('#200: damageEnemyAtIndex — NaN, 음수, Infinity 방어', () => {
+        enemies.length = 0;
+        enemies.push({
+            x: 100,
+            y: 100,
+            hp: 50,
+            maxHp: 50,
+            reward: 10,
+            waypoint: 0,
+            waveIndex: 1,
+            heading: 0,
+            speed: 50,
+            enemyType: ENEMY_TYPE_DEFINITIONS[0],
+            pulseSeed: 0
+        });
+        assert.strictEqual(damageEnemyAtIndex(0, NaN), false, '#200: NaN amount → false');
+        assert.strictEqual(enemies[0].hp, 50, '#200: NaN — HP 변동 없음');
+        assert.strictEqual(damageEnemyAtIndex(0, -10), false, '#200: 음수 amount → false');
+        assert.strictEqual(enemies[0].hp, 50, '#200: 음수 — HP 변동 없음');
+        assert.strictEqual(damageEnemyAtIndex(0, Infinity), false, '#200: Infinity amount → false');
+        assert.strictEqual(enemies[0].hp, 50, '#200: Infinity — HP 변동 없음');
+        // 정상 데미지는 통과
+        const result = damageEnemyAtIndex(0, 10);
+        assert.strictEqual(result, false, '#200: 10 데미지는 킬 아님');
+        assert.strictEqual(enemies[0].hp, 40, '#200: 정상 데미지 적용');
+        enemies.length = 0;
+    });
+
+    it('#185: setSoundMuted가 localStorage에 뮤트 상태 저장', () => {
+        const store = {};
+        const mockStorage = {
+            getItem: (k) => (k in store ? store[k] : null),
+            setItem: (k, v) => {
+                store[k] = String(v);
+            },
+            removeItem: (k) => {
+                delete store[k];
+            }
+        };
+        const origLS = global.localStorage;
+        global.localStorage = mockStorage;
+        try {
+            setSoundMuted(true);
+            assert.strictEqual(store['td_mute'], 'true', '#185: 뮤트 시 td_mute=true 저장');
+            setSoundMuted(false);
+            assert.strictEqual(store['td_mute'], 'false', '#185: 뮤트 해제 시 td_mute=false 저장');
+        } finally {
+            if (origLS === undefined) {
+                delete global.localStorage;
+            } else {
+                global.localStorage = origLS;
+            }
+        }
+    });
+
+    it('#186: recalcTowerStats가 cachedProjectileColor/cachedTrailColor/cachedTowerColor 캐싱', () => {
+        const tower = createTowerData(1, 1, 'basic');
+        assert.ok(tower.cachedProjectileColor, '#186: cachedProjectileColor 존재');
+        assert.ok(tower.cachedTowerColor, '#186: cachedTowerColor 존재');
+        // cachedTrailColor는 이전 레벨 색상
+        assert.ok(tower.cachedTrailColor !== undefined, '#186: cachedTrailColor 존재');
+    });
+
+    it('#192: drawEnemies pulse는 prefersReducedMotion 시 0.5 고정', () => {
+        // 이 테스트는 코드 구조 확인 — prefersReducedMotion=true일 때 pulse=0.5
+        const src = fs.readFileSync(path.join(__dirname, '..', 'renderer.js'), 'utf-8');
+        assert.ok(src.includes('prefersReducedMotion ? 0.5'), '#192: renderer.js에 prefersReducedMotion 분기 존재');
+        assert.ok(src.includes('pulseSeed'), '#192: renderer.js에 pulseSeed 사용');
+    });
 });
