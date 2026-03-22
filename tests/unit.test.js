@@ -1,6 +1,7 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 function noop() {}
 
@@ -98,8 +99,32 @@ function setupDom() {
         drawImage: noop
     });
 
-    delete require.cache[require.resolve('../main.js')];
-    const game = require('../main.js');
+    // Make module available globally so main.js can set module.exports
+    const gameModule = { exports: {} };
+    global.module = gameModule;
+
+    const scriptFiles = [
+        'constants.js',
+        'towers.js',
+        'utils.js',
+        'map.js',
+        'ui.js',
+        'audio.js',
+        'game.js',
+        'renderer.js',
+        'main.js'
+    ];
+    for (const file of scriptFiles) {
+        const filePath = path.join(__dirname, '..', file);
+        const code = fs.readFileSync(filePath, 'utf-8');
+        vm.runInThisContext(code, { filename: filePath });
+    }
+
+    // main.js sets module.exports via its `if (typeof module !== 'undefined')` block
+    const game = gameModule.exports;
+
+    // Remove the global module override
+    delete global.module;
 
     return { window, document, game };
 }
