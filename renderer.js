@@ -556,6 +556,21 @@ function drawTowerShape(tower, color, outline, time, def) {
     );
 }
 
+const _towerAuraCache = new Map();
+const _TOWER_AURA_CACHE_MAX = 64;
+
+function _getCachedAuraColor(glowColor) {
+    let cached = _towerAuraCache.get(glowColor);
+    if (cached !== undefined) return cached;
+    cached = applyAlpha(glowColor, 0.15);
+    if (_towerAuraCache.size >= _TOWER_AURA_CACHE_MAX) {
+        const firstKey = _towerAuraCache.keys().next().value;
+        _towerAuraCache.delete(firstKey);
+    }
+    _towerAuraCache.set(glowColor, cached);
+    return cached;
+}
+
 function drawTowers() {
     const now = elapsedTime;
     ctx.save();
@@ -565,13 +580,11 @@ function drawTowers() {
         const size = TOWER_DRAW_BASE + (tower.level - 1) * 1.2;
         const glowColor = def.glowColor || color;
         const auraRadius = size * 1.8;
-        ctx.save();
-        ctx.fillStyle = applyAlpha(glowColor, 0.2);
-        ctx.globalAlpha = 0.75;
+        const auraColor = _getCachedAuraColor(glowColor);
+        ctx.fillStyle = auraColor;
         ctx.beginPath();
         ctx.arc(tower.worldX, tower.worldY, auraRadius, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
 
         if (gameState.selectedTower === tower) {
             ctx.save();

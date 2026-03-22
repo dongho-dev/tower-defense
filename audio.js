@@ -36,7 +36,7 @@ function ensureAudioContext() {
     try {
         audioContext = new AudioCtx();
         masterGain = audioContext.createGain();
-        masterGain.gain.value = 0.8;
+        masterGain.gain.value = masterVolume;
         masterGain.connect(audioContext.destination);
         return audioContext;
     } catch (e) {
@@ -161,11 +161,32 @@ function updateSoundToggle() {
     SOUND_TOGGLE.setAttribute('aria-label', soundLabel);
 }
 
+let masterVolume = 0.8;
+
+function setVolume(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    masterVolume = Math.max(0, Math.min(1, value));
+    if (audioContext && masterGain && !soundMuted) {
+        const now = audioContext.currentTime;
+        masterGain.gain.cancelScheduledValues(now);
+        masterGain.gain.setTargetAtTime(masterVolume, now + 0.01, 0.05);
+    }
+    try {
+        localStorage.setItem('td_volume', String(masterVolume));
+    } catch (_) {
+        /* storage unavailable */
+    }
+}
+
+function getVolume() {
+    return masterVolume;
+}
+
 function setSoundMuted(state) {
     soundMuted = state;
     if (audioContext && masterGain) {
         const now = audioContext.currentTime;
-        const target = soundMuted ? 0.0001 : 0.8;
+        const target = soundMuted ? 0.0001 : masterVolume;
         masterGain.gain.cancelScheduledValues(now);
         masterGain.gain.setTargetAtTime(target, now + 0.01, 0.05);
     }
