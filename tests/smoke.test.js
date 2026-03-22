@@ -1,6 +1,10 @@
-﻿const { JSDOM } = require('jsdom');
-const fs = require('fs');
-const path = require('path');
+﻿import { JSDOM } from "jsdom";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function noop() {}
 
@@ -20,7 +24,7 @@ class FakeGainNode {
 class FakeOscillator {
     constructor() {
         this.frequency = { setValueAtTime: noop };
-        this.type = 'sine';
+        this.type = "sine";
     }
     connect() {}
     start() {}
@@ -50,8 +54,8 @@ class FakeAudioContext {
     createBufferSource() { return new FakeBufferSource(); }
 }
 
-function setupDom() {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf-8');
+async function setupDom() {
+    const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf-8");
     const dom = new JSDOM(html, { pretendToBeVisual: true });
     const { window } = dom;
     const { document } = window;
@@ -61,7 +65,7 @@ function setupDom() {
     global.document = document;
     global.navigator = window.navigator;
     global.performance = fakePerformance;
-    window.performance = fakePerformance;
+    try { window.performance = fakePerformance; } catch (_) {}
 
     global.requestAnimationFrame = noop;
     global.cancelAnimationFrame = noop;
@@ -73,17 +77,16 @@ function setupDom() {
     global.AudioContext = FakeAudioContext;
 
     window.HTMLCanvasElement.prototype.getContext = () => ({
-        fillStyle: '#000', strokeStyle: '#000', lineWidth: 1,
+        fillStyle: "#000", strokeStyle: "#000", lineWidth: 1,
         beginPath: noop, moveTo: noop, lineTo: noop, stroke: noop,
         arc: noop, fillRect: noop, clearRect: noop, fill: noop,
-        save: noop, restore: noop, font: '', textAlign: '', textBaseline: '',
+        save: noop, restore: noop, font: "", textAlign: "", textBaseline: "",
         fillText: noop,
         createRadialGradient: () => ({ addColorStop: noop }),
         createLinearGradient: () => ({ addColorStop: noop })
     });
 
-    delete require.cache[require.resolve('../main.js')];
-    require('../main.js');
+    await import("../src/main.js");
 
     return { window, document };
 }
@@ -94,8 +97,8 @@ function assert(condition, message) {
     }
 }
 
-function run() {
-    const { document } = setupDom();
+export async function run() {
+    const { document } = await setupDom();
 
     const towerCards = document.querySelectorAll('.tower-card');
     assert(towerCards.length === 8, `Expected 8 tower cards, found ${towerCards.length}`);
@@ -120,8 +123,7 @@ function run() {
     console.log('Smoke test passed');
 }
 
-if (require.main === module) {
-    run();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+    await run();
 }
 
-module.exports = { run };

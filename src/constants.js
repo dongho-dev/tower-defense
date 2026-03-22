@@ -1,0 +1,15 @@
+﻿export const TILE_SIZE = 30;
+export const TOWER_DRAW_BASE = 14;
+export const TOWER_PICK_RADIUS = 18;
+export const ENEMY_RADIUS = 14;
+export const ENEMY_BASE_HP = 78;
+export const ENEMY_HP_GROWTH_RATE = 1.25;
+export const ENEMY_SPEED = 49;
+export const ENEMY_BASE_REWARD = 14;
+export const TOWER_UPGRADE_BASE_COST = 40;
+export const TOWER_DAMAGE_GROWTH = 2.5;
+export const TOWER_UPGRADE_COST_MULTIPLIER = 2;
+export const TOWER_MAX_LEVEL = 15;
+export const DEFAULT_TOWER_TYPE = 'basic';
+export const AUTOCOLLAPSE_WIDTH = 1180;
+export const NUMBER_FORMAT = new Intl.NumberFormat('ko-KR');

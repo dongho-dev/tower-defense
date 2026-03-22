@@ -1,116 +1,116 @@
-ï»¿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>íƒ€ì›Œ ë””íŽœìŠ¤ ì»¤ë§¨ë“œ</title>
+    <title>Å¸¿ö µðÆæ½º Ä¿¸Çµå</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-shell">
         <header class="top-bar">
             <div class="bar-left">
-                <h1 class="brand">íƒ€ì›Œ ë””íŽœìŠ¤ ì»¤ë§¨ë“œ</h1>
+                <h1 class="brand">Å¸¿ö µðÆæ½º Ä¿¸Çµå</h1>
                 <div class="stat-block">
                     <div class="stat-chip">
-                        <span class="stat-label">ì›¨ì´ë¸Œ</span>
+                        <span class="stat-label">¿þÀÌºê</span>
                         <span class="stat-value" id="wave">1</span>
                     </div>
                     <div class="stat-chip">
-                        <span class="stat-label">ìƒëª…ë ¥</span>
+                        <span class="stat-label">»ý¸í·Â</span>
                         <span class="stat-value" id="lives">20</span>
                     </div>
                     <div class="stat-chip">
-                        <span class="stat-label">ê³¨ë“œ</span>
+                        <span class="stat-label">°ñµå</span>
                         <span class="stat-value" id="gold">100</span>
                     </div>
                 </div>
             </div>
             <div class="bar-right">
-                <div class="control-row speed-controls" role="group" aria-label="ê²Œìž„ ì†ë„">
-                    <span class="control-label">ì†ë„</span>
+                <div class="control-row speed-controls" role="group" aria-label="°ÔÀÓ ¼Óµµ">
+                    <span class="control-label">¼Óµµ</span>
                     <button type="button" class="speed-button active" data-speed="1">1x</button>
                     <button type="button" class="speed-button" data-speed="2">2x</button>
                     <button type="button" class="speed-button" data-speed="3">3x</button>
                 </div>
                 <div class="control-row gold-control">
-                    <label for="gold-input" class="control-label">ê³¨ë“œ</label>
+                    <label for="gold-input" class="control-label">°ñµå</label>
                     <input type="number" id="gold-input" min="0" step="10" value="100">
-                    <button type="button" id="gold-apply">ì„¤ì •</button>
+                    <button type="button" id="gold-apply">¼³Á¤</button>
                     <button type="button" class="gold-adjust" data-delta="100">+100</button>
                     <button type="button" class="gold-adjust" data-delta="500">+500</button>
                 </div>
                 <div class="control-row wave-control">
-                    <label for="wave-input" class="control-label">ì›¨ì´ë¸Œ ì´ë™</label>
+                    <label for="wave-input" class="control-label">¿þÀÌºê ÀÌµ¿</label>
                     <input type="number" id="wave-input" min="1" value="1">
-                    <button type="button" id="wave-apply">ì´ë™</button>
+                    <button type="button" id="wave-apply">ÀÌµ¿</button>
                 </div>
                 <div class="control-row sound-control">
-                    <button type="button" id="sound-toggle" class="icon-button" aria-pressed="true" title="ì‚¬ìš´ë“œ ë„ê¸°">ðŸ”Š</button>
+                    <button type="button" id="sound-toggle" class="icon-button" aria-pressed="true" title="»ç¿îµå ²ô±â">??</button>
                 </div>
             </div>
         </header>
 
-        <p class="instructions">ì™¼ìª½ íŒ¨ë„ì„ íŽ¼ì¹œ ë’¤ ì›í•˜ëŠ” í¬íƒ‘ì„ ì„ íƒí•˜ê³  ìº”ë²„ìŠ¤ë¥¼ ì¢Œí´ë¦­í•˜ë©´ ì„¤ì¹˜ë©ë‹ˆë‹¤. ìš°í´ë¦­ ì—…ê·¸ë ˆì´ë“œëŠ” ìµœëŒ€ ë ˆë²¨ 15ê¹Œì§€ ê°€ëŠ¥í•˜ë©° ê° í¬íƒ‘ì€ ê³ ìœ í•œ ì‚¬ê±°ë¦¬Â·í”¼í•´Â·íš¨ê³¼(ì§€ì†/ê´‘ì—­/ì‚°íƒ„/ë°•ê²©í¬)ë¥¼ ê°€ì§‘ë‹ˆë‹¤. ê³¨ë“œì™€ ì›¨ì´ë¸ŒëŠ” ìƒë‹¨ HUDì—ì„œ ì¦‰ì‹œ ì¡°ì •í•  ìˆ˜ ìžˆê³ , ì‚¬ìš´ë“œ í† ê¸€ë¡œ íš¨ê³¼ìŒì„ ì¼œê±°ë‚˜ ëŒ ìˆ˜ ìžˆìŠµë‹ˆë‹¤.</p>
+        <p class="instructions">¿ÞÂÊ ÆÐ³ÎÀ» ÆîÄ£ µÚ ¿øÇÏ´Â Æ÷Å¾À» ¼±ÅÃÇÏ°í Äµ¹ö½º¸¦ ÁÂÅ¬¸¯ÇÏ¸é ¼³Ä¡µË´Ï´Ù. ¿ìÅ¬¸¯ ¾÷±×·¹ÀÌµå´Â ÃÖ´ë ·¹º§ 15±îÁö °¡´ÉÇÏ¸ç °¢ Æ÷Å¾Àº °íÀ¯ÇÑ »ç°Å¸®¡¤ÇÇÇØ¡¤È¿°ú(Áö¼Ó/±¤¿ª/»êÅº/¹Ú°ÝÆ÷)¸¦ °¡Áý´Ï´Ù. °ñµå¿Í ¿þÀÌºê´Â »ó´Ü HUD¿¡¼­ Áï½Ã Á¶Á¤ÇÒ ¼ö ÀÖ°í, »ç¿îµå Åä±Û·Î È¿°úÀ½À» ÄÑ°Å³ª ²ø ¼ö ÀÖ½À´Ï´Ù.</p>
 
         <div class="app-body">
             <div class="build-shell">
-                <button type="button" id="build-toggle" class="build-toggle" aria-expanded="true" aria-controls="build-panel" title="í¬íƒ‘ íŒ¨ë„ ì ‘ê¸°">â—€</button>
+                <button type="button" id="build-toggle" class="build-toggle" aria-expanded="true" aria-controls="build-panel" title="Æ÷Å¾ ÆÐ³Î Á¢±â">¢¸</button>
                 <aside id="build-panel" class="build-panel">
-                    <h2>í¬íƒ‘ ì œìž‘</h2>
-                    <p class="build-hint">ì™¼ìª½ì—ì„œ í¬íƒ‘ì„ ì„ íƒí•œ ë’¤ ì§€í˜•ì„ í´ë¦­í•˜ì„¸ìš”.</p>
-                    <div id="tower-list" class="tower-list" role="radiogroup" aria-label="í¬íƒ‘ ì„ íƒ"></div>
+                    <h2>Æ÷Å¾ Á¦ÀÛ</h2>
+                    <p class="build-hint">¿ÞÂÊ¿¡¼­ Æ÷Å¾À» ¼±ÅÃÇÑ µÚ ÁöÇüÀ» Å¬¸¯ÇÏ¼¼¿ä.</p>
+                    <div id="tower-list" class="tower-list" role="radiogroup" aria-label="Æ÷Å¾ ¼±ÅÃ"></div>
                 </aside>
             </div>
 
             <main class="stage-area">
                 <div class="canvas-wrapper">
-                    <canvas id="game" width="900" height="600" aria-label="íƒ€ì›Œ ë””íŽœìŠ¤ ì „ìž¥"></canvas>
+                    <canvas id="game" width="900" height="600" aria-label="Å¸¿ö µðÆæ½º ÀüÀå"></canvas>
                 </div>
             </main>
 
             <aside class="info-column">
                 <div id="wave-preview" class="stats-panel card">
-                    <h3>ë‹¤ìŒ ì›¨ì´ë¸Œ ì •ë³´</h3>
-                    <p>ìƒíƒœ: <span data-field="preview-status">ëŒ€ê¸°</span></p>
-                    <p>ì›¨ì´ë¸Œ: <span data-field="preview-wave">1</span></p>
-                    <p>ë‚¨ì€ ì : <span data-field="preview-remaining">0</span></p>
-                    <p>ì²´ë ¥: <span data-field="preview-hp">-</span></p>
-                    <p>ì´ë™ ì†ë„: <span data-field="preview-speed">-</span></p>
-                    <p>íšë“ ê³¨ë“œ: <span data-field="preview-reward">-</span></p>
+                    <h3>´ÙÀ½ ¿þÀÌºê Á¤º¸</h3>
+                    <p>»óÅÂ: <span data-field="preview-status">´ë±â</span></p>
+                    <p>¿þÀÌºê: <span data-field="preview-wave">1</span></p>
+                    <p>³²Àº Àû: <span data-field="preview-remaining">0</span></p>
+                    <p>Ã¼·Â: <span data-field="preview-hp">-</span></p>
+                    <p>ÀÌµ¿ ¼Óµµ: <span data-field="preview-speed">-</span></p>
+                    <p>È¹µæ °ñµå: <span data-field="preview-reward">-</span></p>
                 </div>
                 <div id="tower-stats" class="stats-panel card hidden">
-                    <h3>í¬íƒ‘ ì •ë³´</h3>
-                    <p>ì¢…ë¥˜: <span data-field="tower-type">-</span></p>
-                    <p>ì¢Œí‘œ: <span data-field="tower-position">-</span></p>
-                    <p>ì‚¬ê±°ë¦¬: <span data-field="tower-range">-</span></p>
-                    <p>ë°œì‚¬ ê°„ê²©: <span data-field="tower-fire-delay">-</span></p>
-                    <p>í”¼í•´ëŸ‰: <span data-field="tower-damage">-</span></p>
-                    <p>ë ˆë²¨: <span data-field="tower-level">-</span></p>
-                    <p>ì—…ê·¸ë ˆì´ë“œ ë¹„ìš©: <span data-field="tower-upgrade-cost">-</span></p>
+                    <h3>Æ÷Å¾ Á¤º¸</h3>
+                    <p>Á¾·ù: <span data-field="tower-type">-</span></p>
+                    <p>ÁÂÇ¥: <span data-field="tower-position">-</span></p>
+                    <p>»ç°Å¸®: <span data-field="tower-range">-</span></p>
+                    <p>¹ß»ç °£°Ý: <span data-field="tower-fire-delay">-</span></p>
+                    <p>ÇÇÇØ·®: <span data-field="tower-damage">-</span></p>
+                    <p>·¹º§: <span data-field="tower-level">-</span></p>
+                    <p>¾÷±×·¹ÀÌµå ºñ¿ë: <span data-field="tower-upgrade-cost">-</span></p>
                 </div>
                 <div id="enemy-stats" class="stats-panel card hidden">
-                    <h3>ì  ì •ë³´</h3>
-                    <p>ì›¨ì´ë¸Œ: <span data-field="enemy-wave">-</span></p>
-                    <p>ì²´ë ¥: <span data-field="enemy-hp">-</span></p>
-                    <p>ì´ë™ ì†ë„: <span data-field="enemy-speed">-</span></p>
-                    <p>íšë“ ê³¨ë“œ: <span data-field="enemy-reward">-</span></p>
+                    <h3>Àû Á¤º¸</h3>
+                    <p>¿þÀÌºê: <span data-field="enemy-wave">-</span></p>
+                    <p>Ã¼·Â: <span data-field="enemy-hp">-</span></p>
+                    <p>ÀÌµ¿ ¼Óµµ: <span data-field="enemy-speed">-</span></p>
+                    <p>È¹µæ °ñµå: <span data-field="enemy-reward">-</span></p>
                 </div>
             </aside>
         </div>
     </div>
 
-    <div id="defeat-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="íŒ¨ë°°">
+    <div id="defeat-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="ÆÐ¹è">
         <div class="overlay-content">
-            <h2>íŒ¨ë°°í–ˆìŠµë‹ˆë‹¤</h2>
-            <p>ë‹¤ì‹œ ì‹œë„í•˜ì‹œê² ìŠµë‹ˆê¹Œ?</p>
+            <h2>ÆÐ¹èÇß½À´Ï´Ù</h2>
+            <p>´Ù½Ã ½ÃµµÇÏ½Ã°Ú½À´Ï±î?</p>
             <div class="overlay-actions">
-                <button type="button" id="retry-button">ë‹¤ì‹œ ì‹œìž‘</button>
-                <button type="button" id="cancel-retry-button">ë‹«ê¸°</button>
+                <button type="button" id="retry-button">´Ù½Ã ½ÃÀÛ</button>
+                <button type="button" id="cancel-retry-button">´Ý±â</button>
             </div>
         </div>
     </div>
 
-    <script src="main.js"></script>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>
