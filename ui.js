@@ -53,6 +53,7 @@ const TOWER_STATS_FIELDS = {
     sellRefund: TOWER_STATS_PANEL ? TOWER_STATS_PANEL.querySelector('[data-field="tower-sell-refund"]') : null
 };
 const ENEMY_STATS_FIELDS = {
+    enemyType: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-type"]') : null,
     wave: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-wave"]') : null,
     hp: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-hp"]') : null,
     speed: ENEMY_STATS_PANEL ? ENEMY_STATS_PANEL.querySelector('[data-field="enemy-speed"]') : null,
@@ -369,6 +370,10 @@ function updateEnemyStatsFields() {
     if (!enemies.includes(selectedEnemy)) {
         hideEnemyStats();
         return;
+    }
+    if (ENEMY_STATS_FIELDS.enemyType) {
+        const typeName = (selectedEnemy.enemyType || ENEMY_TYPE_DEFINITIONS[0]).label;
+        setTextIfChanged(ENEMY_STATS_FIELDS.enemyType, typeName);
     }
     const currentHp = Math.max(0, Math.ceil(selectedEnemy.hp));
     const maxHp = Math.max(0, Math.ceil(selectedEnemy.maxHp));
