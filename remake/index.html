@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071018">
+  <meta name="description" content="Last Light — 가볍고 빠른 싱글 캔버스 타워 디펜스">
+  <title>Last Light // Riftline Defense</title>
+  <link rel="preload" as="image" href="assets/nexus-horizon-v2.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="world-backdrop" aria-hidden="true"></div>
+
+  <main class="app-shell" id="app">
+    <header class="command-bar">
+      <div class="brand-lockup">
+        <span class="brand-kicker">NEXUS FRONTIER</span>
+        <strong>LAST LIGHT</strong>
+        <span class="brand-subtitle">RIFTLINE DEFENSE</span>
+      </div>
+
+      <dl class="hud-stats" aria-label="전투 상태">
+        <div>
+          <dt>웨이브</dt>
+          <dd id="stat-wave">0</dd>
+        </div>
+        <div>
+          <dt>코어</dt>
+          <dd id="stat-core">20</dd>
+        </div>
+        <div>
+          <dt>크레딧</dt>
+          <dd id="stat-credits">260</dd>
+        </div>
+        <div class="threat-stat">
+          <dt>위협</dt>
+          <dd id="stat-threat">대기</dd>
+        </div>
+      </dl>
+
+      <div class="command-actions">
+        <span class="perf-readout" id="perf-readout" aria-label="렌더링 성능">PERF --</span>
+        <button class="quiet-button" id="fx-toggle" type="button" aria-pressed="false">FX ECO</button>
+        <button class="icon-button" id="pause-button" type="button" aria-pressed="false" aria-label="일시 정지">Ⅱ</button>
+      </div>
+    </header>
+
+    <section class="mission-grid">
+      <section class="battlefield-shell" aria-label="전장">
+        <div class="battlefield-meta">
+          <div>
+            <span class="eyebrow">ACTIVE SECTOR</span>
+            <strong id="sector-name">RIFTLINE 07</strong>
+          </div>
+          <div class="battlefield-actions">
+            <span class="status-chip" id="battle-status">배치 대기</span>
+            <button class="primary-button compact" id="wave-button" type="button" disabled>웨이브 시작</button>
+          </div>
+        </div>
+
+        <div class="canvas-frame" id="canvas-frame">
+          <canvas id="battlefield" width="1200" height="720" tabindex="0" aria-label="타워 디펜스 전장. 포탑 카드를 선택한 뒤 점등된 소켓을 선택해 배치하세요."></canvas>
+          <div class="field-callout" id="field-callout" aria-live="polite"></div>
+
+          <section class="mission-brief" id="mission-brief" aria-label="작전 선택">
+            <div class="brief-copy">
+              <span class="eyebrow">OPERATION 01</span>
+              <h1>마지막 빛을<br>지켜내십시오.</h1>
+              <p>고정 소켓에 방어망을 구축하고 균열에서 밀려오는 적을 저지하세요. 새 전장은 단일 캔버스로 동작합니다.</p>
+            </div>
+            <div class="route-picker">
+              <span class="eyebrow">ROUTE PROFILE</span>
+              <div id="map-options" class="map-options" role="radiogroup" aria-label="전장 선택"></div>
+              <button class="primary-button deploy-button" id="deploy-button" type="button">방어선 전개</button>
+            </div>
+          </section>
+
+          <section class="end-card hidden" id="end-card" aria-live="assertive">
+            <span class="eyebrow">CORE OFFLINE</span>
+            <h2>방어선 붕괴</h2>
+            <p id="end-summary">기록된 웨이브 0</p>
+            <button class="primary-button" id="retry-button" type="button">다시 전개</button>
+          </section>
+        </div>
+
+        <div class="field-footer">
+          <span id="mission-message">전장을 선택해 작전을 시작하세요.</span>
+          <span class="control-hint"><kbd>1–8</kbd> 포탑 · <kbd>Space</kbd> 일시정지 · <kbd>W</kbd> 웨이브</span>
+        </div>
+      </section>
+
+      <aside class="intel-panel" id="intel-panel" aria-live="polite">
+        <div class="intel-heading">
+          <span class="eyebrow">FIELD INTEL</span>
+          <span class="live-dot" aria-hidden="true"></span>
+        </div>
+
+        <section id="mission-intel" class="intel-section">
+          <p class="intel-label">현재 목표</p>
+          <h2 id="intel-title">방어망 구축</h2>
+          <p id="intel-copy">전장을 선택하고 전개한 뒤, 하단 병기고에서 포탑을 선택하세요.</p>
+          <dl class="intel-metrics">
+            <div><dt>경로 길이</dt><dd id="intel-route">—</dd></div>
+            <div><dt>소켓</dt><dd id="intel-pads">—</dd></div>
+            <div><dt>다음 편대</dt><dd id="intel-wave">—</dd></div>
+          </dl>
+        </section>
+
+        <section id="tower-intel" class="intel-section hidden">
+          <div class="tower-title-row">
+            <span class="tower-mark" id="tower-mark">PX</span>
+            <div>
+              <p class="intel-label">선택한 포탑</p>
+              <h2 id="tower-name">PULSE</h2>
+            </div>
+          </div>
+          <p id="tower-role" class="tower-role">균형형 요격 포탑</p>
+          <dl class="intel-metrics tower-metrics">
+            <div><dt>레벨</dt><dd id="tower-level">1</dd></div>
+            <div><dt>피해</dt><dd id="tower-damage">0</dd></div>
+            <div><dt>사거리</dt><dd id="tower-range">0</dd></div>
+            <div><dt>재장전</dt><dd id="tower-reload">0</dd></div>
+          </dl>
+          <div class="intel-actions">
+            <button class="primary-button" id="upgrade-button" type="button">업그레이드 <span id="upgrade-cost">0</span></button>
+            <button class="quiet-button danger" id="sell-button" type="button">회수 <span id="sell-value">0</span></button>
+          </div>
+        </section>
+
+        <div class="wave-strip">
+          <span class="eyebrow">NEXT CONTACT</span>
+          <div class="wave-forecast">
+            <strong id="forecast-count">—</strong>
+            <span id="forecast-copy">편대 분석 대기</span>
+          </div>
+          <div class="threat-track" aria-hidden="true"><span id="threat-fill"></span></div>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="tower-dock">
+      <div class="dock-label">
+        <span class="eyebrow">ARMORY</span>
+        <strong>병기고</strong>
+      </div>
+      <div class="tower-list" id="tower-list" role="radiogroup" aria-label="포탑 선택"></div>
+      <div class="dock-tip" id="dock-tip">포탑을 선택하세요</div>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="game.mjs"></script>
+</body>
+</html>
