@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#071018">
-  <meta name="description" content="Last Light — 가볍고 빠른 싱글 캔버스 타워 디펜스">
+  <meta name="description" content="Last Light — 고밀도 비주얼과 경량 캔버스 전투를 결합한 타워 디펜스">
   <title>Last Light // Riftline Defense</title>
-  <link rel="preload" as="image" href="assets/nexus-horizon-v2.png">
+  <link rel="preload" as="image" type="image/webp" href="assets/field/rift-deck-game.webp" fetchpriority="high">
+  <link rel="preload" as="image" type="image/webp" href="assets/nexus-horizon-game.webp">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -60,14 +61,14 @@
         </div>
 
         <div class="canvas-frame" id="canvas-frame">
-          <canvas id="battlefield" width="1200" height="720" tabindex="0" aria-label="타워 디펜스 전장. 포탑 카드를 선택한 뒤 점등된 소켓을 선택해 배치하세요."></canvas>
+          <canvas id="battlefield" width="1200" height="540" tabindex="0" aria-label="타워 디펜스 전장. 포탑 카드를 선택한 뒤 점등된 소켓을 선택해 배치하세요."></canvas>
           <div class="field-callout" id="field-callout" aria-live="polite"></div>
 
           <section class="mission-brief" id="mission-brief" aria-label="작전 선택">
             <div class="brief-copy">
               <span class="eyebrow">OPERATION 01</span>
               <h1>마지막 빛을<br>지켜내십시오.</h1>
-              <p>고정 소켓에 방어망을 구축하고 균열에서 밀려오는 적을 저지하세요. 새 전장은 단일 캔버스로 동작합니다.</p>
+              <p>요새 전역의 고정 소켓에 병기를 배치하고, 균열 함대를 격멸해 마지막 코어를 지켜내십시오.</p>
             </div>
             <div class="route-picker">
               <span class="eyebrow">ROUTE PROFILE</span>

@@ -52,7 +52,7 @@ canvas:focus-visible {
   inset: 0;
   background:
     linear-gradient(180deg, rgba(2, 8, 13, 0.25) 0%, rgba(2, 8, 13, 0.72) 70%, #02070b 100%),
-    url("assets/nexus-horizon-v2.png") center / cover no-repeat;
+    url("assets/nexus-horizon-game.webp") center / cover no-repeat;
   transform: scale(1.01);
 }
 
@@ -71,10 +71,10 @@ canvas:focus-visible {
   width: min(1680px, 100%);
   height: 100dvh;
   margin: 0 auto;
-  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 8px;
 }
 
 .command-bar,
@@ -88,8 +88,8 @@ canvas:focus-visible {
 }
 
 .command-bar {
-  min-height: 66px;
-  padding: 10px 14px;
+  min-height: 58px;
+  padding: 8px 13px;
   border-radius: var(--radius);
   display: grid;
   grid-template-columns: minmax(230px, 0.75fr) minmax(470px, 1.35fr) auto;
@@ -252,7 +252,7 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
   border-radius: var(--radius);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   overflow: hidden;
 }
 
@@ -270,12 +270,20 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
 
 .canvas-frame {
   position: relative;
+  width: 100%;
+  aspect-ratio: 20 / 9;
+  align-self: center;
   min-width: 0;
   min-height: 0;
-  border: 1px solid rgba(120, 200, 230, 0.2);
-  border-radius: 12px;
+  max-height: 100%;
+  border: 1px solid rgba(126, 218, 240, 0.36);
+  border-radius: 14px;
   overflow: hidden;
   background: rgba(3, 10, 15, 0.58);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    inset 0 -26px 50px rgba(0, 3, 7, 0.28),
+    0 18px 48px rgba(0, 0, 0, 0.34);
   isolation: isolate;
 }
 
@@ -295,6 +303,7 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
   height: 100%;
   touch-action: none;
   cursor: crosshair;
+  image-rendering: auto;
 }
 
 .field-callout {
@@ -323,8 +332,8 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
   inset: 0;
   z-index: 3;
   background:
-    linear-gradient(90deg, rgba(3, 10, 15, 0.96), rgba(3, 10, 15, 0.72) 56%, rgba(3, 10, 15, 0.9)),
-    radial-gradient(circle at 70% 35%, rgba(111, 231, 255, 0.12), transparent 36%);
+    linear-gradient(90deg, rgba(2, 8, 13, 0.96) 0%, rgba(2, 9, 14, 0.88) 38%, rgba(2, 9, 14, 0.28) 67%, rgba(2, 8, 13, 0.62) 100%),
+    radial-gradient(circle at 67% 38%, rgba(111, 231, 255, 0.08), transparent 34%);
 }
 
 .mission-brief {
@@ -341,6 +350,7 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
   font-size: clamp(34px, 5.4vw, 76px);
   line-height: 0.94;
   letter-spacing: -0.045em;
+  text-shadow: 0 7px 32px rgba(0, 0, 0, 0.62);
 }
 
 .brief-copy p {
@@ -353,9 +363,11 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
 
 .route-picker {
   padding: 18px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(128, 222, 244, 0.28);
   border-radius: 14px;
-  background: rgba(8, 19, 27, 0.78);
+  background: linear-gradient(160deg, rgba(11, 25, 34, 0.9), rgba(4, 12, 18, 0.82));
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.32), inset 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(12px);
 }
 
 .map-options { display: grid; gap: 8px; margin: 11px 0 13px; }
@@ -457,14 +469,18 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
 
 .tower-title-row { display: flex; align-items: center; gap: 11px; }
 .tower-mark {
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   border: 1px solid currentColor;
   border-radius: 12px;
   display: grid;
   place-items: center;
   color: var(--cyan);
-  background: var(--cyan-soft);
+  background-color: rgba(5, 14, 20, 0.82);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 92%;
+  box-shadow: inset 0 0 22px color-mix(in srgb, currentColor 13%, transparent);
   font: 850 13px/1 ui-monospace, monospace;
 }
 .tower-role { min-height: 37px; }
@@ -484,7 +500,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
 .threat-track span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--amber), var(--coral)); transition: width 180ms linear; }
 
 .tower-dock {
-  min-height: 88px;
+  min-height: 104px;
   padding: 9px 10px;
   border-radius: var(--radius);
   display: grid;
@@ -512,15 +528,18 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
 .tower-card {
   position: relative;
   min-width: 0;
-  padding: 8px 7px 6px;
+  min-height: 84px;
+  padding: 7px 7px 6px;
   border: 1px solid var(--line);
   border-radius: 9px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  gap: 3px 6px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 2px 6px;
   text-align: left;
-  background: rgba(255, 255, 255, 0.026);
+  background:
+    radial-gradient(circle at 26% 48%, color-mix(in srgb, var(--tower-color, var(--cyan)) 11%, transparent), transparent 48%),
+    linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
   overflow: hidden;
 }
 
@@ -536,23 +555,47 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
 .tower-card[aria-checked="true"] {
   border-color: var(--tower-color, var(--cyan));
   background: color-mix(in srgb, var(--tower-color, var(--cyan)) 13%, transparent);
+  box-shadow: inset 0 0 22px color-mix(in srgb, var(--tower-color, var(--cyan)) 12%, transparent), 0 0 18px color-mix(in srgb, var(--tower-color, var(--cyan)) 9%, transparent);
 }
 
 .tower-card.poor { opacity: .48; }
 .tower-glyph {
   grid-row: 1 / -1;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--tower-color, var(--cyan));
-  border-radius: 8px;
+  position: relative;
+  width: 54px;
+  height: 68px;
+  border: 0;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   color: var(--tower-color, var(--cyan));
+  background: radial-gradient(circle, color-mix(in srgb, var(--tower-color, var(--cyan)) 13%, transparent), transparent 68%);
   font: 850 9px/1 ui-monospace, monospace;
 }
 
-.tower-card strong { overflow: hidden; text-overflow: ellipsis; font-size: 10px; white-space: nowrap; }
-.tower-card small { color: var(--muted); font-size: 9px; white-space: nowrap; }
+.tower-thumb {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 7px rgba(0, 0, 0, 0.48));
+  transform: translateY(-2px);
+  pointer-events: none;
+}
+
+.tower-code {
+  position: absolute;
+  left: 1px;
+  bottom: 1px;
+  min-width: 20px;
+  padding: 2px 4px;
+  border: 1px solid color-mix(in srgb, currentColor 62%, transparent);
+  border-radius: 4px;
+  background: rgba(2, 8, 12, 0.88);
+  text-align: center;
+}
+
+.tower-card strong { align-self: end; overflow: hidden; text-overflow: ellipsis; font-size: 10px; white-space: nowrap; }
+.tower-card small { align-self: start; color: var(--muted); font-size: 9px; white-space: nowrap; }
 .tower-key { position: absolute; top: 3px; right: 4px; color: var(--dim); font: 700 8px/1 ui-monospace, monospace; }
 
 .dock-tip {
@@ -595,8 +638,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
   .hud-stats > div { padding-inline: 8px; }
   .tower-dock { grid-template-columns: 70px minmax(0, 1fr); }
   .dock-tip { display: none; }
-  .tower-card { grid-template-columns: 24px minmax(0,1fr); padding-inline: 5px; }
-  .tower-glyph { width: 24px; height: 24px; }
+  .tower-card { grid-template-columns: 44px minmax(0,1fr); padding-inline: 5px; }
+  .tower-glyph { width: 44px; height: 66px; }
+  .tower-thumb { width: 58px; height: 58px; }
 }
 
 @media (max-width: 920px) {
@@ -611,7 +655,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
   .intel-heading { grid-column: 1 / -1; }
   .wave-strip { margin-top: 0; border-top: 0; border-left: 1px solid var(--line); padding: 12px 0 0 16px; }
   .tower-list { display: flex; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
-  .tower-card { flex: 0 0 105px; }
+  .tower-card { flex: 0 0 116px; }
 }
 
 @media (max-width: 640px) {
@@ -630,7 +674,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
   .battlefield-shell { min-height: 0; padding: 7px; }
   .battlefield-meta { min-height: 32px; }
   .battlefield-actions .status-chip { display: none; }
-  .canvas-frame { aspect-ratio: 5 / 3; min-height: 0; }
+  .canvas-frame { aspect-ratio: 20 / 9; min-height: 0; }
   #battlefield { height: 100%; }
   .mission-brief { padding: 10px 12px; grid-template-columns: 1fr; align-content: start; gap: 6px; overflow: hidden; }
   .brief-copy > .eyebrow { display: none; }
@@ -655,10 +699,12 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color
   .wave-strip { margin-top: 10px; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line); }
   .wave-forecast { margin: 4px 0 7px; }
   .wave-forecast strong { font-size: 22px; }
-  .tower-dock { position: sticky; bottom: 0; z-index: 8; min-height: 76px; padding: 7px; grid-template-columns: 52px minmax(0,1fr); }
+  .tower-dock { position: sticky; bottom: 0; z-index: 8; min-height: 92px; padding: 7px; grid-template-columns: 52px minmax(0,1fr); }
   .dock-label { padding: 4px 6px; }
   .dock-label strong { font-size: 12px; }
-  .tower-card { flex-basis: 94px; }
+  .tower-card { min-height: 78px; flex-basis: 112px; grid-template-columns: 46px minmax(0,1fr); }
+  .tower-glyph { width: 46px; height: 62px; }
+  .tower-thumb { width: 58px; height: 58px; }
   .toast { top: 72px; }
 }
 
