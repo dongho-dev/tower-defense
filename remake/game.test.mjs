@@ -5,11 +5,13 @@ import {
   buildTower,
   createGameState,
   pointOnRoute,
+  projectBoardPoint,
   resolveMap,
   sellTower,
   startWave,
   stepSimulation,
   towerStats,
+  turnTowardAngle,
   upgradeCost,
   upgradeTower,
   waveSpec
@@ -17,6 +19,16 @@ import {
 
 assert.equal(Object.keys(MAPS).length, 3, "three route profiles should be available");
 assert.equal(TOWER_TYPES.length, 8, "the armory should expose eight tower families");
+assert.ok(TOWER_TYPES.every((tower) => ["turret", "reactor"].includes(tower.motion)), "every tower needs a visible motion family");
+
+const boardTop = projectBoardPoint([0, 0]);
+const boardRight = projectBoardPoint([1, 0]);
+const boardBottom = projectBoardPoint([1, 1]);
+const boardLeft = projectBoardPoint([0, 1]);
+assert.equal(boardTop.x, boardBottom.x, "isometric board should keep its vertical center axis");
+assert.equal(boardRight.y, boardLeft.y, "isometric board side corners should share a horizon line");
+assert.ok(boardBottom.y - boardTop.y > 480, "isometric board should retain meaningful visual depth");
+assert.ok(turnTowardAngle(Math.PI - 0.05, -Math.PI + 0.05, 0.04) > Math.PI - 0.05, "turret turning should take the shortest wrapped path");
 
 for (const mapId of Object.keys(MAPS)) {
   const route = resolveMap(mapId);
@@ -38,6 +50,9 @@ assert.equal(state.credits, 200);
 assert.equal(buildTower(state, "rail", 0).ok, false, "occupied sockets cannot be reused");
 
 const tower = built.tower;
+const initialVisualAngle = tower.visualAngle;
+stepSimulation(state, 1 / 60);
+assert.notEqual(tower.visualAngle, initialVisualAngle, "an idle tower should mechanically sweep instead of staying frozen");
 const beforeStats = towerStats(tower);
 const cost = upgradeCost(tower);
 const upgraded = upgradeTower(state, tower.id);

@@ -1,7 +1,12 @@
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 540;
 
-const FIELD = Object.freeze({ x: 38, y: 24, width: 1124, height: 492 });
+const BOARD = Object.freeze({
+  top: Object.freeze({ x: 600, y: 16 }),
+  right: Object.freeze({ x: 1088, y: 264 }),
+  bottom: Object.freeze({ x: 600, y: 520 }),
+  left: Object.freeze({ x: 112, y: 264 })
+});
 const MAX_SHOTS = 90;
 const MAX_PARTICLES = 120;
 
@@ -62,14 +67,14 @@ export const MAPS = Object.freeze({
 });
 
 export const TOWER_TYPES = Object.freeze([
-  Object.freeze({ id: "pulse", key: "1", glyph: "PX", name: "PULSE", role: "균형형 요격 포탑", cost: 60, damage: 18, range: 150, reload: 0.52, mode: "direct", color: "#72e7ff", sprite: ART_PATHS.towers.pulse, spriteSize: 148, muzzle: [0.24, -0.45] }),
-  Object.freeze({ id: "scatter", key: "2", glyph: "SG", name: "SCATTER", role: "근거리 다중 탄막", cost: 80, damage: 12, range: 126, reload: 0.78, mode: "scatter", color: "#ffb36b", sprite: ART_PATHS.towers.scatter, spriteSize: 150, muzzle: [0.26, -0.39] }),
-  Object.freeze({ id: "rail", key: "3", glyph: "RL", name: "RAIL", role: "초장거리 중장갑 관통", cost: 125, damage: 64, range: 245, reload: 1.65, mode: "pierce", color: "#f3f7ff", sprite: ART_PATHS.towers.rail, spriteSize: 174, muzzle: [0.35, -0.42] }),
-  Object.freeze({ id: "arc", key: "4", glyph: "AR", name: "ARC", role: "연쇄 전기 공격", cost: 105, damage: 24, range: 165, reload: 0.92, mode: "chain", color: "#b58cff", sprite: ART_PATHS.towers.arc, spriteSize: 158, muzzle: [0, -0.45] }),
-  Object.freeze({ id: "flak", key: "5", glyph: "FL", name: "FLAK", role: "밀집 편대 광역 제압", cost: 115, damage: 34, range: 174, reload: 1.28, mode: "splash", color: "#ff745d", sprite: ART_PATHS.towers.flak, spriteSize: 166, muzzle: [0.25, -0.42] }),
-  Object.freeze({ id: "beam", key: "6", glyph: "BM", name: "BEAM", role: "고속 단일 표적 추적", cost: 110, damage: 10, range: 188, reload: 0.19, mode: "beam", color: "#63f2a3", sprite: ART_PATHS.towers.beam, spriteSize: 154, muzzle: [0.22, -0.43] }),
-  Object.freeze({ id: "cryo", key: "7", glyph: "CR", name: "CRYO", role: "감속 지원 포탑", cost: 95, damage: 14, range: 178, reload: 0.72, mode: "slow", color: "#69b8ff", sprite: ART_PATHS.towers.cryo, spriteSize: 158, muzzle: [0.20, -0.39] }),
-  Object.freeze({ id: "nova", key: "8", glyph: "NV", name: "NOVA", role: "고비용 전역 충격파", cost: 170, damage: 48, range: 205, reload: 1.9, mode: "nova", color: "#ff69c6", sprite: ART_PATHS.towers.nova, spriteSize: 170, muzzle: [0, -0.36] })
+  Object.freeze({ id: "pulse", key: "1", glyph: "PX", name: "PULSE", role: "균형형 요격 포탑", cost: 60, damage: 18, range: 150, reload: 0.52, mode: "direct", motion: "turret", color: "#72e7ff", sprite: ART_PATHS.towers.pulse, spriteSize: 148, anchor: [0.5, 0.75], split: 0.62, pivot: [0, -0.18], muzzle: [0.28, -0.5] }),
+  Object.freeze({ id: "scatter", key: "2", glyph: "SG", name: "SCATTER", role: "근거리 다중 탄막", cost: 80, damage: 12, range: 126, reload: 0.78, mode: "scatter", motion: "turret", color: "#ffb36b", sprite: ART_PATHS.towers.scatter, spriteSize: 150, anchor: [0.5, 0.75], split: 0.62, pivot: [0, -0.17], muzzle: [0.28, -0.47] }),
+  Object.freeze({ id: "rail", key: "3", glyph: "RL", name: "RAIL", role: "초장거리 중장갑 관통", cost: 125, damage: 64, range: 245, reload: 1.65, mode: "pierce", motion: "turret", color: "#f3f7ff", sprite: ART_PATHS.towers.rail, spriteSize: 174, anchor: [0.31, 0.76], split: 0.66, pivot: [0, -0.18], muzzle: [0.58, -0.58] }),
+  Object.freeze({ id: "arc", key: "4", glyph: "AR", name: "ARC", role: "연쇄 전기 공격", cost: 105, damage: 24, range: 165, reload: 0.92, mode: "chain", motion: "reactor", color: "#b58cff", sprite: ART_PATHS.towers.arc, spriteSize: 158, anchor: [0.5, 0.76], pivot: [0, -0.24], core: [0, -0.32], muzzle: [0, -0.5] }),
+  Object.freeze({ id: "flak", key: "5", glyph: "FL", name: "FLAK", role: "밀집 편대 광역 제압", cost: 115, damage: 34, range: 174, reload: 1.28, mode: "splash", motion: "turret", color: "#ff745d", sprite: ART_PATHS.towers.flak, spriteSize: 166, anchor: [0.51, 0.76], split: 0.62, pivot: [0, -0.18], muzzle: [0.29, -0.5] }),
+  Object.freeze({ id: "beam", key: "6", glyph: "BM", name: "BEAM", role: "고속 단일 표적 추적", cost: 110, damage: 10, range: 188, reload: 0.19, mode: "beam", motion: "turret", color: "#63f2a3", sprite: ART_PATHS.towers.beam, spriteSize: 154, anchor: [0.5, 0.79], split: 0.65, pivot: [0, -0.22], muzzle: [0.25, -0.52] }),
+  Object.freeze({ id: "cryo", key: "7", glyph: "CR", name: "CRYO", role: "감속 지원 포탑", cost: 95, damage: 14, range: 178, reload: 0.72, mode: "slow", motion: "turret", color: "#69b8ff", sprite: ART_PATHS.towers.cryo, spriteSize: 158, anchor: [0.5, 0.77], split: 0.63, pivot: [0, -0.18], muzzle: [0.22, -0.44] }),
+  Object.freeze({ id: "nova", key: "8", glyph: "NV", name: "NOVA", role: "고비용 전역 충격파", cost: 170, damage: 48, range: 205, reload: 1.9, mode: "nova", motion: "reactor", color: "#ff69c6", sprite: ART_PATHS.towers.nova, spriteSize: 170, anchor: [0.5, 0.77], pivot: [0, -0.22], core: [0, -0.31], muzzle: [0, -0.47] })
 ]);
 
 const TOWER_BY_ID = new Map(TOWER_TYPES.map((tower) => [tower.id, tower]));
@@ -109,18 +114,30 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function absolutePoint(point) {
+function perspectiveScaleForY(y) {
+  const depth = clamp((y - BOARD.top.y) / Math.max(1, BOARD.bottom.y - BOARD.top.y), 0, 1);
+  return 0.78 + depth * 0.24;
+}
+
+function isometricRangeDistance(a, b) {
+  return Math.hypot(a.x - b.x, (a.y - b.y) / 0.49);
+}
+
+export function projectBoardPoint(point) {
+  const u = point[0];
+  const v = point[1];
   return {
-    x: FIELD.x + point[0] * FIELD.width,
-    y: FIELD.y + point[1] * FIELD.height
+    x: BOARD.top.x + (BOARD.right.x - BOARD.top.x) * u + (BOARD.left.x - BOARD.top.x) * v,
+    y: BOARD.top.y + (BOARD.right.y - BOARD.top.y) * u + (BOARD.left.y - BOARD.top.y) * v
   };
 }
 
+function absolutePoint(point) {
+  return projectBoardPoint(point);
+}
+
 function absolutePadPoint(point) {
-  return {
-    x: FIELD.x + (0.04 + point[0] * 0.92) * FIELD.width,
-    y: FIELD.y + (0.12 + point[1] * 0.76) * FIELD.height
-  };
+  return projectBoardPoint([0.065 + point[0] * 0.87, 0.075 + point[1] * 0.84]);
 }
 
 export function resolveMap(mapId = "riftline") {
@@ -188,6 +205,7 @@ export function createGameState(mapId = "riftline") {
     hoverPad: null,
     kills: 0,
     leaks: 0,
+    elapsed: 0,
     nextId: 1,
     message: "방어망을 구축하세요.",
     messageTone: "neutral",
@@ -204,6 +222,19 @@ export function towerStats(tower) {
     range: Math.round(definition.range * (1 + (level - 1) * 0.025)),
     reload: Math.max(0.1, definition.reload * Math.pow(0.93, level - 1))
   };
+}
+
+function towerArtHeading(definition) {
+  return Math.atan2(
+    definition.muzzle[1] - definition.pivot[1],
+    definition.muzzle[0] - definition.pivot[0]
+  );
+}
+
+export function turnTowardAngle(current, target, maxStep) {
+  const turn = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  if (Math.abs(turn) <= maxStep) return target;
+  return current + Math.sign(turn) * maxStep;
 }
 
 export function upgradeCost(tower) {
@@ -230,7 +261,11 @@ export function buildTower(state, typeId, padIndex) {
     y: pad.y,
     level: 1,
     cooldown: 0,
-    angle: -Math.PI / 2,
+    angle: towerArtHeading(definition),
+    visualAngle: towerArtHeading(definition),
+    idlePhase: padIndex * 1.73 + state.nextId * 0.61,
+    tracking: 0,
+    recoil: 0,
     spent: definition.cost,
     flash: 0
   };
@@ -337,16 +372,37 @@ function burstParticles(state, x, y, color, count) {
 }
 
 function towerMuzzle(tower, definition) {
-  const size = definition.spriteSize * (1 + Math.max(0, tower.level - 1) * 0.018);
+  const size = definition.spriteSize
+    * (1 + Math.max(0, tower.level - 1) * 0.018)
+    * perspectiveScaleForY(tower.y);
+  if (definition.motion === "reactor") {
+    return {
+      x: tower.x + definition.core[0] * size,
+      y: tower.y + definition.core[1] * size
+    };
+  }
+  const pivotX = definition.pivot[0] * size;
+  const pivotY = definition.pivot[1] * size;
+  const muzzleRadius = Math.hypot(
+    definition.muzzle[0] - definition.pivot[0],
+    definition.muzzle[1] - definition.pivot[1]
+  ) * size;
+  const angle = Number.isFinite(tower.visualAngle) ? tower.visualAngle : tower.angle;
+  const recoil = clamp(tower.recoil || 0, 0, 1) * Math.min(8, size * 0.055);
   return {
-    x: tower.x + definition.muzzle[0] * size,
-    y: tower.y + definition.muzzle[1] * size
+    x: tower.x + pivotX + Math.cos(angle) * (muzzleRadius - recoil),
+    y: tower.y + pivotY + Math.sin(angle) * (muzzleRadius - recoil)
   };
 }
 
 function addShot(state, source, target, color, width = 2.2, ttl = 0.15, style = null) {
   if (state.shots.length >= MAX_SHOTS) state.shots.splice(0, state.shots.length - MAX_SHOTS + 1);
   const definition = source.typeId ? TOWER_BY_ID.get(source.typeId) : null;
+  if (definition) {
+    source.angle = Math.atan2(target.y - source.y, target.x - source.x);
+    source.tracking = 1;
+    source.recoil = 1;
+  }
   const origin = definition ? towerMuzzle(source, definition) : source;
   state.shots.push({
     x1: origin.x,
@@ -361,7 +417,6 @@ function addShot(state, source, target, color, width = 2.2, ttl = 0.15, style = 
     maxTtl: ttl
   });
   if (definition) {
-    source.angle = Math.atan2(target.y - source.y, target.x - source.x);
     source.flash = 0.12;
   }
 }
@@ -380,8 +435,41 @@ function dealDamage(state, enemy, amount, color) {
 
 function targetsInRange(state, tower, range) {
   return state.enemies
-    .filter((enemy) => !enemy.dead && Math.hypot(enemy.x - tower.x, enemy.y - tower.y) <= range)
+    .filter((enemy) => !enemy.dead && isometricRangeDistance(enemy, tower) <= range)
     .sort((a, b) => b.routeDistance - a.routeDistance);
+}
+
+function leadingTargetInRange(state, tower, range) {
+  let target = null;
+  let progress = -Infinity;
+  for (const enemy of state.enemies) {
+    if (enemy.dead || enemy.routeDistance <= progress) continue;
+    if (isometricRangeDistance(enemy, tower) > range) continue;
+    target = enemy;
+    progress = enemy.routeDistance;
+  }
+  return target;
+}
+
+function advanceTowerMotion(state, tower, step) {
+  const definition = TOWER_BY_ID.get(tower.typeId);
+  const stats = towerStats(tower);
+  const target = leadingTargetInRange(state, tower, stats.range);
+  const restingAngle = towerArtHeading(definition);
+  const idleSweep = Math.sin(state.elapsed * 0.72 + tower.idlePhase) * (definition.motion === "reactor" ? 0.08 : 0.24);
+  const desiredAngle = target
+    ? Math.atan2(target.y - tower.y, target.x - tower.x)
+    : restingAngle + idleSweep;
+  const turnRate = definition.id === "rail" || definition.id === "flak" ? 2.35 : 3.8;
+
+  tower.angle = desiredAngle;
+  tower.visualAngle = turnTowardAngle(
+    Number.isFinite(tower.visualAngle) ? tower.visualAngle : restingAngle,
+    desiredAngle,
+    turnRate * step
+  );
+  tower.tracking = clamp((tower.tracking || 0) + (target ? step * 5.5 : -step * 2.3), 0, 1);
+  tower.recoil = Math.max(0, (tower.recoil || 0) - step * (definition.id === "rail" ? 2.9 : 5.8));
 }
 
 function attack(state, tower) {
@@ -445,6 +533,7 @@ function attack(state, tower) {
 export function stepSimulation(state, dt) {
   if (!state.started || state.paused || state.gameOver) return state;
   const step = clamp(Number(dt) || 0, 0, 0.05);
+  state.elapsed = (state.elapsed || 0) + step;
 
   if (state.waveActive && state.spawnRemaining > 0) {
     state.spawnCooldown -= step;
@@ -479,6 +568,7 @@ export function stepSimulation(state, dt) {
   }
 
   for (const tower of state.towers) {
+    advanceTowerMotion(state, tower, step);
     tower.cooldown -= step;
     tower.flash = Math.max(0, tower.flash - step);
     if (tower.cooldown <= 0) attack(state, tower);
@@ -541,72 +631,78 @@ function traceRoute(context, route, verticalOffset = 0) {
   });
 }
 
+function traceBoard(context, verticalOffset = 0) {
+  context.beginPath();
+  context.moveTo(BOARD.top.x, BOARD.top.y + verticalOffset);
+  context.lineTo(BOARD.right.x, BOARD.right.y + verticalOffset);
+  context.lineTo(BOARD.bottom.x, BOARD.bottom.y + verticalOffset);
+  context.lineTo(BOARD.left.x, BOARD.left.y + verticalOffset);
+  context.closePath();
+}
+
+function isoHexPath(context, x, y, radius) {
+  context.save();
+  context.translate(x, y);
+  context.scale(1, 0.52);
+  hexPath(context, 0, 0, radius);
+  context.restore();
+}
+
 function drawRoutePath(context, route) {
   context.save();
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  traceRoute(context, route, 8);
-  context.strokeStyle = "rgba(0, 0, 0, 0.78)";
-  context.lineWidth = 76;
-  context.stroke();
-
-  traceRoute(context, route, 4);
-  context.strokeStyle = "rgba(4, 10, 15, 0.98)";
-  context.lineWidth = 70;
-  context.stroke();
-
-  const laneMetal = context.createLinearGradient(0, FIELD.y, 0, FIELD.y + FIELD.height);
-  laneMetal.addColorStop(0, "#334a56");
-  laneMetal.addColorStop(0.48, "#1c303a");
-  laneMetal.addColorStop(1, "#101f28");
-  traceRoute(context, route);
-  context.strokeStyle = laneMetal;
+  traceRoute(context, route, 10);
+  context.strokeStyle = "rgba(0, 2, 5, 0.78)";
   context.lineWidth = 62;
   context.stroke();
 
+  traceRoute(context, route, 5);
+  context.strokeStyle = "rgba(3, 9, 13, 0.98)";
+  context.lineWidth = 57;
+  context.stroke();
+
+  const laneMetal = context.createLinearGradient(0, BOARD.top.y, 0, BOARD.bottom.y);
+  laneMetal.addColorStop(0, "#42616b");
+  laneMetal.addColorStop(0.5, "#203b45");
+  laneMetal.addColorStop(1, "#10262f");
+  traceRoute(context, route);
+  context.strokeStyle = laneMetal;
+  context.lineWidth = 49;
+  context.stroke();
+
   traceRoute(context, route, -2);
-  context.strokeStyle = "rgba(148, 221, 235, 0.24)";
-  context.lineWidth = 50;
+  context.strokeStyle = "rgba(173, 235, 244, 0.22)";
+  context.lineWidth = 41;
   context.stroke();
 
   traceRoute(context, route);
-  context.strokeStyle = "rgba(96, 188, 208, 0.2)";
-  context.lineWidth = 42;
+  context.strokeStyle = "rgba(74, 169, 188, 0.28)";
+  context.lineWidth = 33;
   context.stroke();
 
   traceRoute(context, route);
-  context.strokeStyle = "rgba(176, 236, 244, 0.5)";
-  context.lineWidth = 2;
-  context.setLineDash([18, 11, 3, 11]);
+  context.strokeStyle = "rgba(192, 242, 248, 0.58)";
+  context.lineWidth = 1.5;
+  context.setLineDash([14, 9, 2, 9]);
   context.stroke();
   context.setLineDash([]);
 
-  for (let routeDistance = 44; routeDistance < route.totalLength - 32; routeDistance += 54) {
+  for (let routeDistance = 26; routeDistance < route.totalLength - 18; routeDistance += 31) {
     const point = pointOnRoute(route, routeDistance);
     context.save();
     context.translate(point.x, point.y);
     context.rotate(point.angle);
-    context.fillStyle = "rgba(156, 222, 235, 0.34)";
-    context.fillRect(-1, -25, 2, 7);
-    context.fillRect(-1, 18, 2, 7);
+    context.fillStyle = "rgba(2, 9, 13, 0.32)";
+    context.fillRect(-12, -22, 24, 4);
+    context.fillRect(-12, 18, 24, 4);
+    context.strokeStyle = "rgba(151, 224, 238, 0.2)";
+    context.lineWidth = 1;
+    context.strokeRect(-11.5, -17, 23, 34);
     context.restore();
   }
 
-  for (let routeDistance = 76; routeDistance < route.totalLength - 50; routeDistance += 104) {
-    const point = pointOnRoute(route, routeDistance);
-    context.save();
-    context.translate(point.x, point.y);
-    context.rotate(point.angle);
-    context.beginPath();
-    context.moveTo(-8, -7);
-    context.lineTo(3, 0);
-    context.lineTo(-8, 7);
-    context.strokeStyle = "rgba(255, 174, 83, 0.82)";
-    context.lineWidth = 2.4;
-    context.stroke();
-    context.restore();
-  }
   context.restore();
 }
 
@@ -615,93 +711,125 @@ function buildStaticLayer(state) {
   layer.width = CANVAS_WIDTH;
   layer.height = CANVAS_HEIGHT;
   const context = layer.getContext("2d", { alpha: true });
-  context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  const voidGradient = context.createRadialGradient(600, 300, 80, 600, 320, 760);
+  voidGradient.addColorStop(0, "#0c2530");
+  voidGradient.addColorStop(0.46, "#06141d");
+  voidGradient.addColorStop(1, "#01060b");
+  context.fillStyle = voidGradient;
+  context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
 
+  for (let index = 0; index < 34; index += 1) {
+    const x = 18 + ((index * 173) % 1160);
+    const y = 24 + ((index * 97) % 590);
+    const radius = 0.7 + (index % 4) * 0.45;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fillStyle = index % 5 === 0 ? "rgba(255, 153, 76, 0.34)" : "rgba(97, 218, 242, 0.24)";
+    context.fill();
+  }
+
+  traceBoard(context, 26);
+  context.fillStyle = "rgba(0, 2, 5, 0.94)";
+  context.shadowColor = "rgba(0, 0, 0, 0.92)";
+  context.shadowBlur = 38;
+  context.shadowOffsetY = 22;
+  context.fill();
+  context.shadowBlur = 0;
+  context.shadowOffsetY = 0;
+
+  traceBoard(context, 17);
+  context.fillStyle = "#06131a";
+  context.fill();
+  context.strokeStyle = "rgba(78, 158, 181, 0.38)";
+  context.lineWidth = 6;
+  context.stroke();
+
+  context.save();
+  traceBoard(context);
+  context.clip();
   if (ART_IMAGES.field) {
     const image = ART_IMAGES.field;
-    const targetRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
-    const imageRatio = image.naturalWidth / image.naturalHeight;
-    let sourceX = 0;
-    let sourceY = 0;
-    let sourceWidth = image.naturalWidth;
-    let sourceHeight = image.naturalHeight;
-    if (imageRatio < targetRatio) {
-      sourceHeight = image.naturalWidth / targetRatio;
-      sourceY = (image.naturalHeight - sourceHeight) / 2;
-    } else {
-      sourceWidth = image.naturalHeight * targetRatio;
-      sourceX = (image.naturalWidth - sourceWidth) / 2;
-    }
-    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    context.setTransform(
+      (BOARD.right.x - BOARD.top.x) / image.naturalWidth,
+      (BOARD.right.y - BOARD.top.y) / image.naturalWidth,
+      (BOARD.left.x - BOARD.top.x) / image.naturalHeight,
+      (BOARD.left.y - BOARD.top.y) / image.naturalHeight,
+      BOARD.top.x,
+      BOARD.top.y
+    );
+    context.drawImage(image, 0, 0);
+    context.setTransform(1, 0, 0, 1, 0, 0);
   } else {
-    const fallback = context.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    fallback.addColorStop(0, "#102532");
-    fallback.addColorStop(1, "#030a10");
+    const fallback = context.createLinearGradient(0, BOARD.top.y, 0, BOARD.bottom.y);
+    fallback.addColorStop(0, "#17343b");
+    fallback.addColorStop(1, "#08151b");
     context.fillStyle = fallback;
     context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   }
 
-  const deckShade = context.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  deckShade.addColorStop(0, "rgba(3, 10, 16, 0.05)");
-  deckShade.addColorStop(0.55, "rgba(3, 11, 16, 0.18)");
-  deckShade.addColorStop(1, "rgba(1, 6, 10, 0.3)");
+  const deckShade = context.createLinearGradient(0, BOARD.top.y, 0, BOARD.bottom.y);
+  deckShade.addColorStop(0, "rgba(4, 15, 20, 0.08)");
+  deckShade.addColorStop(0.55, "rgba(2, 9, 14, 0.18)");
+  deckShade.addColorStop(1, "rgba(0, 4, 8, 0.42)");
   context.fillStyle = deckShade;
   context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  const vignette = context.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 90, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 690);
-  vignette.addColorStop(0, "rgba(2, 9, 14, 0.03)");
-  vignette.addColorStop(0.7, "rgba(1, 7, 11, 0.08)");
-  vignette.addColorStop(1, "rgba(0, 3, 7, 0.52)");
-  context.fillStyle = vignette;
-  context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-  context.save();
-  roundedRectPath(context, FIELD.x, FIELD.y, FIELD.width, FIELD.height, 24);
-  context.clip();
-  context.strokeStyle = "rgba(142, 212, 228, 0.055)";
+  context.strokeStyle = "rgba(151, 221, 235, 0.09)";
   context.lineWidth = 1;
-  for (let x = FIELD.x + 18; x <= FIELD.x + FIELD.width; x += 54) {
+  for (let value = 0.08; value < 1; value += 0.08) {
+    const fromU = projectBoardPoint([value, 0]);
+    const toU = projectBoardPoint([value, 1]);
     context.beginPath();
-    context.moveTo(x, FIELD.y);
-    context.lineTo(x, FIELD.y + FIELD.height);
+    context.moveTo(fromU.x, fromU.y);
+    context.lineTo(toU.x, toU.y);
     context.stroke();
-  }
-  for (let y = FIELD.y + 18; y <= FIELD.y + FIELD.height; y += 54) {
+    const fromV = projectBoardPoint([0, value]);
+    const toV = projectBoardPoint([1, value]);
     context.beginPath();
-    context.moveTo(FIELD.x, y);
-    context.lineTo(FIELD.x + FIELD.width, y);
+    context.moveTo(fromV.x, fromV.y);
+    context.lineTo(toV.x, toV.y);
     context.stroke();
   }
   drawRoutePath(context, state.route);
   context.restore();
 
+  traceBoard(context);
+  context.strokeStyle = "rgba(122, 220, 241, 0.52)";
+  context.lineWidth = 3;
+  context.stroke();
+  traceBoard(context, 7);
+  context.strokeStyle = "rgba(255, 170, 77, 0.16)";
+  context.lineWidth = 2;
+  context.stroke();
+
   for (const pad of state.route.pads) {
-    hexPath(context, pad.x, pad.y + 7, 31);
-    context.fillStyle = "rgba(0, 4, 8, 0.78)";
+    context.beginPath();
+    context.ellipse(pad.x, pad.y + 10, 31, 12, 0, 0, Math.PI * 2);
+    context.fillStyle = "rgba(0, 3, 6, 0.76)";
     context.fill();
 
-    hexPath(context, pad.x, pad.y + 3, 29);
-    context.fillStyle = "rgba(8, 17, 23, 0.98)";
+    isoHexPath(context, pad.x, pad.y + 5, 29);
+    context.fillStyle = "rgba(5, 14, 19, 0.98)";
     context.fill();
     context.strokeStyle = "rgba(2, 7, 11, 0.92)";
-    context.lineWidth = 4;
+    context.lineWidth = 3;
     context.stroke();
 
-    const socketMetal = context.createRadialGradient(pad.x - 7, pad.y - 9, 2, pad.x, pad.y, 29);
-    socketMetal.addColorStop(0, "rgba(68, 93, 104, 0.98)");
-    socketMetal.addColorStop(0.48, "rgba(25, 45, 54, 0.98)");
-    socketMetal.addColorStop(1, "rgba(7, 16, 22, 0.98)");
-    hexPath(context, pad.x, pad.y, 26);
+    const socketMetal = context.createLinearGradient(pad.x, pad.y - 14, pad.x, pad.y + 14);
+    socketMetal.addColorStop(0, "rgba(71, 104, 116, 0.98)");
+    socketMetal.addColorStop(0.52, "rgba(25, 48, 57, 0.98)");
+    socketMetal.addColorStop(1, "rgba(7, 17, 23, 0.98)");
+    isoHexPath(context, pad.x, pad.y, 26);
     context.fillStyle = socketMetal;
     context.fill();
-    context.strokeStyle = "rgba(120, 217, 237, 0.44)";
+    context.strokeStyle = "rgba(124, 222, 241, 0.58)";
     context.lineWidth = 2;
     context.stroke();
 
     context.beginPath();
-    context.arc(pad.x, pad.y, 15, 0, Math.PI * 2);
+    context.ellipse(pad.x, pad.y, 14, 7, 0, 0, Math.PI * 2);
     context.fillStyle = "rgba(3, 11, 16, 0.82)";
     context.fill();
     context.strokeStyle = "rgba(121, 218, 239, 0.34)";
@@ -711,18 +839,16 @@ function buildStaticLayer(state) {
     for (let index = 0; index < 6; index += 1) {
       const angle = Math.PI / 6 + index * Math.PI / 3;
       context.beginPath();
-      context.arc(pad.x + Math.cos(angle) * 21, pad.y + Math.sin(angle) * 21, 1.7, 0, Math.PI * 2);
+      context.arc(pad.x + Math.cos(angle) * 21, pad.y + Math.sin(angle) * 10.5, 1.5, 0, Math.PI * 2);
       context.fillStyle = index % 2 ? "rgba(255, 171, 81, 0.65)" : "rgba(137, 224, 240, 0.5)";
       context.fill();
     }
   }
 
-  const start = state.route.points[0];
-  const end = state.route.points[state.route.points.length - 1];
-  const breachX = clamp(start.x + 34, 30, CANVAS_WIDTH - 30);
-  const coreX = clamp(end.x - 34, 30, CANVAS_WIDTH - 30);
+  const breach = pointOnRoute(state.route, Math.min(28, state.route.totalLength));
+  const core = pointOnRoute(state.route, Math.max(0, state.route.totalLength - 28));
   context.save();
-  context.translate(breachX, start.y);
+  context.translate(breach.x, breach.y);
   const breachGlow = context.createRadialGradient(0, 0, 3, 0, 0, 44);
   breachGlow.addColorStop(0, "rgba(255, 93, 72, 0.48)");
   breachGlow.addColorStop(0.42, "rgba(255, 89, 64, 0.15)");
@@ -734,17 +860,17 @@ function buildStaticLayer(state) {
   context.strokeStyle = "rgba(255, 111, 84, 0.9)";
   context.lineWidth = 4;
   context.beginPath();
-  context.arc(0, 0, 31, -Math.PI * 0.48, Math.PI * 0.48);
+  context.ellipse(0, 0, 31, 16, breach.angle, -Math.PI * 0.48, Math.PI * 0.48);
   context.stroke();
   context.strokeStyle = "rgba(255, 192, 116, 0.48)";
   context.lineWidth = 1.5;
   context.beginPath();
-  context.arc(0, 0, 22, -Math.PI * 0.46, Math.PI * 0.46);
+  context.ellipse(0, 0, 22, 11, breach.angle, -Math.PI * 0.46, Math.PI * 0.46);
   context.stroke();
   context.restore();
 
   context.save();
-  context.translate(coreX, end.y);
+  context.translate(core.x, core.y);
   const coreGlow = context.createRadialGradient(0, 0, 3, 0, 0, 50);
   coreGlow.addColorStop(0, "rgba(108, 233, 255, 0.42)");
   coreGlow.addColorStop(0.46, "rgba(99, 222, 245, 0.11)");
@@ -753,6 +879,7 @@ function buildStaticLayer(state) {
   context.beginPath();
   context.arc(0, 0, 50, 0, Math.PI * 2);
   context.fill();
+  context.scale(1, 0.55);
   hexPath(context, 0, 0, 32);
   context.fillStyle = "rgba(5, 17, 24, 0.76)";
   context.fill();
@@ -765,29 +892,71 @@ function buildStaticLayer(state) {
   context.stroke();
   context.restore();
 
-  roundedRectPath(context, 9, 9, CANVAS_WIDTH - 18, CANVAS_HEIGHT - 18, 26);
-  context.strokeStyle = "rgba(119, 216, 239, 0.3)";
-  context.lineWidth = 2;
-  context.stroke();
-
-  context.fillStyle = "rgba(162, 211, 222, 0.7)";
+  context.fillStyle = "rgba(180, 229, 239, 0.76)";
   context.font = "800 10px ui-monospace, SFMono-Regular, monospace";
-  context.fillText("RIFT INGRESS", 48, 28);
+  context.fillText("RIFT INGRESS", 24, 32);
   context.textAlign = "right";
-  context.fillText("NEXUS CORE", CANVAS_WIDTH - 48, 28);
+  context.fillText("NEXUS CORE", CANVAS_WIDTH - 24, CANVAS_HEIGHT - 22);
   context.textAlign = "left";
   return layer;
 }
 
-function drawTower(context, tower, definition, selected, effectsFull) {
+function drawBoardActivity(context, route, now, effectsFull) {
   context.save();
-  context.translate(tower.x, tower.y);
-  const size = definition.spriteSize * (1 + Math.max(0, tower.level - 1) * 0.018);
+  traceBoard(context);
+  context.clip();
+  const scanX = -180 + ((now * 0.075) % (CANVAS_WIDTH + 360));
+  const scanGradient = context.createLinearGradient(scanX - 70, 0, scanX + 70, 0);
+  scanGradient.addColorStop(0, "rgba(111, 231, 255, 0)");
+  scanGradient.addColorStop(0.5, "rgba(111, 231, 255, 0.075)");
+  scanGradient.addColorStop(1, "rgba(111, 231, 255, 0)");
+  context.fillStyle = scanGradient;
+  context.transform(1, 0.32, -0.32, 1, 0, -150);
+  context.fillRect(scanX - 70, 0, 140, CANVAS_HEIGHT + 300);
+  context.restore();
+
+  const pulseCount = effectsFull ? 9 : 6;
+  for (let index = 0; index < pulseCount; index += 1) {
+    const distanceValue = ((now * 0.052) + index * route.totalLength / pulseCount) % route.totalLength;
+    const point = pointOnRoute(route, distanceValue);
+    const pulse = 0.68 + Math.sin(now * 0.006 + index * 1.9) * 0.24;
+    context.save();
+    context.translate(point.x, point.y);
+    context.rotate(point.angle);
+    context.globalCompositeOperation = "lighter";
+    context.globalAlpha = pulse;
+    context.shadowColor = "#7beaff";
+    context.shadowBlur = effectsFull ? 13 : 5;
+    context.strokeStyle = index % 3 === 0 ? "#ffc06c" : "#9cf3ff";
+    context.lineWidth = 2.2;
+    context.beginPath();
+    context.moveTo(-10, -7);
+    context.lineTo(1, 0);
+    context.lineTo(-10, 7);
+    context.stroke();
+    context.globalAlpha *= 0.32;
+    context.beginPath();
+    context.moveTo(-22, 0);
+    context.lineTo(-5, 0);
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawTower(context, tower, definition, selected, effectsFull, now) {
+  context.save();
+  const size = definition.spriteSize
+    * (1 + Math.max(0, tower.level - 1) * 0.018)
+    * perspectiveScaleForY(tower.y);
+  const phase = (now || 0) * 0.001 + tower.idlePhase;
+  const bob = Math.sin(phase * 1.8) * (definition.motion === "reactor" ? 2.1 : 1.25) - (tower.recoil || 0) * 1.8;
+  const tracking = clamp(tower.tracking || 0, 0, 1);
+  context.translate(tower.x, tower.y + bob);
 
   if (selected) {
     const stats = towerStats(tower);
     context.beginPath();
-    context.arc(0, 0, stats.range, 0, Math.PI * 2);
+    context.ellipse(0, -bob, stats.range, stats.range * 0.49, 0, 0, Math.PI * 2);
     context.fillStyle = "rgba(111, 231, 255, 0.025)";
     context.fill();
     context.strokeStyle = "rgba(111, 231, 255, 0.38)";
@@ -798,12 +967,23 @@ function drawTower(context, tower, definition, selected, effectsFull) {
   }
 
   context.beginPath();
-  context.ellipse(0, 17, size * 0.29, size * 0.105, 0, 0, Math.PI * 2);
+  context.ellipse(0, 16 - bob, size * 0.3, size * 0.09, 0, 0, Math.PI * 2);
   context.fillStyle = "rgba(0, 3, 6, 0.7)";
   context.fill();
 
+  context.save();
+  context.scale(1, 0.5);
+  context.rotate(phase * 0.18);
   context.beginPath();
-  context.ellipse(0, 10, size * 0.245, size * 0.095, 0, 0, Math.PI * 2);
+  context.arc(0, 10, size * 0.245, phase % (Math.PI * 2), phase % (Math.PI * 2) + Math.PI * 0.72);
+  context.strokeStyle = definition.color;
+  context.globalAlpha = 0.18 + tracking * 0.28;
+  context.lineWidth = selected ? 5 : 3;
+  context.stroke();
+  context.restore();
+
+  context.beginPath();
+  context.ellipse(0, 9, size * 0.245, size * 0.085, 0, 0, Math.PI * 2);
   context.fillStyle = "rgba(5, 14, 19, 0.94)";
   context.fill();
   context.strokeStyle = selected ? definition.color : "rgba(132, 221, 238, 0.28)";
@@ -816,7 +996,80 @@ function drawTower(context, tower, definition, selected, effectsFull) {
       context.shadowColor = definition.color;
       context.shadowBlur = tower.flash > 0 ? 22 : 5;
     }
-    context.drawImage(image, -size / 2, -size * 0.72, size, size);
+    const anchorX = definition.anchor[0];
+    const anchorY = definition.anchor[1];
+    if (definition.motion === "turret") {
+      const split = definition.split;
+      const overlap = 0.055;
+      const baseStart = Math.max(0, split - overlap);
+      const pivotX = definition.pivot[0] * size;
+      const pivotY = definition.pivot[1] * size;
+      const artHeading = towerArtHeading(definition);
+      const visualAngle = Number.isFinite(tower.visualAngle) ? tower.visualAngle : artHeading;
+      const rotation = Math.atan2(Math.sin(visualAngle - artHeading), Math.cos(visualAngle - artHeading));
+      const recoil = clamp(tower.recoil || 0, 0, 1) * Math.min(8, size * 0.055);
+
+      context.drawImage(
+        image,
+        0,
+        image.naturalHeight * baseStart,
+        image.naturalWidth,
+        image.naturalHeight * (1 - baseStart),
+        -anchorX * size,
+        (baseStart - anchorY) * size,
+        size,
+        (1 - baseStart) * size
+      );
+
+      context.save();
+      context.translate(pivotX, pivotY);
+      context.translate(-Math.cos(visualAngle) * recoil, -Math.sin(visualAngle) * recoil);
+      context.rotate(rotation);
+      context.drawImage(
+        image,
+        0,
+        0,
+        image.naturalWidth,
+        image.naturalHeight * split,
+        -anchorX * size - pivotX,
+        -anchorY * size - pivotY,
+        size,
+        split * size
+      );
+      context.restore();
+
+      context.beginPath();
+      context.ellipse(pivotX, pivotY + size * 0.045, size * 0.12, size * 0.042, 0, 0, Math.PI * 2);
+      context.strokeStyle = definition.color;
+      context.globalAlpha = 0.16 + tracking * 0.34;
+      context.lineWidth = 1.5;
+      context.stroke();
+      context.globalAlpha = 1;
+    } else {
+      context.drawImage(image, -anchorX * size, -anchorY * size, size, size);
+      const coreX = definition.core[0] * size;
+      const coreY = definition.core[1] * size;
+      const corePulse = 0.5 + Math.sin(phase * 3.4) * 0.5;
+      context.save();
+      context.translate(coreX, coreY);
+      context.rotate(phase * (definition.id === "nova" ? -0.72 : 0.92));
+      context.globalAlpha = 0.42 + corePulse * 0.34;
+      context.strokeStyle = definition.color;
+      context.lineWidth = 2.2;
+      context.setLineDash([8, 6]);
+      context.beginPath();
+      context.arc(0, 0, size * (0.09 + corePulse * 0.018), 0, Math.PI * 1.45);
+      context.stroke();
+      context.setLineDash([]);
+      for (let index = 0; index < 3; index += 1) {
+        const angle = index * Math.PI * 2 / 3;
+        context.beginPath();
+        context.arc(Math.cos(angle) * size * 0.12, Math.sin(angle) * size * 0.055, 1.8 + corePulse, 0, Math.PI * 2);
+        context.fillStyle = "#ffffff";
+        context.fill();
+      }
+      context.restore();
+    }
     context.shadowBlur = 0;
   } else {
     const fallback = context.createLinearGradient(-24, -28, 22, 24);
@@ -830,7 +1083,7 @@ function drawTower(context, tower, definition, selected, effectsFull) {
     context.lineWidth = 2;
     context.stroke();
     context.save();
-    context.rotate(tower.angle);
+    context.rotate(tower.visualAngle);
     roundedRectPath(context, -8, -8, 42, 16, 5);
     context.fillStyle = "#d8e3e7";
     context.fill();
@@ -838,8 +1091,9 @@ function drawTower(context, tower, definition, selected, effectsFull) {
   }
 
   if (tower.flash > 0) {
-    const muzzleX = definition.muzzle[0] * size;
-    const muzzleY = definition.muzzle[1] * size;
+    const muzzle = towerMuzzle(tower, definition);
+    const muzzleX = muzzle.x - tower.x;
+    const muzzleY = muzzle.y - tower.y - bob;
     const flashRatio = clamp(tower.flash / 0.12, 0, 1);
     const flash = context.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 19);
     flash.addColorStop(0, "rgba(255,255,255," + flashRatio + ")");
@@ -850,6 +1104,18 @@ function drawTower(context, tower, definition, selected, effectsFull) {
     context.beginPath();
     context.arc(muzzleX, muzzleY, 19, 0, Math.PI * 2);
     context.fill();
+    context.globalAlpha = flashRatio * 0.72;
+    context.save();
+    context.translate(muzzleX, muzzleY);
+    context.rotate(tower.visualAngle);
+    context.fillStyle = "#ffffff";
+    context.beginPath();
+    context.moveTo(0, -5);
+    context.lineTo(30 + flashRatio * 16, 0);
+    context.lineTo(0, 5);
+    context.closePath();
+    context.fill();
+    context.restore();
     context.globalAlpha = 1;
   }
 
@@ -881,7 +1147,7 @@ function drawTower(context, tower, definition, selected, effectsFull) {
 function drawEnemy(context, enemy, effectsFull) {
   context.save();
   context.translate(enemy.x, enemy.y);
-  const size = enemy.spriteSize || (enemy.kind === "titan" ? 78 : 46);
+  const size = (enemy.spriteSize || (enemy.kind === "titan" ? 78 : 46)) * perspectiveScaleForY(enemy.y);
 
   context.beginPath();
   context.ellipse(0, size * 0.18, size * 0.32, size * 0.12, 0, 0, Math.PI * 2);
@@ -1419,14 +1685,7 @@ function bootGame() {
   function drawFrame(now) {
     context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     context.drawImage(staticLayer, 0, 0);
-
-    const scanX = FIELD.x + ((now * 0.021) % FIELD.width);
-    const scanGradient = context.createLinearGradient(scanX - 22, 0, scanX + 22, 0);
-    scanGradient.addColorStop(0, "rgba(111, 231, 255, 0)");
-    scanGradient.addColorStop(0.5, "rgba(111, 231, 255, 0.07)");
-    scanGradient.addColorStop(1, "rgba(111, 231, 255, 0)");
-    context.fillStyle = scanGradient;
-    context.fillRect(scanX - 22, FIELD.y + 8, 44, FIELD.height - 16);
+    drawBoardActivity(context, state.route, now, effectsFull);
 
     const occupiedPads = new Set(state.towers.map((tower) => tower.padIndex));
     if (state.selectedType) {
@@ -1438,10 +1697,10 @@ function bootGame() {
         context.save();
         context.globalAlpha = hovered ? 0.98 : 0.42 + pulse * 0.16;
         context.beginPath();
-        context.arc(pad.x, pad.y, hovered ? 35 : 30 + pulse * 2, 0, Math.PI * 2);
+        context.ellipse(pad.x, pad.y, hovered ? 38 : 31 + pulse * 2, hovered ? 18 : 14 + pulse, 0, 0, Math.PI * 2);
         context.fillStyle = hovered ? definition.color : "rgba(111, 231, 255, 0.08)";
         context.fill();
-        hexPath(context, pad.x, pad.y, hovered ? 31 : 28);
+        isoHexPath(context, pad.x, pad.y, hovered ? 32 : 28);
         context.strokeStyle = definition.color;
         context.lineWidth = hovered ? 3 : 1.7;
         context.stroke();
@@ -1457,7 +1716,7 @@ function bootGame() {
     for (const entity of entities) {
       if (entity.kind === "tower") {
         const tower = entity.value;
-        drawTower(context, tower, TOWER_BY_ID.get(tower.typeId), Boolean(chosen && chosen.id === tower.id), effectsFull);
+        drawTower(context, tower, TOWER_BY_ID.get(tower.typeId), Boolean(chosen && chosen.id === tower.id), effectsFull, now);
       } else {
         drawEnemy(context, entity.value, effectsFull);
       }
@@ -1465,10 +1724,10 @@ function bootGame() {
     state.shots.forEach((shot) => drawShot(context, shot, effectsFull));
     state.particles.forEach((particle) => drawParticle(context, particle));
 
-    const end = state.route.points[state.route.points.length - 1];
+    const core = pointOnRoute(state.route, Math.max(0, state.route.totalLength - 28));
     const pulse = 0.5 + Math.sin(now * 0.004) * 0.5;
     context.beginPath();
-    context.arc(clamp(end.x - 34, 30, CANVAS_WIDTH - 30), end.y, 35 + pulse * 7, 0, Math.PI * 2);
+    context.ellipse(core.x, core.y, 35 + pulse * 7, 17 + pulse * 3.5, 0, 0, Math.PI * 2);
     context.strokeStyle = state.core <= 6 ? "rgba(255, 107, 87, " + (0.35 + pulse * 0.4) + ")" : "rgba(111, 231, 255, " + (0.22 + pulse * 0.22) + ")";
     context.lineWidth = 2;
     context.stroke();
@@ -1590,11 +1849,27 @@ function bootGame() {
 
   refreshMapOptions();
   refreshTowerCards();
+  const showcaseMode = new URLSearchParams(window.location.search).get("showcase") === "1";
+  if (showcaseMode) {
+    state = createGameState(selectedMapId);
+    state.started = true;
+    state.credits = 2400;
+    const showcasePads = [0, 1, 3, 5, 7, 9, 10, 12];
+    TOWER_TYPES.forEach((definition, index) => buildTower(state, definition.id, showcasePads[index]));
+    state.selectedTowerId = null;
+    state.wave = 4;
+    startWave(state);
+    effectsFull = true;
+    ui.fxToggle.setAttribute("aria-pressed", "true");
+    ui.fxToggle.textContent = "FX FULL";
+    ui.missionBrief.classList.add("hidden");
+    rebuildStatic();
+  }
   updateUi(true);
   window.requestAnimationFrame(frame);
 
   window.LastLightRuntime = {
-    version: "last-light-imagegen-v3",
+    version: "last-light-isometric-motion-v4",
     getState: () => state,
     getDiagnostics: () => ({
       renderer: "canvas2d-single-pass",
@@ -1612,7 +1887,9 @@ function bootGame() {
         towers: ART_IMAGES.towers.size,
         enemies: ART_IMAGES.enemies.size
       },
-      assetStrategy: "imagegen-units-plus-one-cached-field"
+      assetStrategy: "imagegen-units-plus-one-cached-field",
+      sceneProjection: "cached-isometric-board",
+      towerMotion: "split-base-tracking-turret-plus-reactor-idle"
     })
   };
 }

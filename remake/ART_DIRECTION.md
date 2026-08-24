@@ -1,8 +1,24 @@
 # Last Light visual remaster
 
-The V3 art pass treats the legacy Three.js battlefield in
+The V4 art and motion pass treats the legacy Three.js battlefield in
 `logs/showcase-current.png` as the minimum density benchmark, while removing its
 overexposed bloom and simultaneous-renderer cost.
+
+## Battlefield view and motion
+
+The fortress deck is projected into a four-corner isometric command board rather
+than stretched as a flat screen-space backdrop. Route points, sockets, objectives,
+units, range indicators, pointer targets, and depth ordering all share this
+projection. The cached layer carries the deck, grid, armored lane, socket hardware,
+board depth, and perimeter glow; only lane traffic and combat objects animate.
+
+Directional units (PULSE, SCATTER, RAIL, FLAK, BEAM, and CRYO) render their lower
+base and upper weapon assembly separately from the same transparent source art.
+The upper assembly performs idle scanning, shortest-path target tracking, and
+weapon-specific recoil while the base stays locked to its socket. ARC and NOVA use
+floating reactor motion, rotating energy rings, and orbiting emitters instead of a
+false gun rotation. Every tower also has subtle suspension motion and an active
+socket ring, including between waves.
 
 ## Runtime art set
 
@@ -57,7 +73,9 @@ reframes, removes detached specks, downsamples, and exports alpha-preserving Web
 
 - one Canvas2D animation loop;
 - one cached static battlefield layer rebuilt only when the map changes;
+- affine isometric projection instead of a live 3D camera;
 - depth-sorted sprite draws for towers and enemies;
+- split base/turret animation sourced from the existing tower bitmaps;
 - capped shots and particles;
 - optional glow shadows behind `FX FULL`;
 - no Three.js, GLB loading, post-processing composer, dynamic scene shadows, or

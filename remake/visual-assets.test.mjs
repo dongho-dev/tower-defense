@@ -29,6 +29,10 @@ assert.ok(totalBytes < 1_500_000, "runtime image payload should stay below 1.5 M
 const gameSource = await readFile(new URL("game.mjs", import.meta.url), "utf8");
 assert.doesNotMatch(gameSource, /from\s+["']three["']/i, "remake runtime must not load Three.js");
 assert.match(gameSource, /canvas2d-single-pass/, "diagnostics should expose the single-pass renderer");
+assert.match(gameSource, /projectBoardPoint/, "the battlefield should use the lightweight isometric projection");
+assert.match(gameSource, /advanceTowerMotion/, "tower tracking and idle motion should update in simulation");
+assert.match(gameSource, /definition\.motion === "turret"/, "directional towers should render split rotating heads");
+assert.match(gameSource, /tower\.recoil/, "tower fire should drive visible recoil");
 
 console.log(JSON.stringify({
   assets: assets.length,
