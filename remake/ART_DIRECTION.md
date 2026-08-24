@@ -4,6 +4,28 @@ The V4 art and motion pass treats the legacy Three.js battlefield in
 `logs/showcase-current.png` as the minimum density benchmark, while removing its
 overexposed bloom and simultaneous-renderer cost.
 
+## V5 battlefield scale and route language
+
+The V5 composition pass uses the screenshot review in `REFERENCE_STUDY.md` as a
+screen-density benchmark. The board now spans 1,152 of the 1,200 internal canvas
+pixels, while runtime tower art renders at 68% of its previous world scale. A
+tower therefore reads as one tactical cell instead of becoming the dominant
+object in the scene; generated silhouette detail and split-turret motion remain
+legible at both desktop and mobile display sizes.
+
+Each battlefield now owns a different combat rhythm rather than reusing one
+compact zigzag:
+
+- RIFTLINE uses a long approach, a central double-back, and a late recontact;
+- SABLE SWITCH folds three firing windows through the center for area-control
+  combinations;
+- BREAKWATER sweeps the perimeter and separates firing zones, rewarding range
+  handoff rather than one universal kill box.
+
+All three maps expose 18 deliberately spaced sockets. Sockets stay outside the
+armored-lane footprint, use substantially more of the board, and preserve large
+quiet areas so the route remains readable under projectiles and full effects.
+
 ## Battlefield view and motion
 
 The fortress deck is projected into a four-corner isometric command board rather

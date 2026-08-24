@@ -373,20 +373,40 @@ button:disabled { cursor: not-allowed; opacity: 0.38; }
 .map-options { display: grid; gap: 8px; margin: 11px 0 13px; }
 
 .map-option {
-  min-height: 58px;
+  min-height: 66px;
   padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 9px;
   display: grid;
   grid-template-columns: 1fr auto;
+  gap: 8px;
   align-items: center;
   text-align: left;
   background: rgba(255, 255, 255, 0.028);
 }
 
+.map-option > span { min-width: 0; display: grid; gap: 3px; padding-right: 2px; }
 .map-option strong { display: block; font-size: 12px; letter-spacing: 0.04em; }
-.map-option span { color: var(--dim); font-size: 10px; }
-.map-option b { color: var(--muted); font-size: 9px; letter-spacing: 0.08em; }
+.map-option > span > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.map-option b {
+  align-self: start;
+  margin-top: 2px;
+  padding: 3px 5px;
+  border: 1px solid rgba(134, 215, 233, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(3, 11, 16, 0.55);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
 
 .map-option[aria-checked="true"] {
   border-color: var(--cyan);

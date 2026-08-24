@@ -1,11 +1,12 @@
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 540;
+export const TOWER_WORLD_SCALE = 0.68;
 
 const BOARD = Object.freeze({
-  top: Object.freeze({ x: 600, y: 16 }),
-  right: Object.freeze({ x: 1088, y: 264 }),
-  bottom: Object.freeze({ x: 600, y: 520 }),
-  left: Object.freeze({ x: 112, y: 264 })
+  top: Object.freeze({ x: 600, y: 14 }),
+  right: Object.freeze({ x: 1176, y: 260 }),
+  bottom: Object.freeze({ x: 600, y: 514 }),
+  left: Object.freeze({ x: 24, y: 260 })
 });
 const MAX_SHOTS = 90;
 const MAX_PARTICLES = 120;
@@ -42,27 +43,27 @@ export const MAPS = Object.freeze({
     name: "RIFTLINE 07",
     shortName: "Riftline",
     difficulty: "STANDARD",
-    description: "긴 직선과 두 개의 굴절점. 균형 잡힌 첫 작전.",
-    route: [[-0.04, 0.20], [0.22, 0.20], [0.22, 0.47], [0.48, 0.47], [0.48, 0.76], [0.73, 0.76], [0.73, 0.36], [1.04, 0.36]],
-    pads: [[0.10, 0.36], [0.32, 0.13], [0.34, 0.35], [0.11, 0.60], [0.33, 0.66], [0.43, 0.26], [0.57, 0.39], [0.59, 0.65], [0.66, 0.89], [0.81, 0.64], [0.82, 0.22], [0.93, 0.51], [0.91, 0.82], [0.55, 0.91]]
+    description: "긴 시야선이 중앙에서 되접힙니다. 교차화력과 후반 재접촉을 설계하세요.",
+    route: [[0.02, 0.82], [0.22, 0.82], [0.22, 0.58], [0.52, 0.58], [0.52, 0.30], [0.78, 0.30], [0.78, 0.54], [0.96, 0.54], [0.96, 0.18], [1.05, 0.18]],
+    pads: [[0.278, 0.03], [0.03, 0.34], [0.402, 0.03], [0.03, 0.464], [0.154, 0.34], [0.34, 0.278], [0.03, 0.65], [0.588, 0.092], [0.836, 0.03], [0.774, 0.154], [0.402, 0.774], [0.526, 0.774], [0.712, 0.588], [0.402, 0.96], [0.526, 0.96], [0.712, 0.774], [0.96, 0.712], [0.96, 0.898]]
   }),
   switchback: Object.freeze({
     id: "switchback",
     name: "SABLE SWITCH",
     shortName: "Switch",
     difficulty: "HARD",
-    description: "짧고 촘촘한 굴절로 광역 포탑 효율이 높습니다.",
-    route: [[-0.04, 0.18], [0.35, 0.18], [0.35, 0.38], [0.10, 0.38], [0.10, 0.62], [0.62, 0.62], [0.62, 0.32], [0.88, 0.32], [0.88, 0.78], [1.04, 0.78]],
-    pads: [[0.13, 0.10], [0.28, 0.30], [0.47, 0.16], [0.20, 0.50], [0.44, 0.50], [0.58, 0.76], [0.70, 0.54], [0.75, 0.20], [0.97, 0.47], [0.78, 0.90], [0.48, 0.87], [0.26, 0.78], [0.05, 0.84]]
+    description: "촘촘한 스위치백이 중앙을 세 번 공유합니다. 광역과 감속의 중첩이 핵심입니다.",
+    route: [[0.02, 0.88], [0.30, 0.88], [0.30, 0.62], [0.10, 0.62], [0.10, 0.28], [0.62, 0.28], [0.62, 0.54], [0.88, 0.54], [0.88, 0.22], [1.05, 0.22]],
+    pads: [[0.154, 0.03], [0.34, 0.092], [0.464, 0.03], [0.588, 0.03], [0.03, 0.712], [0.278, 0.464], [0.712, 0.03], [0.836, 0.03], [0.712, 0.216], [0.464, 0.526], [0.96, 0.03], [0.526, 0.774], [0.65, 0.712], [0.526, 0.96], [0.65, 0.96], [0.836, 0.774], [0.96, 0.712], [0.836, 0.898]]
   }),
   breakwater: Object.freeze({
     id: "breakwater",
     name: "BREAKWATER",
     shortName: "Breakwater",
     difficulty: "EXPERT",
-    description: "넓은 우회로와 분산된 소켓. 사거리 운용이 핵심입니다.",
-    route: [[-0.04, 0.52], [0.15, 0.52], [0.15, 0.19], [0.46, 0.19], [0.46, 0.82], [0.78, 0.82], [0.78, 0.47], [1.04, 0.47]],
-    pads: [[0.07, 0.34], [0.25, 0.34], [0.31, 0.10], [0.51, 0.08], [0.58, 0.30], [0.34, 0.57], [0.34, 0.89], [0.57, 0.70], [0.70, 0.92], [0.70, 0.59], [0.88, 0.31], [0.91, 0.67], [0.82, 0.13]]
+    description: "외곽을 크게 훑는 분산 전선입니다. 사거리별 구역 배치와 이양 타이밍이 중요합니다.",
+    route: [[-0.04, 0.80], [0.18, 0.80], [0.18, 0.20], [0.72, 0.20], [0.72, 0.74], [0.94, 0.74], [0.94, 0.44], [1.10, 0.37]],
+    pads: [[0.02, 0.14], [0.14, 0.02], [0.02, 0.32], [0.32, 0.02], [0.50, 0.02], [0.02, 0.56], [0.68, 0.02], [0.44, 0.44], [0.56, 0.32], [0.32, 0.62], [0.02, 0.98], [0.98, 0.02], [0.20, 0.98], [0.32, 0.86], [0.92, 0.26], [0.56, 0.68], [0.74, 0.92], [0.98, 0.92]]
   })
 });
 
@@ -137,7 +138,7 @@ function absolutePoint(point) {
 }
 
 function absolutePadPoint(point) {
-  return projectBoardPoint([0.065 + point[0] * 0.87, 0.075 + point[1] * 0.84]);
+  return projectBoardPoint([0.03 + point[0] * 0.94, 0.04 + point[1] * 0.92]);
 }
 
 export function resolveMap(mapId = "riftline") {
@@ -373,6 +374,7 @@ function burstParticles(state, x, y, color, count) {
 
 function towerMuzzle(tower, definition) {
   const size = definition.spriteSize
+    * TOWER_WORLD_SCALE
     * (1 + Math.max(0, tower.level - 1) * 0.018)
     * perspectiveScaleForY(tower.y);
   if (definition.motion === "reactor") {
@@ -946,6 +948,7 @@ function drawBoardActivity(context, route, now, effectsFull) {
 function drawTower(context, tower, definition, selected, effectsFull, now) {
   context.save();
   const size = definition.spriteSize
+    * TOWER_WORLD_SCALE
     * (1 + Math.max(0, tower.level - 1) * 0.018)
     * perspectiveScaleForY(tower.y);
   const phase = (now || 0) * 0.001 + tower.idlePhase;
@@ -1854,7 +1857,7 @@ function bootGame() {
     state = createGameState(selectedMapId);
     state.started = true;
     state.credits = 2400;
-    const showcasePads = [0, 1, 3, 5, 7, 9, 10, 12];
+    const showcasePads = [0, 2, 4, 5, 7, 9, 12, 16];
     TOWER_TYPES.forEach((definition, index) => buildTower(state, definition.id, showcasePads[index]));
     state.selectedTowerId = null;
     state.wave = 4;
@@ -1869,7 +1872,7 @@ function bootGame() {
   window.requestAnimationFrame(frame);
 
   window.LastLightRuntime = {
-    version: "last-light-isometric-motion-v4",
+    version: "last-light-wide-battlefield-v5",
     getState: () => state,
     getDiagnostics: () => ({
       renderer: "canvas2d-single-pass",
@@ -1889,7 +1892,9 @@ function bootGame() {
       },
       assetStrategy: "imagegen-units-plus-one-cached-field",
       sceneProjection: "cached-isometric-board",
-      towerMotion: "split-base-tracking-turret-plus-reactor-idle"
+      towerMotion: "split-base-tracking-turret-plus-reactor-idle",
+      towerWorldScale: TOWER_WORLD_SCALE,
+      mapStructure: "wide-board-with-role-specific-recontact-routes"
     })
   };
 }
