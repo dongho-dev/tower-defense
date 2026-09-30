@@ -6,7 +6,8 @@ import { grassDetail } from '../util/textures.js';
 export const ROAD_Y = -0.04;
 const RES = 0.2;
 
-export function createTerrain(state) {
+export function createTerrain(state, theme) {
+    const pal = theme.ground;
     const { rx, rz } = state.map.island;
     const noise = createNoise(hashString(state.map.id));
     const { fbm, n2 } = noise;
@@ -84,11 +85,11 @@ export function createTerrain(state) {
     const topCol = [];
     const topUv = [];
     const c = new THREE.Color();
-    const grassA = new THREE.Color('#3f6a26');
-    const grassB = new THREE.Color('#6e8a30');
-    const dry = new THREE.Color('#9a7e44');
-    const dirt = new THREE.Color('#7b5a3a');
-    const rimRock = new THREE.Color('#8b7d68');
+    const grassA = new THREE.Color(pal.grassA);
+    const grassB = new THREE.Color(pal.grassB);
+    const dry = new THREE.Color(pal.dry);
+    const dirt = new THREE.Color(pal.dirt);
+    const rimRock = new THREE.Color(pal.rim);
     const rimPts = [];
     for (let j = 0; j < NA; j++) {
         const theta = (j / NA) * Math.PI * 2;
@@ -143,9 +144,9 @@ export function createTerrain(state) {
     const NK = 30;
     const cliffPos = [];
     const cliffCol = [];
-    const soil = new THREE.Color('#4a3526');
-    const bands = ['#9a8468', '#7c6a56', '#a8937a', '#6a5a4a', '#8f7c66'].map((h) => new THREE.Color(h));
-    const deep = new THREE.Color('#2e2824');
+    const soil = new THREE.Color(theme.cliff.soil);
+    const bands = theme.cliff.bands.map((h) => new THREE.Color(h));
+    const deep = new THREE.Color(theme.cliff.deep);
     for (let j = 0; j < NA; j++) {
         const { theta, rf, y: y0 } = rimPts[j];
         const depth = 7.5 + 3.5 * fbm(Math.cos(theta) * 1.7, Math.sin(theta) * 1.7 + 9, 3);

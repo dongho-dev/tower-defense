@@ -295,7 +295,7 @@ const _p = {};
 function spawnEnemy(state, grp, waveNo) {
     const def = ENEMIES[grp.enemy];
     const elite = !!grp.elite;
-    const hp = def.hp * hpScale(waveNo) * (elite ? ELITE.hp : 1);
+    const hp = def.hp * hpScale(waveNo) * (elite ? ELITE.hp : 1) * (state.map.hpMul || 1) * (grp.hpMul || 1);
     const id = state.nextId++;
     const pathIndex = grp.path || 0;
     // 개체마다 좌우로 살짝 벌려서 줄 서 있는 느낌을 없앤다 (결정적)

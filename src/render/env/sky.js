@@ -62,15 +62,15 @@ void main() {
     #include <colorspace_fragment>
 }`;
 
-function skyDome(sunDir) {
+function skyDome(sunDir, pal) {
     const mat = new THREE.ShaderMaterial({
         uniforms: {
             uSun: { value: sunDir.clone() },
-            uZenith: { value: new THREE.Color('#161236') },
-            uUpper: { value: new THREE.Color('#4b2c72') },
-            uHorizon: { value: new THREE.Color('#f08a64') },
-            uBelow: { value: new THREE.Color('#8a4e78') },
-            uSunGlow: { value: new THREE.Color('#ffc07a') },
+            uZenith: { value: new THREE.Color(pal.zenith) },
+            uUpper: { value: new THREE.Color(pal.upper) },
+            uHorizon: { value: new THREE.Color(pal.horizon) },
+            uBelow: { value: new THREE.Color(pal.below) },
+            uSunGlow: { value: new THREE.Color(pal.sunGlow) },
             uTime: { value: 0 }
         },
         vertexShader: skyVert,
@@ -85,12 +85,12 @@ function skyDome(sunDir) {
     return mesh;
 }
 
-export function createSky(renderer) {
-    const sky = skyDome(sunDirection(SKY_ELEVATION));
+export function createSky(renderer, theme) {
+    const sky = skyDome(sunDirection(SKY_ELEVATION), theme.sky);
     // 같은 하늘로 환경맵을 굽는다 (금속 반사·간접광)
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envScene = new THREE.Scene();
-    envScene.add(skyDome(sunDirection(THREE.MathUtils.degToRad(10))));
+    envScene.add(skyDome(sunDirection(THREE.MathUtils.degToRad(10)), theme.sky));
     const env = pmrem.fromScene(envScene, 0.02).texture;
     pmrem.dispose();
     return { sky, env };
@@ -148,16 +148,17 @@ void main() {
     #include <colorspace_fragment>
 }`;
 
-export function createCloudSea(sunDir) {
+export function createCloudSea(sunDir, theme) {
+    const c = theme.cloud;
     const mat = new THREE.ShaderMaterial({
         uniforms: {
             uTime: { value: 0 },
             uSun: { value: sunDir.clone() },
-            uLit: { value: new THREE.Color('#ffe2b8') },
-            uMid: { value: new THREE.Color('#f2a38e') },
-            uShadow: { value: new THREE.Color('#a4739c') },
-            uDeep: { value: new THREE.Color('#5a4580') },
-            uHorizon: { value: new THREE.Color('#e48a6e') }
+            uLit: { value: new THREE.Color(c.lit) },
+            uMid: { value: new THREE.Color(c.mid) },
+            uShadow: { value: new THREE.Color(c.shadow) },
+            uDeep: { value: new THREE.Color(c.deep) },
+            uHorizon: { value: new THREE.Color(c.horizon) }
         },
         vertexShader: cloudVert,
         fragmentShader: cloudFrag,
@@ -177,7 +178,7 @@ export function createCloudSea(sunDir) {
         const r = 17 + rand() * 40;
         const mat2 = new THREE.SpriteMaterial({
             map: tex[i % 3],
-            color: new THREE.Color().setHSL(0.97 + rand() * 0.1, 0.55, 0.7 + rand() * 0.1),
+            color: new THREE.Color(c.mid).lerp(new THREE.Color(c.lit), 0.4 + rand() * 0.4),
             transparent: true,
             opacity: 0.28 + rand() * 0.25,
             depthWrite: false,
@@ -204,11 +205,11 @@ export function createCloudSea(sunDir) {
 }
 
 /** 멀리 떠 있는 작은 섬들 */
-export function createIslets(treeFactory) {
+export function createIslets(treeFactory, theme) {
     const group = new THREE.Group();
     const rand = mulberry32(2024);
-    const rock = new THREE.MeshStandardMaterial({ color: 0x7c6a58, roughness: 0.9, flatShading: true });
-    const grass = new THREE.MeshStandardMaterial({ color: 0x6a8a36, roughness: 0.95 });
+    const rock = new THREE.MeshStandardMaterial({ color: theme.cliff.bands[1], roughness: 0.9, flatShading: true });
+    const grass = new THREE.MeshStandardMaterial({ color: theme.ground.grassB, roughness: 0.95 });
     const spots = [
         [-30, -4, -15, 2.2],
         [-22, -7, 13, 1.6],

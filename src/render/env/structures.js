@@ -21,11 +21,12 @@ export function goldMaterial() {
 }
 
 // ---------- 도로 ----------
-export function createRoad(state) {
+export function createRoad(state, theme) {
     const group = new THREE.Group();
     group.name = 'road';
     const tex = cobblestone();
     const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(theme.road),
         map: tex.map,
         normalMap: tex.normalMap,
         normalScale: new THREE.Vector2(1.1, 1.1),
@@ -100,7 +101,6 @@ export function createRoad(state) {
 export function createLanterns(state, terrain) {
     const group = new THREE.Group();
     group.name = 'lanterns';
-    const path = state.paths[0];
     const iron = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.6, metalness: 0.6 });
     const glass = new THREE.MeshStandardMaterial({
         color: 0x331a00,
@@ -118,38 +118,45 @@ export function createLanterns(state, terrain) {
     });
     const lamps = [];
     let side = 1;
-    for (let d = 3.5; d < path.length - 2; d += 4.6) {
-        samplePath(path, d, _p);
-        let ok = false;
-        for (const s of [side, -side]) {
-            const x = _p.x - _p.dz * s * 1.05;
-            const z = _p.z + _p.dx * s * 1.05;
-            if (terrain.socketDist(x, z) > 0.95 && terrain.pathDist(x, z) > 0.95) {
-                const lamp = new THREE.Group();
-                const h = terrain.heightAt(x, z);
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.95, 6), iron);
-                post.position.y = 0.475;
-                const cap = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.1, 4), iron);
-                cap.position.y = 1.08;
-                cap.rotation.y = Math.PI / 4;
-                const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.1), glass);
-                bulb.position.y = 0.98;
-                post.castShadow = true;
-                const light = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), pool);
-                light.rotation.x = -Math.PI / 2;
-                light.position.y = 0.03;
-                lamp.add(post, cap, bulb, light);
-                lamp.position.set(x, h, z);
-                lamp.userData.bulb = bulb;
-                lamp.userData.phase = d;
-                group.add(lamp);
-                lamps.push(lamp);
-                ok = true;
-                break;
+    const placed = [];
+    for (const path of state.paths)
+        for (let d = 3.5; d < path.length - 2; d += 4.6) {
+            samplePath(path, d, _p);
+            let ok = false;
+            for (const s of [side, -side]) {
+                const x = _p.x - _p.dz * s * 1.05;
+                const z = _p.z + _p.dx * s * 1.05;
+                if (
+                    terrain.socketDist(x, z) > 0.95 &&
+                    terrain.pathDist(x, z) > 0.95 &&
+                    !placed.some((q) => Math.hypot(q[0] - x, q[1] - z) < 2.5)
+                ) {
+                    placed.push([x, z]);
+                    const lamp = new THREE.Group();
+                    const h = terrain.heightAt(x, z);
+                    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.95, 6), iron);
+                    post.position.y = 0.475;
+                    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.1, 4), iron);
+                    cap.position.y = 1.08;
+                    cap.rotation.y = Math.PI / 4;
+                    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.1), glass);
+                    bulb.position.y = 0.98;
+                    post.castShadow = true;
+                    const light = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), pool);
+                    light.rotation.x = -Math.PI / 2;
+                    light.position.y = 0.03;
+                    lamp.add(post, cap, bulb, light);
+                    lamp.position.set(x, h, z);
+                    lamp.userData.bulb = bulb;
+                    lamp.userData.phase = d;
+                    group.add(lamp);
+                    lamps.push(lamp);
+                    ok = true;
+                    break;
+                }
             }
+            if (ok) side = -side;
         }
-        if (ok) side = -side;
-    }
     return {
         group,
         update(t) {
@@ -160,11 +167,11 @@ export function createLanterns(state, terrain) {
 }
 
 // ---------- 성벽 ----------
-export function createRamparts(state, terrain) {
+export function createRamparts(state, terrain, theme) {
     const group = new THREE.Group();
     group.name = 'ramparts';
     const rim = terrain.rimPts;
-    const start = { x: state.paths[0].xs[0], z: state.paths[0].zs[0] };
+    const starts = state.paths.map((p) => ({ x: p.xs[0], z: p.zs[0] }));
     const core = terrain.core;
     const blocks = [];
     const towers = [];
@@ -176,7 +183,7 @@ export function createRamparts(state, terrain) {
         const mz = (a.z + b.z) / 2;
         // 포털·수정·도로 근처, 그리고 카메라 쪽 앞면(가림 방지)은 비운다
         const blocked =
-            Math.hypot(mx - start.x, mz - start.z) < 3.5 ||
+            starts.some((st) => Math.hypot(mx - st.x, mz - st.z) < 3.5) ||
             Math.hypot(mx - core.x, mz - core.z) < 3.5 ||
             terrain.pathDist(mx * 0.95, mz * 0.95) < 1.6 ||
             (mz > 4.5 && Math.abs(mx) < 13.5);
@@ -197,7 +204,7 @@ export function createRamparts(state, terrain) {
         run++;
         if (run % 14 === 7) towers.push({ x: ix, z: iz, y: terrain.heightAt(ix, iz) });
     }
-    const wallMat = stoneMaterial(new THREE.Color('#b5a489'), 0.88);
+    const wallMat = stoneMaterial(new THREE.Color(theme.wall), 0.88);
     const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.62, 0.34), wallMat, blocks.length);
     const merlonCount = blocks.filter((b) => b.crenel).length;
     const merlons = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.2, 0.36), wallMat, merlonCount);
@@ -222,8 +229,8 @@ export function createRamparts(state, terrain) {
         group.add(m);
     }
     // 망루
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x3d4e8a, roughness: 0.7 });
-    const bannerMat = new THREE.MeshStandardMaterial({ color: 0x8a2230, roughness: 0.8, side: THREE.DoubleSide });
+    const roofMat = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.7 });
+    const bannerMat = new THREE.MeshStandardMaterial({ color: theme.banner, roughness: 0.8, side: THREE.DoubleSide });
     const gold = goldMaterial();
     for (const t of towers) {
         const g = new THREE.Group();
@@ -283,8 +290,8 @@ void main() {
     gl_FragColor = vec4(col, 1.0);
 }`;
 
-export function createPortal(state, terrain) {
-    const path = state.paths[0];
+export function createPortal(state, terrain, pathIndex = 0) {
+    const path = state.paths[pathIndex];
     samplePath(path, 0.6, _p);
     const g = new THREE.Group();
     g.name = 'portal';

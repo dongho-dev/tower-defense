@@ -4,6 +4,7 @@ import { createSky, createCloudSea, createIslets, sunDirection, LIGHT_ELEVATION 
 import { createTerrain } from './env/terrain.js';
 import { createVegetation, makeTree, windUniforms } from './env/vegetation.js';
 import { createRangeIndicator } from './env/range.js';
+import { themeOf } from './themes.js';
 import {
     createRoad,
     createLanterns,
@@ -17,17 +18,18 @@ import {
 export class World {
     constructor(renderer, state, quality) {
         this.state = state;
+        const th = (this.theme = themeOf(state.map));
         const scene = (this.scene = new THREE.Scene());
-        scene.fog = new THREE.Fog(0xc9788a, 60, 150);
+        scene.fog = new THREE.Fog(th.fog, 60, 150);
 
-        const { sky, env } = createSky(renderer);
+        const { sky, env } = createSky(renderer, th);
         scene.add(sky);
         scene.environment = env;
-        scene.environmentIntensity = 0.6;
+        scene.environmentIntensity = th.env;
 
         // 조명: 따뜻한 낮은 해 + 보랏빛 하늘 반사 + 뒤쪽 차가운 림
         const sunDir = sunDirection(LIGHT_ELEVATION);
-        const sun = (this.sun = new THREE.DirectionalLight(0xffa25e, 2.9));
+        const sun = (this.sun = new THREE.DirectionalLight(th.sun.color, th.sun.intensity));
         sun.position.copy(sunDir).multiplyScalar(40);
         sun.castShadow = true;
         sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -42,28 +44,29 @@ export class World {
         sun.shadow.normalBias = 0.03;
         sun.shadow.radius = 3;
         scene.add(sun, sun.target);
-        scene.add(new THREE.HemisphereLight(0x9a8ce8, 0x5a3a2a, 0.75));
-        const rim = new THREE.DirectionalLight(0x8f7cff, 0.9);
+        scene.add(new THREE.HemisphereLight(th.hemi.sky, th.hemi.ground, th.hemi.intensity));
+        const rim = new THREE.DirectionalLight(th.rim.color, th.rim.intensity);
         rim.position.set(18, 14, -22);
         scene.add(rim);
 
-        const cloud = (this.cloud = createCloudSea(sunDir));
+        const cloud = (this.cloud = createCloudSea(sunDir, th));
         scene.add(cloud.sea, cloud.puffs);
-        this.islets = createIslets(makeTree);
+        this.islets = createIslets((rand) => makeTree(rand, th.veg), th);
         scene.add(this.islets.group);
 
-        const terrain = (this.terrain = createTerrain(state));
+        const terrain = (this.terrain = createTerrain(state, th));
         scene.add(terrain.group);
-        scene.add(createRoad(state).group);
-        this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass });
+        scene.add(createRoad(state, th).group);
+        this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass, theme: th });
         scene.add(this.vegetation.group);
         this.lanterns = createLanterns(state, terrain);
-        this.ramparts = createRamparts(state, terrain);
-        this.portal = createPortal(state, terrain);
+        this.ramparts = createRamparts(state, terrain, th);
+        this.portals = state.paths.map((_, i) => createPortal(state, terrain, i));
+        this.portal = this.portals[0];
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);
         this.ley = createLeyLines(state, terrain);
-        for (const o of [this.lanterns, this.ramparts, this.portal, this.core, this.sockets, this.ley])
+        for (const o of [this.lanterns, this.ramparts, ...this.portals, this.core, this.sockets, this.ley])
             scene.add(o.group);
         this.hoverSocket = null;
         this.range = createRangeIndicator((x, z) => terrain.heightAt(x, z));
@@ -84,7 +87,7 @@ export class World {
         this.islets.update(t);
         this.lanterns.update(t);
         this.ramparts.update(t);
-        this.portal.update(t);
+        for (const p of this.portals) p.update(t);
         this.core.update(t);
         this.core.setHealth(this.state.lives / this.state.maxLives);
         this.sockets.update(t, this.state, this.hoverSocket);

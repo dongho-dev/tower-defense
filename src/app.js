@@ -68,6 +68,7 @@ export class App {
         this.targeting = null;
         this.pending = [];
         this.raycaster = new THREE.Raycaster();
+        this.thumbs = {};
 
         this.hud = new Hud(this.uiRoot, {
             callWave: () => this.callWave(),
@@ -146,6 +147,7 @@ export class App {
         );
         this.overlay = new Overlay(this.overlayCanvas, this.rig.camera, this.entities);
         this.worldMap = this.state.mapId;
+        if (this.overlay && this.effects && this.hud) this.onResize();
     }
 
     persist() {
@@ -177,7 +179,7 @@ export class App {
         this.rig.orbit = true;
         this.rig.setPitch(16);
         this.wantThumb = true;
-        this.screens.select(this.save, this.thumb);
+        this.screens.select(this.save, this.thumbs);
     }
 
     startMap(mapId) {
@@ -527,10 +529,10 @@ export class App {
         if (this.wantThumb) {
             this.wantThumb = false;
             try {
-                this.thumb = this.renderer.renderer.domElement.toDataURL('image/jpeg', 0.7);
-                this.uiRoot
-                    .querySelectorAll('.map-card .thumb')
-                    .forEach((el, i) => i === 0 && (el.style.backgroundImage = `url(${this.thumb})`));
+                const url = this.renderer.renderer.domElement.toDataURL('image/jpeg', 0.7);
+                this.thumbs[this.worldMap] = url;
+                const el = this.uiRoot.querySelector(`[data-thumb="${this.worldMap}"]`);
+                if (el) el.style.backgroundImage = `url(${url})`;
             } catch {
                 /* 캡처 불가 시 무시 */
             }

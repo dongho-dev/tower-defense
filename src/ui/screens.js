@@ -8,20 +8,11 @@ const h = (html) => {
     return t.content.firstElementChild;
 };
 
-const UPCOMING = [
-    {
-        id: 'frostvale',
-        name: '서리 협곡',
-        en: 'Frostvale Gorge',
-        desc: '두 갈래 길이 협곡 한가운데서 합류한다. 갈림목을 지키는 자가 이긴다.'
-    },
-    {
-        id: 'voidspire',
-        name: '공허의 첨탑',
-        en: 'Voidspire',
-        desc: '균열이 세 곳에서 열린다. 모든 방향을 동시에 지켜야 하는 최종 결전.'
-    }
-];
+const THUMB_FALLBACK = {
+    dusk: 'linear-gradient(160deg,#f08a64 0%,#4b2c72 55%,#161236 100%)',
+    frost: 'linear-gradient(160deg,#f2a0a4 0%,#34407e 55%,#0e1430 100%)',
+    void: 'linear-gradient(160deg,#b0306a 0%,#2a0b3a 55%,#07030f 100%)'
+};
 
 export class Screens {
     constructor(root, actions) {
@@ -66,29 +57,22 @@ export class Screens {
         return this.mount(el);
     }
 
-    select(save, thumb) {
+    select(save, thumbs) {
         const cards = Object.values(MAPS)
             .map((m) => {
                 const stars = save.stars[m.id] || 0;
+                const bg = thumbs[m.id] ? `url(${thumbs[m.id]})` : THUMB_FALLBACK[m.theme || 'dusk'];
                 return `<button class="map-card panel ornate" data-map="${m.id}">
-                    <div class="thumb" style="background-image:url(${thumb || ''})"></div>
+                    <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"></div>
                     <div class="body"><div class="name">${m.name}</div><div class="en">${m.en}</div>
                     <div class="desc">${m.desc}</div>
-                    <div class="meta"><span>20 웨이브 · 난이도 ${'◆'.repeat(m.difficulty)}</span><span class="stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}">${ICONS.star}</i>`).join('')}</span></div></div>
+                    <div class="meta"><span>${m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}20 웨이브 · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}">${ICONS.star}</i>`).join('')}</span></div></div>
                 </button>`;
             })
             .join('');
-        const locked = UPCOMING.map(
-            (m) => `<div class="map-card panel locked" aria-disabled="true">
-                <div class="thumb" style="background:linear-gradient(135deg,#2a2040,#120d1c)"></div>
-                <div class="body"><div class="name">${m.name}</div><div class="en">${m.en}</div>
-                <div class="desc">${m.desc}</div>
-                <div class="meta"><span>준비 중</span><span class="stars"></span></div></div>
-            </div>`
-        ).join('');
         const el = h(`<div class="screen dim"><div class="select-wrap">
             <h2>전장 선택</h2>
-            <div class="maps">${cards}${locked}</div>
+            <div class="maps">${cards}</div>
             <div class="back-row"><button class="menu-btn ghost" data-back>돌아가기</button></div>
         </div></div>`);
         el.querySelectorAll('[data-map]').forEach((b) => (b.onclick = () => this.actions.startMap(b.dataset.map)));

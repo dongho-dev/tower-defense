@@ -101,3 +101,27 @@ export const STANDARD_PLAN = [
     [1, 'frost', 'a'],
     [17, 'ranger', 'a']
 ];
+
+/** 맵에 상관없이: 경로 커버리지가 높은 소켓부터 종류를 섞어 배치하는 계획 */
+export function autoPlan(mapId, n = 10) {
+    const state = createGame(mapId);
+    const cover = (s) => {
+        let c = 0;
+        for (const p of state.paths) {
+            for (let i = 0; i < p.count; i += 3) if ((p.xs[i] - s.x) ** 2 + (p.zs[i] - s.z) ** 2 <= 3.4 * 3.4) c++;
+        }
+        return c;
+    };
+    const order = [...state.sockets].sort((a, b) => cover(b) - cover(a)).slice(0, n);
+    const cycle = [
+        ['ranger', 'b'],
+        ['frost', 'a'],
+        ['ember', 'a'],
+        ['storm', 'a'],
+        ['ranger', 'a'],
+        ['storm', 'b'],
+        ['frost', 'b'],
+        ['ember', 'b']
+    ];
+    return order.map((s, i) => [s.id, cycle[i % cycle.length][0], cycle[i % cycle.length][1]]);
+}

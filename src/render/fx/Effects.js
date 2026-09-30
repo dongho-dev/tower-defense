@@ -870,7 +870,8 @@ export class Effects {
             });
         }
         if (Math.random() < 0.7 * q) {
-            const pg = this.world.portal.group.position;
+            const portals = this.world.portals;
+            const pg = portals[Math.floor(Math.random() * portals.length)].group.position;
             const a = Math.random() * Math.PI * 2;
             const r = rnd(1.2, 2.2);
             const x = pg.x + Math.cos(a) * r;
