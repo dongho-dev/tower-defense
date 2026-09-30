@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q2-A Three.js 3D</title>
+<link rel="stylesheet" href="shared/demo.css">
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q2-A · Three.js 저폴리 3D</h1>
+  <span class="tag rec">추천</span>
+  <span class="tag">렌더링</span>
+</header>
+<main class="layout">
+  <div class="stage" id="stage"><div class="fps" id="fps"></div></div>
+  <aside class="side">
+    <div class="card"><h2>이 데모</h2><p>드래그로 회전하고 휠로 줌할 수 있어요. 그림자, 폭발 지점의 동적 광원, 절제한 블룸을 넣었습니다. 레거시판의 문제였던 과한 블룸과 거대한 타워를 피해서 타워는 한 칸 크기로 맞췄어요. 맵·타워·웨이브는 다른 Q2 데모와 같습니다.</p></div>
+    <div class="card"><h2>장점</h2><ul class="pros">
+      <li>퀄리티 상한이 가장 높음. 조명·그림자·카메라 연출</li>
+      <li>포탑 회전·반동·업그레이드 외형 변화가 자연스러움</li>
+      <li>같은 코드로 테마만 바꿔 전혀 다른 톤을 낼 수 있음 (Q4 참고)</li>
+    </ul></div>
+    <div class="card"><h2>단점</h2><ul class="cons">
+      <li>구현·튜닝 비용이 가장 큼. 레거시판은 이 방식으로 24k줄까지 불어남</li>
+      <li>저사양·모바일에서 성능 관리가 필요함</li>
+      <li>원근 때문에 사거리 판독이 2D보다 조금 떨어짐</li>
+    </ul></div>
+    <div class="card"><h2>속도</h2><div class="row" id="speed"></div></div>
+  </aside>
+</main>
+<script type="module">
+  import { createShowcase } from './shared/sim.js';
+  import { createThreeView } from './shared/three-view.js';
+  import { runLoop, speedButtons } from './shared/loop.js';
+  const theme = new URLSearchParams(location.search).get('theme') || 'sf';
+  const sim = createShowcase();
+  const view = createThreeView(document.getElementById('stage'), sim, theme);
+  const loop = runLoop(sim, (ev, dt) => view.draw({}, dt, ev), { fpsEl: document.getElementById('fps') });
+  speedButtons(document.getElementById('speed'), loop);
+</script>
+</body>
+</html>

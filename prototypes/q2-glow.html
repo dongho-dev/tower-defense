@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q2-C 2D 탑다운 + 광원 연출</title>
+<link rel="stylesheet" href="shared/demo.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q2-C · 2D 탑다운 + 광원/파티클 연출</h1>
+  <span class="tag">렌더링</span>
+</header>
+<main class="layout">
+  <div class="stage"><canvas id="c"></canvas><div class="fps" id="fps"></div></div>
+  <aside class="side">
+    <div class="card"><h2>이 데모</h2><p>Q2 세 데모는 <b>같은 맵·같은 타워·같은 웨이브</b>를 돌립니다. 렌더링 방식만 달라요. Canvas2D 탑다운에 네온 라인, 블러를 쓴 간이 블룸, 투사체 꼬리, 화면 흔들림을 넣었습니다.</p></div>
+    <div class="card"><h2>장점</h2><ul class="pros">
+      <li>판독성이 가장 좋음. 사거리·경로·겹침이 한눈에 보임</li>
+      <li>구현·밸런싱 반복이 가장 빠름. 에셋 없이도 완성도를 올리기 쉬움</li>
+      <li>저사양·모바일에서도 가벼움</li>
+    </ul></div>
+    <div class="card"><h2>단점</h2><ul class="cons">
+      <li>입체감·스케일감이 약함. "작품" 느낌의 상한이 낮음</li>
+      <li>연출을 과하게 넣으면 금방 조잡해짐</li>
+      <li>타워 개성을 모양과 색으로만 전달해야 함</li>
+    </ul></div>
+    <div class="card"><h2>속도</h2><div class="row" id="speed"></div></div>
+  </aside>
+</main>
+<script type="module">
+  import { createShowcase } from './shared/sim.js';
+  import { createFlatRenderer } from './shared/flat.js';
+  import { runLoop, speedButtons } from './shared/loop.js';
+  const sim = createShowcase();
+  const r = createFlatRenderer(document.getElementById('c'), sim, { glow: true, cell: 60 });
+  const loop = runLoop(sim, (ev, dt) => r.draw({}, dt, ev), { fpsEl: document.getElementById('fps') });
+  speedButtons(document.getElementById('speed'), loop);
+</script>
+</body>
+</html>

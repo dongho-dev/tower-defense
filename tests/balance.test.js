@@ -1,0 +1,23 @@
+// 헤드리스 밸런스 회귀 테스트. 수치를 바꿨는데 이 테스트가 깨지면
+// node tests/balance-probe.mjs 로 시나리오별 결과를 보고 의도한 변화인지 판단한다.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { playWithPlan, STANDARD_PLAN } from './helpers.js';
+
+test('아무것도 짓지 않으면 초반에 패배한다', () => {
+    const { state } = playWithPlan('dusk', [], { noUpgrades: true, skills: false });
+    assert.equal(state.status, 'lost');
+    assert.ok(state.waveIndex <= 4, `웨이브 ${state.waveIndex}까지 버팀`);
+});
+
+test('특화에 집중한 8타워 전략은 승리한다', () => {
+    const { state } = playWithPlan('dusk', STANDARD_PLAN.slice(0, 8));
+    assert.equal(state.status, 'won');
+    assert.ok(state.lives < state.maxLives, '자동 전략이 무손실이면 너무 쉽다');
+});
+
+test('한 종류만 짓는 전략은 끝까지 버티지 못한다', () => {
+    const plan = STANDARD_PLAN.map(([s]) => [s, 'ranger', 'b']);
+    const { state } = playWithPlan('dusk', plan);
+    assert.equal(state.status, 'lost');
+});

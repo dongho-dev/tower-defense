@@ -1,33 +1,33 @@
 {
-  "name": "tower-defense",
-  "version": "1.0.0",
-  "main": "main.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "scripts": {
-    "test": "node --test tests/smoke.test.js tests/unit.test.js",
-    "test:coverage": "node --test --experimental-test-coverage tests/smoke.test.js tests/unit.test.js",
-    "lint": "eslint --max-warnings 0 *.js tests/**/*.js",
-    "lint:fix": "eslint --fix *.js tests/**/*.js",
-    "check-globals": "node scripts/check-globals.mjs",
-    "format": "prettier --write \"*.js\" \"*.mjs\" \"tests/**/*.js\"",
-    "format:check": "prettier --check \"*.js\" \"*.mjs\" \"tests/**/*.js\"",
-    "prepare": "husky"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "jsdom": "27.0.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.1.0",
-    "globals": "^17.4.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
-    "prettier": "^3.8.1"
-  }
+    "name": "last-light",
+    "version": "2.0.0",
+    "private": true,
+    "type": "module",
+    "description": "LAST LIGHT — 황혼의 아케인 판타지 3D 타워 디펜스",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "test": "node --test \"tests/*.test.js\"",
+        "test:coverage": "node --test --experimental-test-coverage \"tests/*.test.js\"",
+        "lint": "eslint --max-warnings 0 src tests",
+        "lint:fix": "eslint --fix src tests",
+        "format": "prettier --write \"src/**/*.{js,css}\" \"tests/**/*.js\" \"*.{js,mjs}\"",
+        "format:check": "prettier --check \"src/**/*.{js,css}\" \"tests/**/*.js\" \"*.{js,mjs}\"",
+        "prepare": "husky"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "@fontsource/cinzel": "^5.2.0",
+        "three": "^0.184.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.1.0",
+        "globals": "^17.4.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.4.0",
+        "prettier": "^3.8.1",
+        "vite": "^7.1.0"
+    }
 }
