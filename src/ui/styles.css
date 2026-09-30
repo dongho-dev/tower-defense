@@ -1,0 +1,61 @@
+@font-face {
+    font-family: 'Noto Sans KR';
+    src: url('/fonts/NotoSansKR-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Noto Sans KR';
+    src: url('/fonts/NotoSansKR-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+}
+
+:root {
+    --ink: #120e1c;
+    --ink-2: #1b1529;
+    --panel: rgba(22, 17, 34, 0.78);
+    --panel-solid: #1c162b;
+    --line: rgba(230, 184, 92, 0.28);
+    --line-strong: rgba(230, 184, 92, 0.6);
+    --gold: #e6b85c;
+    --gold-hi: #ffe2a0;
+    --text: #f3ead8;
+    --muted: #b7a98f;
+    --danger: #ff5a5a;
+    --good: #7ee08a;
+    --mana: #9fd8ff;
+    --display: 'Cinzel', 'Noto Sans KR', serif;
+    --body: 'Noto Sans KR', system-ui, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1428;
+    color: var(--text);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+}
+
+#stage {
+    position: fixed;
+    inset: 0;
+}
+
+#stage canvas {
+    display: block;
+    touch-action: none;
+}
+
+#ui {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
