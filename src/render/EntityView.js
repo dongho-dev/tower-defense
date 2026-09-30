@@ -22,6 +22,19 @@ export class EntityView {
         this.projMesh = new Map();
     }
 
+    /** 새 게임 시작 시 모든 오브젝트 제거 */
+    reset() {
+        for (const v of this.towers.values()) this.root.remove(v.root);
+        for (const v of this.enemies.values()) this.root.remove(v.root);
+        for (const d of this.dying) this.root.remove(d.v.root);
+        this.towers.clear();
+        this.enemies.clear();
+        this.dying = [];
+        this.projectiles.clear();
+        this.projMesh.clear();
+        for (const pool of Object.values(this.pools)) for (const m of pool) m.visible = false;
+    }
+
     projectileAt(id) {
         return this.projMesh.get(id);
     }
@@ -88,6 +101,7 @@ export class EntityView {
             const sig = tower.tier + (tower.branch || '');
             if (!v) {
                 v = { root: new THREE.Group(), model: null, sig: null, recoil: 0, pop: 0, built: 0 };
+                v.root.userData.towerId = tower.id;
                 v.root.position.set(tower.x, this.socketY(tower.socketId), tower.z);
                 this.root.add(v.root);
                 this.towers.set(tower.id, v);
@@ -121,6 +135,7 @@ export class EntityView {
             let v = this.enemies.get(e.id);
             if (!v) {
                 v = buildEnemyModel(e.type, e.elite);
+                v.root.userData.enemyId = e.id;
                 v.root.scale.setScalar(e.scale * ENEMY_SCALE);
                 v.lastHp = e.hp;
                 v.spawnT = 0;

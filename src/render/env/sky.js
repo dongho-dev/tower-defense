@@ -1,6 +1,5 @@
 // 노을 하늘, IBL 환경맵, 섬 아래 구름바다, 떠다니는 작은 섬들.
 import * as THREE from 'three';
-import { Sky } from 'three/addons/objects/Sky.js';
 import { puffSprite } from '../util/textures.js';
 import { mulberry32 } from '../util/noise.js';
 
@@ -16,33 +15,82 @@ export function sunDirection(elevation) {
     ).normalize();
 }
 
-export function createSky(renderer) {
-    const sky = new Sky();
-    sky.scale.setScalar(1500);
-    const u = sky.material.uniforms;
-    u.turbidity.value = 7;
-    u.rayleigh.value = 2.2;
-    u.mieCoefficient.value = 0.006;
-    u.mieDirectionalG.value = 0.86;
-    u.sunPosition.value.copy(sunDirection(SKY_ELEVATION));
+const skyVert = /* glsl */ `
+varying vec3 vDir;
+void main() {
+    vDir = normalize(position);
+    vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position = p.xyww;
+}`;
 
-    // 하늘로 환경맵을 굽는다 (금속 반사·간접광)
+const skyFrag = /* glsl */ `
+uniform vec3 uSun;
+uniform vec3 uZenith;
+uniform vec3 uUpper;
+uniform vec3 uHorizon;
+uniform vec3 uBelow;
+uniform vec3 uSunGlow;
+uniform float uTime;
+varying vec3 vDir;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+}
+float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p *= 2.1; a *= 0.5; } return s; }
+void main() {
+    vec3 d = normalize(vDir);
+    float h = d.y;
+    vec3 col = mix(uHorizon, uUpper, smoothstep(0.0, 0.28, h));
+    col = mix(col, uZenith, smoothstep(0.28, 0.85, h));
+    col = mix(col, uBelow, smoothstep(0.0, -0.35, h));
+    float sd = max(dot(d, normalize(uSun)), 0.0);
+    float band = 1.0 - smoothstep(0.0, 0.35, abs(h));
+    col += uSunGlow * (pow(sd, 6.0) * 0.55 + pow(sd, 2.0) * 0.25 * band);
+    col += uSunGlow * pow(sd, 900.0) * 6.0;
+    // 새털구름 결
+    if (h > 0.0) {
+        vec2 uv = d.xz / (h + 0.12) * 1.3 + vec2(uTime * 0.004, 0.0);
+        float c = fbm(uv * vec2(1.0, 4.0));
+        float streak = smoothstep(0.55, 0.85, c) * smoothstep(0.02, 0.2, h) * (1.0 - smoothstep(0.5, 0.9, h));
+        vec3 cloudCol = mix(vec3(0.95, 0.55, 0.62), uSunGlow, pow(sd, 3.0));
+        col = mix(col, cloudCol, streak * 0.5);
+    }
+    gl_FragColor = vec4(col, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+}`;
+
+function skyDome(sunDir) {
+    const mat = new THREE.ShaderMaterial({
+        uniforms: {
+            uSun: { value: sunDir.clone() },
+            uZenith: { value: new THREE.Color('#161236') },
+            uUpper: { value: new THREE.Color('#4b2c72') },
+            uHorizon: { value: new THREE.Color('#f08a64') },
+            uBelow: { value: new THREE.Color('#8a4e78') },
+            uSunGlow: { value: new THREE.Color('#ffc07a') },
+            uTime: { value: 0 }
+        },
+        vertexShader: skyVert,
+        fragmentShader: skyFrag,
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(1000, 48, 24), mat);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = -10;
+    return mesh;
+}
+
+export function createSky(renderer) {
+    const sky = skyDome(sunDirection(SKY_ELEVATION));
+    // 같은 하늘로 환경맵을 굽는다 (금속 반사·간접광)
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envScene = new THREE.Scene();
-    const envSky = new Sky();
-    envSky.scale.setScalar(1500);
-    envSky.material.uniforms.turbidity.value = 7;
-    envSky.material.uniforms.rayleigh.value = 2.2;
-    envSky.material.uniforms.mieCoefficient.value = 0.006;
-    envSky.material.uniforms.mieDirectionalG.value = 0.86;
-    envSky.material.uniforms.sunPosition.value.copy(sunDirection(THREE.MathUtils.degToRad(12)));
-    envScene.add(envSky);
-    // 아래쪽 반구를 따뜻한 구름 색으로 채워 바닥 반사가 검게 뜨지 않게 한다
-    const floor = new THREE.Mesh(
-        new THREE.SphereGeometry(900, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: 0x8a6a7a, side: THREE.BackSide })
-    );
-    envScene.add(floor);
+    envScene.add(skyDome(sunDirection(THREE.MathUtils.degToRad(10))));
     const env = pmrem.fromScene(envScene, 0.02).texture;
     pmrem.dispose();
     return { sky, env };
@@ -94,7 +142,7 @@ void main() {
     float sunSide = clamp(dot(normalize(vWorld.xz + 0.001), toSun), 0.0, 1.0);
     col += uLit * 0.18 * sunSide * dens;
     float dist = length(vWorld.xz);
-    col = mix(col, uHorizon, smoothstep(60.0, 190.0, dist));
+    col = mix(col, uHorizon, smoothstep(50.0, 420.0, dist));
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -109,13 +157,13 @@ export function createCloudSea(sunDir) {
             uMid: { value: new THREE.Color('#f2a38e') },
             uShadow: { value: new THREE.Color('#a4739c') },
             uDeep: { value: new THREE.Color('#5a4580') },
-            uHorizon: { value: new THREE.Color('#f0b490') }
+            uHorizon: { value: new THREE.Color('#e48a6e') }
         },
         vertexShader: cloudVert,
         fragmentShader: cloudFrag,
         fog: false
     });
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600, 1, 1), mat);
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000, 1, 1), mat);
     sea.rotation.x = -Math.PI / 2;
     sea.position.y = -13;
     sea.name = 'cloudSea';
@@ -129,9 +177,9 @@ export function createCloudSea(sunDir) {
         const r = 17 + rand() * 40;
         const mat2 = new THREE.SpriteMaterial({
             map: tex[i % 3],
-            color: new THREE.Color().setHSL(0.02 + rand() * 0.07, 0.65, 0.78 + rand() * 0.12),
+            color: new THREE.Color().setHSL(0.97 + rand() * 0.1, 0.55, 0.7 + rand() * 0.1),
             transparent: true,
-            opacity: 0.55 + rand() * 0.3,
+            opacity: 0.28 + rand() * 0.25,
             depthWrite: false,
             fog: false
         });

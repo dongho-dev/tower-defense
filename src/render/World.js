@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createSky, createCloudSea, createIslets, sunDirection, LIGHT_ELEVATION } from './env/sky.js';
 import { createTerrain } from './env/terrain.js';
 import { createVegetation, makeTree, windUniforms } from './env/vegetation.js';
+import { createRangeIndicator } from './env/range.js';
 import {
     createRoad,
     createLanterns,
@@ -17,12 +18,12 @@ export class World {
     constructor(renderer, state, quality) {
         this.state = state;
         const scene = (this.scene = new THREE.Scene());
-        scene.fog = new THREE.Fog(0xd99a86, 55, 140);
+        scene.fog = new THREE.Fog(0xc9788a, 60, 150);
 
         const { sky, env } = createSky(renderer);
         scene.add(sky);
         scene.environment = env;
-        scene.environmentIntensity = 0.35;
+        scene.environmentIntensity = 0.6;
 
         // 조명: 따뜻한 낮은 해 + 보랏빛 하늘 반사 + 뒤쪽 차가운 림
         const sunDir = sunDirection(LIGHT_ELEVATION);
@@ -41,7 +42,7 @@ export class World {
         sun.shadow.normalBias = 0.03;
         sun.shadow.radius = 3;
         scene.add(sun, sun.target);
-        scene.add(new THREE.HemisphereLight(0x8c7fe0, 0x4a3226, 0.62));
+        scene.add(new THREE.HemisphereLight(0x9a8ce8, 0x5a3a2a, 0.75));
         const rim = new THREE.DirectionalLight(0x8f7cff, 0.9);
         rim.position.set(18, 14, -22);
         scene.add(rim);
@@ -65,6 +66,12 @@ export class World {
         for (const o of [this.lanterns, this.ramparts, this.portal, this.core, this.sockets, this.ley])
             scene.add(o.group);
         this.hoverSocket = null;
+        this.range = createRangeIndicator((x, z) => terrain.heightAt(x, z));
+        scene.add(this.range.mesh);
+    }
+
+    showRange(opt) {
+        this.range.show(opt);
     }
 
     heightAt(x, z) {
@@ -82,6 +89,6 @@ export class World {
         this.core.setHealth(this.state.lives / this.state.maxLives);
         this.sockets.update(t, this.state, this.hoverSocket);
         this.ley.update(t, this.state);
-        void dt;
+        this.range.update(t, dt);
     }
 }

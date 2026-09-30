@@ -92,6 +92,21 @@ export class Effects {
         this.v2 = new THREE.Vector3();
     }
 
+    reset() {
+        this.add.count = 0;
+        this.smoke.count = 0;
+        for (const r of this.rings) r.mesh.visible = false;
+        for (const d of this.decals) this.scene.remove(d.mesh);
+        this.decals = [];
+        for (const m of this.meteors) this.scene.remove(m.rock, m.warn);
+        this.meteors = [];
+        for (const s of this.shells.values()) this.scene.remove(s);
+        this.shells.clear();
+        for (const r of this.auraRings.values()) this.scene.remove(r);
+        this.auraRings.clear();
+        for (const l of this.lights) l.life = 0;
+    }
+
     resize(h) {
         this.add.setScale(h, this.camera.fov);
         this.smoke.setScale(h, this.camera.fov);
@@ -338,14 +353,14 @@ export class Effects {
     on_frostHit(ev) {
         const p = this.groundPoint(ev.x, ev.z, 0.35);
         this.burst(this.add, p, 16, { color: COL.ice, size: 0.13, speed: 2.2, life: 0.5, grav: 2 });
-        this.burst(this.smoke, p, 8, {
+        this.burst(this.smoke, p, 4, {
             color: [0.75, 0.9, 1],
-            size: 0.6,
-            size1: 1.2,
-            speed: 1.2,
+            size: 0.4,
+            size1: 0.8,
+            speed: 1,
             upMax: 0.3,
-            life: 0.9,
-            alpha: 0.35
+            life: 0.7,
+            alpha: 0.18
         });
         this.ring(p, ev.r, COL.ice, 0.45);
     }

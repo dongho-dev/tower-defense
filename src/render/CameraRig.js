@@ -14,6 +14,10 @@ export class CameraRig {
         this.minDistance = 13;
         this.maxDistance = 40;
         this.yaw = 0;
+        this.goalYaw = 0;
+        this.pitch = PITCH;
+        this.goalPitch = PITCH;
+        this.orbit = false;
         this.shakeAmp = 0;
         this.intro = null;
         this.keys = new Set();
@@ -71,10 +75,16 @@ export class CameraRig {
     }
 
     shake(amount) {
+        if (this.shakeEnabled === false) return;
         this.shakeAmp = Math.min(0.6, this.shakeAmp + amount);
     }
 
     /** 포털에서 수정까지 훑는 인트로 */
+    setPitch(deg, instant = false) {
+        this.goalPitch = THREE.MathUtils.degToRad(deg);
+        if (instant) this.pitch = this.goalPitch;
+    }
+
     playIntro(from, to, duration = 3.2) {
         this.intro = { t: 0, duration, from: from.clone(), to: to.clone() };
     }
@@ -104,14 +114,21 @@ export class CameraRig {
             this.target.lerp(this.goal, a);
             this.distance += (this.goalDistance - this.distance) * a;
         }
+        this.pitch += (this.goalPitch - this.pitch) * (1 - Math.exp(-dt * 2.2));
+        if (this.orbit) this.yaw += dt * 0.05;
+        else {
+            let d = this.goalYaw - this.yaw;
+            d = Math.atan2(Math.sin(d), Math.cos(d));
+            this.yaw += d * (1 - Math.exp(-dt * 2.5));
+        }
         this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.6);
         this.apply();
     }
 
     apply() {
         const c = this.camera;
-        const h = Math.sin(PITCH) * this.distance;
-        const back = Math.cos(PITCH) * this.distance;
+        const h = Math.sin(this.pitch) * this.distance;
+        const back = Math.cos(this.pitch) * this.distance;
         c.position.set(
             this.target.x + Math.sin(this.yaw) * back,
             this.target.y + h,
