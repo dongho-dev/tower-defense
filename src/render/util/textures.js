@@ -270,30 +270,6 @@ export function runeCircle() {
     });
 }
 
-/** 세로 그라데이션 빔 (수정의 빛기둥) */
-export function beamGradient() {
-    return cached('beam', () => {
-        const c = canvas(64);
-        c.width = 64;
-        c.height = 256;
-        const g = c.getContext('2d');
-        const grd = g.createLinearGradient(0, 256, 0, 0);
-        grd.addColorStop(0, 'rgba(255,255,255,1)');
-        grd.addColorStop(0.25, 'rgba(255,255,255,0.5)');
-        grd.addColorStop(1, 'rgba(255,255,255,0)');
-        g.fillStyle = grd;
-        g.fillRect(0, 0, 64, 256);
-        const h = g.createLinearGradient(0, 0, 64, 0);
-        h.addColorStop(0, 'rgba(0,0,0,1)');
-        h.addColorStop(0.5, 'rgba(0,0,0,0)');
-        h.addColorStop(1, 'rgba(0,0,0,1)');
-        g.globalCompositeOperation = 'destination-out';
-        g.fillStyle = h;
-        g.fillRect(0, 0, 64, 256);
-        return toTexture(c, { srgb: false });
-    });
-}
-
 /** 잔디 디테일: 타일링 노이즈 (지형 색에 곱한다) */
 export function grassDetail() {
     return cached('grassDetail', () => {

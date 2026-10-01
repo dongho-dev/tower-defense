@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { samplePath } from '../../core/path.js';
-import { cobblestone, glowSprite, runeCircle, beamGradient } from '../util/textures.js';
+import { cobblestone, glowSprite, runeCircle } from '../util/textures.js';
 import { mulberry32 } from '../util/noise.js';
 import { ROAD_Y } from './terrain.js';
 
@@ -417,22 +417,6 @@ export function createCore(state, terrain) {
     ringB.position.y = y + 1.35;
     ringB.rotation.x = -Math.PI / 2 + 0.35;
     g.add(ringA, ringB);
-    // 하늘로 솟는 빛기둥
-    const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.28, 0.5, 26, 24, 1, true),
-        new THREE.MeshBasicMaterial({
-            map: beamGradient(),
-            color: new THREE.Color('#ffd89a').multiplyScalar(2.2),
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            toneMapped: false,
-            opacity: 0.4
-        })
-    );
-    beam.position.y = y + 13;
-    g.add(beam);
     const halo = new THREE.Sprite(
         new THREE.SpriteMaterial({
             map: glowSprite(),
@@ -469,7 +453,6 @@ export function createCore(state, terrain) {
         setHealth(ratio) {
             crystalMat.emissiveIntensity = 1.5 + 3 * ratio;
             light.intensity = 5 + 9 * ratio;
-            beam.material.opacity = 0.12 + 0.28 * ratio;
         },
         update(t) {
             crystal.rotation.y = t * 0.35;
