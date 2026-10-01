@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q3-A 고정 소켓 + 분기 업그레이드</title>
+<link rel="stylesheet" href="shared/demo.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q3-A · 고정 소켓 + 분기 업그레이드</h1>
+  <span class="tag rec">추천 기반</span>
+  <span class="tag">게임성</span>
+</header>
+<main class="layout">
+  <div class="stage">
+    <canvas id="c"></canvas><div class="toast" id="toast" style="opacity:0"></div><div class="fps" id="fps"></div>
+    <div class="overlay" id="over" hidden><div class="card" style="text-align:center"><h2>방어 실패</h2><button onclick="location.reload()">다시 하기</button></div></div>
+  </div>
+  <aside class="side">
+    <div class="card"><h2>규칙</h2><p>점선 칸(소켓)에만 지을 수 있어요. 레벨 3이 되면 <b>A/B 중 하나를 골라</b> 특화합니다. 예를 들어 펄스 건은 개틀링과 저격 중 하나를 고르고, 프로스트의 "파쇄"는 모든 타워에 추가 피해를 줘요. Kingdom Rush, Bloons TD 6 계열입니다.</p></div>
+    <div id="gameSide"></div>
+    <div class="card"><h2>장점 / 단점</h2><ul class="pros"><li>맵 디자인으로 긴장감을 조율하기 쉬움. 소켓 위치가 곧 레벨 디자인</li><li>"어느 분기를 고를까"가 매 판 핵심 결정이 됨</li></ul><ul class="cons" style="margin-top:6px"><li>배치 자유도가 낮아 판마다 비슷해질 수 있음. 맵 수로 보완 필요</li></ul></div>
+  </aside>
+</main>
+<script type="module">
+  import { createSim, isSocket, towerAt } from './shared/sim.js';
+  import { mountGame, GAME_SIDE_HTML } from './shared/game-ui.js';
+  document.getElementById('gameSide').outerHTML = GAME_SIDE_HTML;
+  const sim = createSim({ mode: 'path', gold: 220, lives: 20 });
+  mountGame({
+    sim,
+    rules: {
+      showSockets: true,
+      branches: true,
+      canPlace: (s, x, y) => isSocket(s, x, y) && !towerAt(s, x, y),
+      invalidMsg: '점선 소켓에만 지을 수 있어요'
+    }
+  });
+</script>
+</body>
+</html>

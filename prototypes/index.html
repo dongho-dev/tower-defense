@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리메이크 방향 비교</title>
+<link rel="stylesheet" href="shared/demo.css">
+<style>
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  .hero h1 { font-size: 26px; margin: 0 0 6px; }
+  .hero p { color: var(--muted); margin: 0; line-height: 1.6; }
+  .rec { margin: 18px 0 30px; padding: 16px 18px; border: 1px solid #2b5a3c; background: #10241a; border-radius: 12px; }
+  .rec b { color: var(--good); }
+  .rec ol { margin: 8px 0 0; padding-left: 20px; line-height: 1.8; font-size: 14px; }
+  section { margin-top: 34px; }
+  section > h2 { font-size: 18px; margin: 0 0 4px; }
+  section > p.q { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .demo { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); transition: border-color .15s, transform .15s; }
+  .demo:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .demo .k { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .06em; }
+  .demo b { font-size: 16px; }
+  .demo span.d { font-size: 13px; color: #b7c3d8; line-height: 1.55; }
+  .demo.pick { border-color: #2b5a3c; }
+  .demo .badge { align-self: flex-start; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #173826; color: var(--good); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 640px; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; line-height: 1.5; }
+  th { color: var(--muted); font-weight: 600; background: #0f1624; }
+  tr.best td { background: #10241a; }
+  td.g { color: var(--good); } td.b { color: var(--bad); } td.w { color: var(--warn); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>타워 디펜스 리메이크 · 방향 비교 데모</h1>
+    <p>질문마다 작은 데모를 만들었어요. 버리는 코드라 완성도보다 <b>차이가 느껴지는 것</b>에 집중했습니다. 모든 데모는 같은 시뮬레이션 코어(<code>shared/sim.js</code>)를 씁니다. Q2와 Q4는 같은 맵과 같은 전투를 렌더링만 바꿔 보여줘요.</p>
+  </div>
+
+  <div class="rec">
+    <b>Claude 추천 조합</b>
+    <ol>
+      <li>Q1 · 두 기존 버전은 보관만 하고 <b>새로 설계</b>. 레거시 미커밋 변경은 별도 브랜치에 커밋해 보존</li>
+      <li>Q2 · <b>Three.js 저폴리 3D</b>. 블룸은 절제하고 타워는 한 칸 크기로</li>
+      <li>Q3 · <b>고정 소켓 + 분기 업그레이드</b>를 기반으로, <b>시너지와 액티브 스킬</b> 추가</li>
+      <li>Q4 · 톤은 데모를 보고 결정. 차별화는 디오라마, 대중성은 판타지가 유리함</li>
+    </ol>
+  </div>
+
+  <section>
+    <h2>Q1 · 기존 코드를 어떻게 할까?</h2>
+    <p class="q">코드 전략이라 화면 데모 대신 비교표로 정리했어요.</p>
+    <div class="table-wrap"><table>
+      <tr><th>선택지</th><th>시작점</th><th>속도</th><th>리스크</th><th>살릴 수 있는 것</th></tr>
+      <tr class="best"><td><b>A. 새로 설계</b> (둘 다 보관)<br><span class="badge" style="font-size:11px">추천</span></td><td class="g">깨끗한 모듈 구조로 시작</td><td class="w">초반은 느림</td><td class="g">낮음. 구조 부채가 없음</td><td>이 데모의 sim 코어, 밸런스 수치, 맵 설계 아이디어, remake의 WebP 아트(2D일 때)</td></tr>
+      <tr><td><b>B. remake/ Last Light 발전</b></td><td class="w">1.9k줄 단일 파일, Canvas2D 전제</td><td class="g">빠름</td><td class="w">중간. 3D로 가면 렌더러를 전면 교체해야 함</td><td>UI 레이아웃, 맵 3종, ImageGen 스프라이트 파이프라인</td></tr>
+      <tr><td><b>C. 루트 레거시 발전</b></td><td class="b">main.js 4.7k + three-scene.js 24.7k줄, 3.9k줄 미커밋</td><td class="b">느림</td><td class="b">높음. 블룸 과다·렌더러 이중 비용 등 구조적 문제</td><td>GLB 생성 스크립트, 테스트 셋</td></tr>
+    </table></div>
+    <p class="note">어느 쪽을 고르든 레거시의 미커밋 변경(+3.9k줄, <code>src/</code>·<code>assets/</code>·<code>scripts/</code>)은 날아가지 않게 <code>archive/legacy-3d</code> 같은 브랜치에 먼저 커밋해 두는 걸 권합니다.</p>
+  </section>
+
+  <section>
+    <h2>Q2 · 렌더링 방향</h2>
+    <p class="q">같은 맵, 같은 타워 11개, 같은 웨이브를 세 가지 방식으로 그렸어요. 나란히 번갈아 보면 차이가 가장 잘 보입니다.</p>
+    <div class="grid">
+      <a class="demo pick" href="q2-3d.html"><span class="k">Q2-A</span><b>Three.js 저폴리 3D</b><span class="d">그림자, 동적 광원, 절제한 블룸. 드래그로 회전·줌 가능.</span><span class="badge">추천</span></a>
+      <a class="demo" href="q2-iso.html"><span class="k">Q2-B</span><b>Canvas2D 아이소메트릭</b><span class="d">remake/와 같은 계열의 2.5D. 가볍지만 카메라가 고정됨.</span></a>
+      <a class="demo" href="q2-glow.html"><span class="k">Q2-C</span><b>2D 탑다운 + 광원 연출</b><span class="d">판독성과 개발 속도가 최고. 네온, 블룸, 꼬리, 화면 흔들림.</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Q3 · 게임성 범위</h2>
+    <p class="q">직접 플레이할 수 있어요. 숫자키로 타워를 고르고 클릭해 짓고, Space로 웨이브를 시작합니다. 타워를 클릭하면 업그레이드할 수 있어요.</p>
+    <div class="grid">
+      <a class="demo pick" href="q3-sockets.html"><span class="k">Q3-A</span><b>고정 소켓 + 분기 업그레이드</b><span class="d">정해진 자리에 짓고, 레벨 3에서 A/B 특화를 고름.</span><span class="badge">추천 기반</span></a>
+      <a class="demo" href="q3-maze.html"><span class="k">Q3-B</span><b>자유 배치 미로</b><span class="d">길이 없음. 타워와 벽으로 적의 최단 경로를 비틀기.</span></a>
+      <a class="demo pick" href="q3-synergy.html"><span class="k">Q3-C</span><b>인접 시너지 + 액티브 스킬</b><span class="d">다른 종류끼리 붙이면 강해지고, 메테오와 오버클럭으로 직접 개입.</span><span class="badge">추천 추가 요소</span></a>
+      <a class="demo" href="q3-cards.html"><span class="k">Q3-D</span><b>로그라이크 카드</b><span class="d">웨이브마다 3장 중 1장을 골라 판마다 다른 빌드.</span></a>
+    </div>
+    <p class="note">서로 배타적인 선택이 아니에요. 예를 들어 "A 기반에 C 추가, 엔드리스 모드에만 D" 같은 조합도 가능합니다.</p>
+  </section>
+
+  <section>
+    <h2>Q4 · 테마·아트 톤</h2>
+    <p class="q">Q2-A와 같은 3D 코드에서 테마 설정만 바꿨어요.</p>
+    <div class="grid">
+      <a class="demo" href="q4-themes.html?theme=sf"><span class="k">Q4-A</span><b>SF 네온</b><span class="d">현재 Last Light·Nexus를 잇는 어두운 발광 톤.</span></a>
+      <a class="demo" href="q4-themes.html?theme=fantasy"><span class="k">Q4-B</span><b>판타지</b><span class="d">밝은 초원, 석탑, 마법 오브. Kingdom Rush 계열.</span></a>
+      <a class="demo" href="q4-themes.html?theme=toy"><span class="k">Q4-C</span><b>미니어처 디오라마</b><span class="d">틸트시프트와 파스텔 장난감. 차별화가 가장 큼.</span></a>
+    </div>
+  </section>
+</div>
+</body>
+</html>

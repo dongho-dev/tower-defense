@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q2-B Canvas2D 아이소메트릭</title>
+<link rel="stylesheet" href="shared/demo.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q2-B · Canvas2D 아이소메트릭 (2.5D)</h1>
+  <span class="tag">렌더링</span>
+</header>
+<main class="layout">
+  <div class="stage"><canvas id="c"></canvas><div class="fps" id="fps"></div></div>
+  <aside class="side">
+    <div class="card"><h2>이 데모</h2><p>현재 <b>remake/ Last Light</b>와 같은 계열입니다. 에셋 없이 절차적으로 만든 프리즘과 구체로 그렸어요. 실제로는 여기에 스프라이트 아트를 입힙니다. 맵·타워·웨이브는 다른 Q2 데모와 같아요.</p></div>
+    <div class="card"><h2>장점</h2><ul class="pros">
+      <li>보드게임·디오라마 같은 입체감을 가볍게 낼 수 있음</li>
+      <li>스프라이트 아트를 쓰면 일러스트 품질을 그대로 살릴 수 있음</li>
+      <li>엔진 의존이 없고 성능도 좋음</li>
+    </ul></div>
+    <div class="card"><h2>단점</h2><ul class="cons">
+      <li>카메라가 고정됨. 회전·줌·연출 샷을 쓸 수 없음</li>
+      <li>포탑 회전은 스프라이트 분할이나 8방향 그림이 필요해 아트 비용이 커짐</li>
+      <li>깊이 정렬, 가림 처리 같은 버그를 직접 챙겨야 함</li>
+    </ul></div>
+    <div class="card"><h2>속도</h2><div class="row" id="speed"></div></div>
+  </aside>
+</main>
+<script type="module">
+  import { createShowcase } from './shared/sim.js';
+  import { createIsoRenderer } from './shared/iso.js';
+  import { runLoop, speedButtons } from './shared/loop.js';
+  const sim = createShowcase();
+  const r = createIsoRenderer(document.getElementById('c'), sim);
+  const loop = runLoop(sim, (ev, dt) => r.draw({}, dt, ev), { fpsEl: document.getElementById('fps') });
+  speedButtons(document.getElementById('speed'), loop);
+</script>
+</body>
+</html>

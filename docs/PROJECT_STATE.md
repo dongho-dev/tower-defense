@@ -1,55 +1,56 @@
-﻿# Project Snapshot: Tower Defense
+# Project State: LAST LIGHT v2
+
+As of 2026-10-01. Design rationale lives in [REMAKE_DESIGN.md](REMAKE_DESIGN.md) (Korean); the Korean version of this file is [PROJECT_STATE_ko.md](PROJECT_STATE_ko.md).
 
 ## Overview
-- Single-page HTML5 canvas tower defense (index.html, style.css, main.js)
-- Updated glassmorphism UI with a collapsible left build panel, central battlefield, and right-hand intel column
-- Integrated Web Audio soundscape (placement/upgrade/kill/explosion/laser/toggle cues) with a mute toggle on the HUD
+
+- 3D tower defense built with Vite + Three.js 0.184. Browser only, no server.
+- Every model, texture, and sound is procedural. Fonts: `public/fonts` (Noto Sans KR) and `@fontsource/cinzel`.
+- Flow: title → battlefield select → intro fly-in → battle → results. Progress (stars per map) and settings persist in localStorage key `lastlight.v2`.
 
 ## File Map
-- index.html – header HUD, sound toggle, collapsible build panel (#build-panel), canvas stage, info column (wave preview, tower/enemy stats), defeat overlay
-- style.css – gradient background, glass panels, tower card grid, responsive collapse logic for the build panel, refreshed typography and buttons
-- main.js – tower definitions, dynamic build panel population, game state, audio engine, combat logic (shotgun/laser/aoe/mortar), rendering pipeline, and event wiring
 
-## Controls & UI
-- Build panel (left): toggle with the side handle, choose a tower card (shows cost/range/DPS), then left-click the map to place
-- Right-click a tower to upgrade (level cap 15, +2.5× damage per level)
-- Stats column auto-updates when selecting towers/enemies; wave preview shows status/HP/reward/speed
-- Top HUD: gold input + quick +100/+500, wave jump, speed buttons (1x/2x/3x), and sound toggle (🔊/🔇)
-- Spacebar pauses/resumes; defeat overlay offers restart or close
+| Path | Role |
+| --- | --- |
+| `src/main.js` | Loads fonts/styles and creates `App` |
+| `src/app.js` | Screen flow, fixed-step loop (1/60 s), input and picking, hotkeys, save/settings, dev hook `window.__game` |
+| `src/core/game.js` | State, `step`, commands (build/upgrade/sell/callWave/castSkill/setTargeting), resonance, damage, event queue |
+| `src/core/path.js` | Catmull-Rom path sampling and distance queries |
+| `src/core/data/*.js` | Towers, enemies, maps, waves |
+| `src/render/World.js` | Lights, sky, clouds, island, road, props, portals, core, sockets, ley lines, range indicator |
+| `src/render/themes.js` | Per-map visual themes (dusk / frost / void) |
+| `src/render/env/*` | Terrain, sky, vegetation, structures, range indicator |
+| `src/render/models/*` | Procedural tower/enemy models, animation, shared materials |
+| `src/render/fx/*` | Particle engine, lightning ribbons, event effects |
+| `src/render/EntityView.js` | Syncs game state to 3D objects |
+| `src/render/Renderer.js` | Renderer, MSAA + bloom + grading, quality presets |
+| `src/render/CameraRig.js` | Pitch/distance/pan/shake/intro/title orbit |
+| `src/ui/*` | HUD, radial menus and cards, screens, overlay (HP bars, floating text), icons, styles |
+| `src/audio/audio.js` | WebAudio synthesized SFX and ambience |
+| `tests/` | `core.test.js` (rules), `balance.test.js` (headless AI regression), `balance-probe.mjs` (exploration) |
+| `tools/` | Map preview, socket placement helper |
+| `prototypes/` | Direction comparison demos (archived) |
 
-## Enemy Waves
-- Count per wave: 8 + floor(wave * 1.5)
-- Health scaling ENEMY_HP_GROWTH_RATE = 1.25; speed (49) and reward (14) remain constant
-- Wave preview exposes state (대기/휴식/전투 중/패배), enemies remaining, HP, tile-per-second speed, and reward
+## Rules Summary
 
-## Towers & Upgrades
-- Eight archetypes defined in TOWER_TYPES:
-  - **Basic** – balanced single-shot
-  - **Shotgun** – short-range multi-pellet spread
-  - **Sniper** – long-range beam projectile
-  - **Burst** – burst volley with micro delays
-  - **Rapid** – high fire-rate stream
-  - **Explosive** – splash shells detonating on hit/expiry
-  - **Laser** – sustained beam damage (continuous tick, beam visual)
-  - **Mortar** – arcing projectile with high-damage, wide explosion
-- Upgrades cost gold, add +1 level, multiply damage by **2.5**, cap at level 15; upgrade costs double each level from a tower-specific base value
+- **Towers**: Ranger 70, Ember 110, Frost 90, Storm 130. Three tiers, then an A/B branch. Selling refunds 70% of the investment.
+- **Resonance**: Linked sockets holding different tower types exchange buffs. Same-type links give nothing, and each type counts once.
+- **Damage**: Physical is reduced by armor (Marksman pierces 70%). Magic is reduced by resist. Burn and meteor deal true damage.
+- **Waves**: A 16 s countdown starts when a wave finishes spawning. Calling early pays 1.5 gold per remaining second.
+- **HP scaling**: 1.115× per wave. Map multipliers are Frostvale 0.95 and Voidspire 1.0, plus an optional per-group `hpMul`.
+- **Results**: 3 stars at ≥90% lives remaining, 2 stars at ≥50%, otherwise 1.
 
-## Audio
-- Web Audio engine lazily initialises on first user interaction, mixing through a master gain node
-- Sound cues: select, 	oggle, uild, upgrade, kill, explosion, laser
-- HUD sound toggle updates icon/aria state and fully mutes/unmutes the master gain
+## Verification
 
-## Combat Logic Highlights
-- performTowerAttack() fans out per pattern (shotgun spread, burst queue, explosive splash, laser sustain, mortar arc)
-- handleLaserAttack() emits continuous damage, draws beams, and plays a beam cue on first contact
-- pplyExplosion() handles AoE damage, impact visuals, and explosion SFX
-- update() drives spawning, targeting, projectile movement, AoE resolution, gold/life updates, and UI refresh
+- `npm test`: 22 tests covering map constraints, commands, resonance, damage types, wave flow, skills, and AI balance on all three maps.
+- Headless balance (automatic AI):
+  - Dusk Rampart: a focused 8-tower plan wins while losing some lives.
+  - Frostvale: a 10-tower plan wins.
+  - Voidspire: a 10-tower plan barely wins, and a 6-tower plan loses.
+- Performance reference (1600×900, wave 16, 37 enemies, 1.4k particles): sim 0.2 ms, view update 1.6 ms, render about 11.5 ms.
 
-## Rendering
-- Canvas draw stack: grid, path, hover highlight, towers (shape per type), enemies with HP bars, projectiles (beams/triangles/hex/orbs/trails), impact flashes, active laser beams, pause/defeat overlay
-- Build panel + cards use CSS utility classes; range rings display when a tower is selected
+## Known Limitations
 
-## Notes
-- All copy remains in Korean; keep files UTF-8 encoded to avoid mojibake
-- No automated tests – manually verify tower placement/upgrade (to level 15), AoE interactions, laser effects, audio toggle, and responsive layout
-- Update both docs/PROJECT_STATE.md and docs/PROJECT_STATE_ko.md when UI or mechanics evolve
+- No mobile pinch zoom (drag pan and tap work).
+- Changing graphics quality fully applies shadow resolution and particle caps from the next battle.
+- The bundle is about 720 kB (about 200 kB gzip). Consider code-splitting Three.js if needed.

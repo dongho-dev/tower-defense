@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q4 테마 비교</title>
+<link rel="stylesheet" href="shared/demo.css">
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+<style>
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs a { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 13px; }
+  .tabs a.on { border-color: var(--accent); background: #173247; }
+  .theme-desc { display: none; }
+  .theme-desc.on { display: block; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q4 · 테마·아트 톤 비교</h1>
+  <span class="tag">테마</span>
+  <nav class="tabs" id="tabs">
+    <a href="?theme=sf" data-t="sf">SF 네온 (현 Last Light)</a>
+    <a href="?theme=fantasy" data-t="fantasy">판타지</a>
+    <a href="?theme=toy" data-t="toy">미니어처 디오라마</a>
+  </nav>
+</header>
+<main class="layout">
+  <div class="stage" id="stage"><div class="fps" id="fps"></div></div>
+  <aside class="side">
+    <div class="card"><h2>이 데모</h2><p>Q2-A와 <b>같은 3D 코드, 같은 전투</b>입니다. 테마 설정(색·조명·모델 실루엣·후처리)만 바꿨어요. 위 탭으로 전환하고, 드래그로 회전할 수 있습니다.</p></div>
+    <div class="card theme-desc" data-t="sf"><h2>SF 네온</h2><p>지금의 Last Light와 레거시 Nexus를 잇는 톤입니다. 어두운 배경에 발광 라인을 써요.</p><ul class="pros" style="margin-top:8px"><li>기존 에셋·세계관을 이어갈 수 있음</li><li>발광 이펙트가 잘 먹혀 전투가 화려함</li></ul><ul class="cons" style="margin-top:6px"><li>어두운 화면이라 가독성과 차별화가 어려움. 레드오션 톤</li></ul></div>
+    <div class="card theme-desc" data-t="fantasy"><h2>판타지</h2><p>Kingdom Rush 계열입니다. 밝은 초원에 석탑과 마법 오브가 서 있어요.</p><ul class="pros" style="margin-top:8px"><li>밝아서 한눈에 읽힘. 타워 종류가 형태로 바로 구분됨</li><li>대중적이고 친숙함. 스토리·캐릭터를 붙이기 쉬움</li></ul><ul class="cons" style="margin-top:6px"><li>장르 대표작이 많아 "또 판타지"라는 인상을 줄 수 있음</li></ul></div>
+    <div class="card theme-desc" data-t="toy"><h2>미니어처 디오라마</h2><p>테이블 위 장난감 보드 같은 톤입니다. 틸트시프트 블러, 파스텔 플라스틱 재질, 눈 달린 적을 썼어요.</p><ul class="pros" style="margin-top:8px"><li>개성과 차별화가 가장 큼. 스크린샷 한 장으로 기억됨</li><li>저폴리여도 "의도한 스타일"로 보여 아트 비용 대비 효율이 좋음</li></ul><ul class="cons" style="margin-top:6px"><li>귀여운 톤이라 긴장감 있는 하드코어 연출과는 맞지 않음</li><li>틸트시프트 후처리 때문에 약간의 성능 비용</li></ul></div>
+    <div class="card"><h2>속도</h2><div class="row" id="speed"></div></div>
+  </aside>
+</main>
+<script type="module">
+  import { createShowcase } from './shared/sim.js';
+  import { createThreeView } from './shared/three-view.js';
+  import { runLoop, speedButtons } from './shared/loop.js';
+  const theme = new URLSearchParams(location.search).get('theme') || 'fantasy';
+  document.querySelectorAll('[data-t]').forEach((el) => el.classList.toggle('on', el.dataset.t === theme));
+  const sim = createShowcase();
+  const view = createThreeView(document.getElementById('stage'), sim, theme);
+  const loop = runLoop(sim, (ev, dt) => view.draw({}, dt, ev), { fpsEl: document.getElementById('fps') });
+  speedButtons(document.getElementById('speed'), loop);
+</script>
+</body>
+</html>

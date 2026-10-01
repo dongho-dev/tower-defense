@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q3-C 시너지 + 액티브 스킬</title>
+<link rel="stylesheet" href="shared/demo.css">
+<style>
+  .skill { position: relative; overflow: hidden; flex: 1; text-align: left; }
+  .skill .cd { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q3-C · 인접 시너지 + 액티브 스킬</h1>
+  <span class="tag rec">추천 추가 요소</span>
+  <span class="tag">게임성</span>
+</header>
+<main class="layout">
+  <div class="stage">
+    <canvas id="c"></canvas><div class="toast" id="toast" style="opacity:0"></div><div class="fps" id="fps"></div>
+    <div class="overlay" id="over" hidden><div class="card" style="text-align:center"><h2>방어 실패</h2><button onclick="location.reload()">다시 하기</button></div></div>
+  </div>
+  <aside class="side">
+    <div class="card"><h2>규칙</h2><p>길이 아닌 칸이면 어디든 지을 수 있어요. <b>서로 다른 종류</b>의 타워가 붙어 있으면(대각선 포함) 종류 하나당 피해가 +15% 올라가고, 초록 점선으로 연결돼요. 전투 중에는 <b>스킬</b>로 직접 개입합니다.</p></div>
+    <div class="card"><h2>스킬</h2><div class="row">
+      <button class="skill" id="meteor"><b>메테오 [Q]</b><br><small class="hint">클릭한 지점에 광역 피해 · 12초</small><i class="cd" id="meteorCd"></i></button>
+      <button class="skill" id="over2"><b>오버클럭 [E]</b><br><small class="hint">5초간 공속 2배 · 20초</small><i class="cd" id="overCd"></i></button>
+    </div></div>
+    <div id="gameSide"></div>
+    <div class="card"><h2>장점 / 단점</h2><ul class="pros"><li>"어디에 무엇을 붙일까"라는 배치 퍼즐이 생김</li><li>스킬 덕분에 웨이브 중에도 할 일이 있음. 관전 시간이 줄어듦</li></ul><ul class="cons" style="margin-top:6px"><li>시너지 규칙이 많아지면 한눈에 읽기 어려움. UI로 잘 보여줘야 함</li><li>스킬 밸런스에 따라 타워 가치가 흔들릴 수 있음</li></ul></div>
+  </aside>
+</main>
+<script type="module">
+  import { createSim, towerAt, inGrid, key, castMeteor, castOverclock } from './shared/sim.js';
+  import { mountGame, GAME_SIDE_HTML } from './shared/game-ui.js';
+  document.getElementById('gameSide').outerHTML = GAME_SIDE_HTML;
+  const sim = createSim({ mode: 'path', gold: 260, lives: 20, synergy: true });
+  const cd = { meteor: 0, over: 0 };
+  const MAX = { meteor: 12, over: 20 };
+  let lastTime = 0;
+  const game = mountGame({
+    sim,
+    rules: {
+      branches: false,
+      canPlace: (s, x, y) => inGrid(s, x, y) && !s.pathCells.has(key(x, y)) && !towerAt(s, x, y),
+      invalidMsg: '길 위에는 지을 수 없어요',
+      onFrame() {
+        const dt = sim.time - lastTime; lastTime = sim.time;
+        for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+        document.getElementById('meteorCd').style.width = (100 - cd.meteor / MAX.meteor * 100) + '%';
+        document.getElementById('overCd').style.width = (100 - cd.over / MAX.over * 100) + '%';
+        document.getElementById('meteor').disabled = cd.meteor > 0;
+        document.getElementById('over2').disabled = cd.over > 0;
+        document.getElementById('meteor').classList.toggle('on', !!game?.ui.targeting);
+      },
+      onKey(e) { if (e.key === 'q' || e.key === 'Q') meteor(); if (e.key === 'e' || e.key === 'E') overclock(); }
+    }
+  });
+  function meteor() {
+    if (cd.meteor > 0) return;
+    game.ui.placeType = null;
+    game.ui.targeting = (p) => { castMeteor(sim, p.x, p.y); cd.meteor = MAX.meteor; };
+    game.toast('메테오: 떨어뜨릴 지점을 클릭하세요');
+  }
+  function overclock() {
+    if (cd.over > 0) return;
+    castOverclock(sim); cd.over = MAX.over; game.toast('오버클럭! 5초간 공속 2배');
+  }
+  document.getElementById('meteor').onclick = meteor;
+  document.getElementById('over2').onclick = overclock;
+</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q3-D 로그라이크 카드</title>
+<link rel="stylesheet" href="shared/demo.css">
+<style>
+  .pick { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 20px; }
+  .pick h2 { margin: 0; font-size: 18px; }
+  .cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .cardpick { width: 170px; min-height: 190px; padding: 16px 14px; border-radius: 14px; background: linear-gradient(180deg, #1b263a, #121a28); border: 1px solid #2b3a57; display: flex; flex-direction: column; gap: 8px; text-align: left; transition: transform .15s, border-color .15s; }
+  .cardpick:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .cardpick .icon { font-size: 28px; }
+  .cardpick b { font-size: 15px; }
+  .cardpick small { color: #b7c3d8; font-size: 12px; line-height: 1.5; }
+  .cardpick .rar { font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+  .rare { border-color: #6a4fc0; background: linear-gradient(180deg, #251d45, #151228); }
+  .rare .rar { color: #b89bff; }
+  .common .rar { color: #8b9ab3; }
+  #deck { display: flex; flex-wrap: wrap; gap: 6px; }
+  #deck span { font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); padding: 4px 8px; border-radius: 999px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← 비교 허브</a>
+  <h1>Q3-D · 로그라이크 카드 (웨이브마다 3장 중 1장)</h1>
+  <span class="tag">게임성</span>
+</header>
+<main class="layout">
+  <div class="stage">
+    <canvas id="c"></canvas><div class="toast" id="toast" style="opacity:0"></div><div class="fps" id="fps"></div>
+    <div class="overlay" id="pick" hidden><div class="pick"><h2 id="pickTitle">강화 카드를 고르세요</h2><div class="cards" id="cards"></div></div></div>
+    <div class="overlay" id="over" hidden><div class="card" style="text-align:center"><h2>방어 실패</h2><button onclick="location.reload()">다시 하기</button></div></div>
+  </div>
+  <aside class="side">
+    <div class="card"><h2>규칙</h2><p>소켓 배치는 Q3-A와 같아요. 대신 <b>작전 시작 전과 매 웨이브가 끝날 때</b> 무작위 카드 3장 중 1장을 고릅니다. 카드가 쌓이면서 판마다 빌드가 달라져요. Rogue Tower, Kingdom Two Crowns 같은 계열입니다.</p></div>
+    <div class="card"><h2>획득한 카드</h2><div id="deck"><span class="hint">아직 없음</span></div></div>
+    <div id="gameSide"></div>
+    <div class="card"><h2>장점 / 단점</h2><ul class="pros"><li>반복 플레이 가치가 가장 높음. 매 판 다른 빌드</li><li>콘텐츠(맵) 수가 적어도 오래 즐길 수 있음</li></ul><ul class="cons" style="margin-top:6px"><li>카드 밸런스·조합 폭주 관리가 어려움</li><li>운 요소가 커져 전략 게임 팬에게는 호불호가 갈림</li></ul></div>
+  </aside>
+</main>
+<script type="module">
+  import { createSim, isSocket, towerAt, TOWERS } from './shared/sim.js';
+  import { mountGame, GAME_SIDE_HTML } from './shared/game-ui.js';
+  document.getElementById('gameSide').outerHTML = GAME_SIDE_HTML;
+  const sim = createSim({ mode: 'path', gold: 200, lives: 20 });
+  const CARDS = [
+    { id: 'dmg', icon: '🎯', name: '정밀 조준', desc: '모든 타워 피해 +20%', apply: (s) => { s.mods.dmg *= 1.2; } },
+    { id: 'splash', icon: '💥', name: '광역 설계', desc: '폭발·둔화 반경 +40%', apply: (s) => { s.mods.splash *= 1.4; } },
+    { id: 'bounty', icon: '💰', name: '현상금', desc: '처치 골드 +35%', apply: (s) => { s.mods.gold *= 1.35; } },
+    { id: 'lives', icon: '🛡️', name: '긴급 보강', desc: '목숨 +5', apply: (s) => { s.lives += 5; } },
+    { id: 'supply', icon: '📦', name: '보급 투하', desc: '즉시 +150 골드', apply: (s) => { s.gold += 150; } },
+    { id: 'range', icon: '🔭', name: '망원 조준경', desc: '모든 사거리 +15%', apply: (s) => { s.mods.range *= 1.15; } },
+    { id: 'rate', icon: '⚙️', name: '과열 회로', desc: '공격 속도 +20%', apply: (s) => { s.mods.rate /= 1.2; } },
+    { id: 'slow', icon: '❄️', name: '극저온', desc: '둔화 효과 +15%p', apply: (s) => { s.mods.slowAdd += 0.15; } },
+    { id: 'interest', icon: '🏦', name: '복리', desc: '웨이브 종료 시 보유 골드의 10% 이자', rare: true, apply: (s) => { s.mods.interest += 0.1; } },
+    { id: 'prism', icon: '🔮', name: '분광 렌즈', desc: '레이저가 표적 1개를 더 조준', rare: true, apply: (s) => { s.mods.multiBonus += 1; } },
+    { id: 'artillery', icon: '🧨', name: '포병 교리', desc: '캐논 피해 +60%', rare: true, apply: (s) => { s.mods.typeDmg.cannon = (s.mods.typeDmg.cannon || 1) * 1.6; } },
+    { id: 'rapid', icon: '⚡', name: '속사 교리', desc: '펄스 건 피해 +60%', rare: true, apply: (s) => { s.mods.typeDmg.gun = (s.mods.typeDmg.gun || 1) * 1.6; } },
+    { id: 'free', icon: '🎁', name: '무상 지원', desc: '다음에 짓는 타워 비용 전액 환급 (1회)', rare: true, apply: (s) => { s.freeBuild = true; } }
+  ];
+  const deck = [];
+  let pending = false;
+  const game = mountGame({
+    sim,
+    rules: {
+      showSockets: true,
+      branches: false,
+      blockWave: () => pending,
+      canPlace: (s, x, y) => isSocket(s, x, y) && !towerAt(s, x, y),
+      invalidMsg: '점선 소켓에만 지을 수 있어요'
+    }
+  });
+  sim.onWaveEnd = () => offer(`웨이브 ${sim.wave} 클리어! 강화 카드를 고르세요`);
+
+  // 무상 지원: 다음 건설 비용 환급
+  document.getElementById('c').addEventListener('click', () => {
+    if (!sim.freeBuild) return;
+    const last = sim.towers[sim.towers.length - 1];
+    if (last && last.built === sim.time && last.spent) { sim.gold += last.spent; last.spent = 0; sim.freeBuild = false; game.toast('무상 지원 사용!'); game.refresh(); }
+  });
+
+  function offer(title) {
+    pending = true;
+    sim.paused = true;
+    document.getElementById('pickTitle').textContent = title;
+    const pool = CARDS.filter((c) => !(c.once && deck.includes(c)));
+    const picks = [];
+    while (picks.length < 3) {
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      if (picks.includes(c)) continue;
+      if (c.rare && Math.random() < 0.45) continue;
+      picks.push(c);
+    }
+    const el = document.getElementById('cards');
+    el.innerHTML = '';
+    for (const c of picks) {
+      const b = document.createElement('button');
+      b.className = 'cardpick ' + (c.rare ? 'rare' : 'common');
+      b.innerHTML = `<span class="rar">${c.rare ? '희귀' : '일반'}</span><span class="icon">${c.icon}</span><b>${c.name}</b><small>${c.desc}</small>`;
+      b.onclick = () => choose(c);
+      el.appendChild(b);
+    }
+    document.getElementById('pick').hidden = false;
+    game.refresh();
+  }
+  function choose(c) {
+    c.apply(sim);
+    deck.push(c);
+    pending = false;
+    sim.paused = false;
+    document.getElementById('pick').hidden = true;
+    document.getElementById('deck').innerHTML = deck.map((d) => `<span>${d.icon} ${d.name}</span>`).join('');
+    game.toast(`${c.name} 획득`);
+    game.refresh();
+  }
+  offer('작전 시작 전: 첫 카드를 고르세요');
+</script>
+</body>
+</html>
