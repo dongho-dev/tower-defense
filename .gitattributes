@@ -1,0 +1,2 @@
+# Match Prettier and shell hooks on every checkout, including Windows.
+* text=auto eol=lf

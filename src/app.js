@@ -45,41 +45,7 @@ import { Inspector } from './ui/panel.js';
 import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 import { SurvivalUI } from './ui/survival/controller.js';
-
-const SAVE_KEY = 'lastlight.v2';
-
-function loadSave() {
-    const base = {
-        records: {},
-        settings: { quality: 'high', sound: true, shake: true },
-        tutorialDone: false,
-        lastDifficulty: 'normal',
-        lastEndless: false,
-        seen: []
-    };
-    try {
-        const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-        if (raw) {
-            const save = {
-                ...base,
-                ...raw,
-                records: raw.records || {},
-                seen: raw.seen || [],
-                settings: { ...base.settings, ...raw.settings }
-            };
-            // 예전 저장(맵별 별 개수)은 보통 난이도 기록으로 옮긴다
-            for (const [mapId, stars] of Object.entries(raw.stars || {})) {
-                const r = (save.records[mapId] ??= {});
-                r.normal = { best: 0, ...r.normal, stars: Math.max(stars, r.normal?.stars || 0) };
-            }
-            delete save.stars;
-            return save;
-        }
-    } catch {
-        /* 저장소를 못 쓰면 기본값 */
-    }
-    return base;
-}
+import { loadSave, SAVE_KEY } from './save.js';
 
 export class App {
     constructor() {
@@ -206,6 +172,7 @@ export class App {
         );
         this.overlay = new Overlay(this.overlayCanvas, this.rig.camera, this.entities);
         this.worldMap = this.state.mapId;
+        this.worldQuality = this.renderer.qualityName;
         if (this.overlay && this.effects && this.hud) this.onResize();
     }
 
@@ -219,6 +186,8 @@ export class App {
 
     // ---------- 화면 흐름 ----------
     toTitle() {
+        this.startMapToken = (this.startMapToken || 0) + 1;
+        this.fade?.classList.remove('on');
         this.endSurvivalUI();
         this.mode = 'title';
         this.hud.setVisible(false);
@@ -246,6 +215,8 @@ export class App {
     }
 
     toSelect(opts = {}) {
+        this.startMapToken = (this.startMapToken || 0) + 1;
+        this.fade?.classList.remove('on');
         if (opts.endless) {
             this.save.lastEndless = true;
             this.persist();
@@ -265,13 +236,17 @@ export class App {
     startMap(mapId, opts = {}) {
         // 공성전 전용 맵은 언제나 공성전
         const siege = !!opts.siege || !!MAPS[mapId]?.siegeOnly;
-        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege };
+        const runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege };
+        this.runOpts = runOpts;
+        const token = (this.startMapToken = (this.startMapToken || 0) + 1);
         this.fade.classList.add('on');
         setTimeout(() => {
+            if (token !== this.startMapToken) return;
             this.endSurvivalUI();
-            this.state = createGame(mapId, this.runOpts);
+            this.state = createGame(mapId, runOpts);
             // 살아남기 월드는 판의 상태(안개·건물)를 붙잡고 있으므로 판마다 새로 짓는다
-            if (this.worldMap !== mapId || this.state.survival) this.buildWorld();
+            if (this.worldMap !== mapId || this.state.survival || this.worldQuality !== this.renderer.qualityName)
+                this.buildWorld();
             else {
                 this.world.state = this.state;
                 this.entities.reset();
@@ -332,6 +307,7 @@ export class App {
                 const gates = this.state.gates.length > 0;
                 setTimeout(
                     () =>
+                        token === this.startMapToken &&
                         this.mode === 'playing' &&
                         this.hud.showHint(
                             this.state.survival

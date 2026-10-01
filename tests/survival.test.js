@@ -622,6 +622,31 @@ test('본진이 무너지면 패배, 동이 트면 남은 적이 사라지고 �
     assert.ok(nightPhase(win).dawn > 0.99);
 });
 
+test('동이 트는 틱에는 승리 뒤에 생존자 건설이 진행되지 않는다', () => {
+    const { s, site, f } = started();
+    s.gold = 1e6;
+    const tower = placeBuilding(s, 'ranger', site.base[0] + 6, site.base[1], { construct: true }).tower;
+    const p = f.toWorld(tower.cell.i - 1, tower.cell.j);
+    Object.assign(s.survival.worker, { x: p.x, z: p.z, sx: p.x, sz: p.z, lastK: f.cellAt(p.x, p.z) });
+    assert.ok(orderRepair(s, tower).ok);
+    step(s, TICK); // 수리 주문이 진행 중인 건설 주문으로 바뀐다
+    drainEvents(s);
+    tower.build.t = tower.build.T - TICK;
+    s.waveIndex = s.waves.length;
+    s.survival.clock = s.survival.dawn - TICK / 2;
+
+    step(s, TICK);
+    const events = drainEvents(s);
+    assert.equal(s.status, 'won');
+    assert.ok(tower.build, '승리한 틱에는 건설 상태를 바꾸지 않는다');
+    assert.equal(tower.build.t, tower.build.T - TICK);
+    assert.equal(
+        events.some((ev) => ev.type === 'built'),
+        false,
+        'victory 뒤 built 이벤트가 없어야 한다'
+    );
+});
+
 test('웨이브 정의: 20웨이브가 시각 순서로 동트기 전에, 첫 습격은 생존자가 본진을 지을 시간 뒤, 6:30·10:30·14:30에 빙하 거신', () => {
     const w = WAVES.mountain;
     assert.equal(w.length, 20);
