@@ -72,6 +72,11 @@ export class Renderer {
     buildComposer(scene, camera) {
         this.scene = scene;
         this.camera = camera;
+        // 맵·품질을 바꿀 때마다 새로 만든다: 이전 렌더 타깃(풀 해상도 + bloom 밉)을 먼저 해제
+        if (this.composer) {
+            for (const p of this.composer.passes) p.dispose?.();
+            this.composer.dispose();
+        }
         const { w, h } = this.size();
         const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: this.quality.samples });
         this.composer = new EffectComposer(this.renderer, rt);

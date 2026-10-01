@@ -1,6 +1,7 @@
 // 아군 유닛 모델: 병영 병사(기본·성기사·검귀)와 영웅. 관절 피벗으로 걷기·휘두르기 애니메이션.
 import * as THREE from 'three';
 import { materials, shadowAll } from './materials.js';
+import { markShared } from '../dispose.js';
 
 let U = null;
 function unitMats() {
@@ -37,7 +38,7 @@ function unitMats() {
             metalness: 0.9
         })
     };
-    return U;
+    return markShared(U);
 }
 
 function limb(mat, len, r, pivotY) {

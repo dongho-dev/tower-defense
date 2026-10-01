@@ -1,6 +1,7 @@
 // 타워 모델: 종류 × 레벨(1~3) × 분기(A/B). 절차적 조립, 공용 재질.
 import * as THREE from 'three';
 import { materials, shadowAll, lathe } from './materials.js';
+import { markShared } from '../dispose.js';
 
 const oct = 8;
 
@@ -415,7 +416,7 @@ function storm(M, tier, branch) {
 let arcaneMats = null;
 function arcaneMaterials() {
     if (!arcaneMats) {
-        arcaneMats = {
+        arcaneMats = markShared({
             prism: new THREE.MeshStandardMaterial({
                 color: 0xffd6f4,
                 emissive: 0xff4fc8,
@@ -426,7 +427,7 @@ function arcaneMaterials() {
                 opacity: 0.95
             }),
             marble: new THREE.MeshStandardMaterial({ color: 0xe8dff0, roughness: 0.45, metalness: 0.05 })
-        };
+        });
     }
     return arcaneMats;
 }
@@ -661,21 +662,24 @@ const TYPE_GLOW = {
 const glowCache = new Map();
 function typeGlow(type) {
     if (!glowCache.has(type)) {
-        glowCache.set(type, {
-            rune: new THREE.MeshStandardMaterial({
-                color: 0x111111,
-                emissive: TYPE_GLOW[type],
-                emissiveIntensity: 2.6,
-                roughness: 0.4
-            }),
-            gem: new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                emissive: TYPE_GLOW[type],
-                emissiveIntensity: 5,
-                roughness: 0.15,
-                flatShading: true
+        glowCache.set(
+            type,
+            markShared({
+                rune: new THREE.MeshStandardMaterial({
+                    color: 0x111111,
+                    emissive: TYPE_GLOW[type],
+                    emissiveIntensity: 2.6,
+                    roughness: 0.4
+                }),
+                gem: new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    emissive: TYPE_GLOW[type],
+                    emissiveIntensity: 5,
+                    roughness: 0.15,
+                    flatShading: true
+                })
             })
-        });
+        );
     }
     return glowCache.get(type);
 }

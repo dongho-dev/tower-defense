@@ -1,5 +1,6 @@
 // 공용 재질. 한 번 만들어 모든 모델이 공유한다 (적 피격 섬광처럼 개별 상태가 필요한 것만 복제).
 import * as THREE from 'three';
+import { markShared } from '../dispose.js';
 
 let M = null;
 
@@ -61,7 +62,7 @@ export function materials() {
         healGlow: glow(0x6dff9a, 5),
         wraithGlow: glow(0x7dfff0, 6)
     };
-    return M;
+    return markShared(M);
 }
 
 /** 모든 메시에 그림자 설정 */

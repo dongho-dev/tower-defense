@@ -31,6 +31,7 @@ import { TOWER_TINT } from './ui/icons.js';
 import { Renderer, QUALITY } from './render/Renderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { World } from './render/World.js';
+import { disposeScene } from './render/dispose.js';
 import { EntityView } from './render/EntityView.js';
 import { Effects } from './render/fx/Effects.js';
 import { Overlay } from './ui/overlay.js';
@@ -173,11 +174,8 @@ export class App {
     }
 
     buildWorld() {
-        if (this.world) {
-            this.world.scene.traverse((o) => {
-                o.geometry?.dispose?.();
-            });
-        }
+        // 이전 맵의 geometry·재질·텍스처·그림자 맵을 모두 해제
+        if (this.world) disposeScene(this.world.scene);
         this.world = new World(this.renderer.renderer, this.state, this.renderer.quality);
         if (!this.rig) {
             this.rig = new CameraRig(this.state.map.island);

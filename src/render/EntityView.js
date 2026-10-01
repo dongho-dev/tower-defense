@@ -4,6 +4,7 @@ import { buildTowerModel, animateTower } from './models/towers.js';
 import { buildEnemyModel, animateEnemy } from './models/enemies.js';
 import { materials } from './models/materials.js';
 import { buildUnitModel, animateUnit } from './models/units.js';
+import { disposeObject } from './dispose.js';
 
 const _v = new THREE.Vector3();
 export const ENEMY_SCALE = 1.5;
@@ -26,10 +27,10 @@ export class EntityView {
 
     /** 새 게임 시작 시 모든 오브젝트 제거 */
     reset() {
-        for (const v of this.towers.values()) this.root.remove(v.root);
-        for (const v of this.enemies.values()) this.root.remove(v.root);
-        for (const v of this.units.values()) this.root.remove(v.root);
-        for (const d of this.dying) this.root.remove(d.v.root);
+        for (const v of this.towers.values()) this.drop(v.root);
+        for (const v of this.enemies.values()) this.drop(v.root);
+        for (const v of this.units.values()) this.drop(v.root);
+        for (const d of this.dying) this.drop(d.v.root);
         this.towers.clear();
         this.enemies.clear();
         this.units.clear();
@@ -37,6 +38,12 @@ export class EntityView {
         this.projectiles.clear();
         this.projMesh.clear();
         for (const pool of Object.values(this.pools)) for (const m of pool) m.visible = false;
+    }
+
+    /** 장면에서 빼고 GPU 자원까지 해제 */
+    drop(obj) {
+        obj.removeFromParent();
+        disposeObject(obj);
     }
 
     projectileAt(id) {
@@ -119,7 +126,7 @@ export class EntityView {
                 this.towers.set(tower.id, v);
             }
             if (v.sig !== sig) {
-                if (v.model) v.root.remove(v.model.group);
+                if (v.model) this.drop(v.model.group);
                 v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id, tower.mastery);
                 if (v.model.turret) v.model.turret.rotation.y = -tower.aim;
                 v.root.add(v.model.group);
@@ -136,7 +143,7 @@ export class EntityView {
         }
         for (const [id, v] of this.towers) {
             if (!alive.has(id)) {
-                this.root.remove(v.root);
+                this.drop(v.root);
                 this.towers.delete(id);
             }
         }
@@ -178,7 +185,7 @@ export class EntityView {
             let v = this.units.get(u.id);
             const variant = u.kind === 'hero' ? 'hero' : this.unitVariant(state, u);
             if (v && v.variant !== variant) {
-                this.root.remove(v.root);
+                this.drop(v.root);
                 v = null;
             }
             if (!v) {
@@ -211,7 +218,7 @@ export class EntityView {
         }
         for (const [id, v] of this.units) {
             if (!alive.has(id)) {
-                this.root.remove(v.root);
+                this.drop(v.root);
                 this.units.delete(id);
             }
         }
@@ -231,7 +238,7 @@ export class EntityView {
             d.v.root.position.y -= dt * (d.leak ? 0 : 0.8);
             d.v.group.rotation.z = -k * 1.2;
             if (k >= 1) {
-                this.root.remove(d.v.root);
+                this.drop(d.v.root);
                 d.done = true;
             }
         }

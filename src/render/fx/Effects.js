@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { ParticleSystem } from './Particles.js';
 import { Ribbons } from './Ribbons.js';
+import { disposeObject } from '../dispose.js';
 import { glowSprite, puffSprite } from '../util/textures.js';
 import { TOWERS } from '../../core/data/towers.js';
 import { ENEMIES } from '../../core/data/enemies.js';
@@ -67,6 +68,14 @@ function scorchTexture() {
     return scorchTex;
 }
 
+/** 장면에서 빼고 메시 전용 geometry·재질 해제 (텍스처는 공용 캐시라 둔다) */
+function drop(...objs) {
+    for (const o of objs) {
+        o.removeFromParent();
+        disposeObject(o);
+    }
+}
+
 export class Effects {
     constructor(scene, camera, rig, entities, world, quality) {
         this.scene = scene;
@@ -101,13 +110,13 @@ export class Effects {
         this.add.count = 0;
         this.smoke.count = 0;
         for (const r of this.rings) r.mesh.visible = false;
-        for (const d of this.decals) this.scene.remove(d.mesh);
+        for (const d of this.decals) drop(d.mesh);
         this.decals = [];
-        for (const m of this.meteors) this.scene.remove(m.rock, m.warn);
+        for (const m of this.meteors) drop(m.rock, m.warn);
         this.meteors = [];
-        for (const s of this.shells.values()) this.scene.remove(s);
+        for (const s of this.shells.values()) drop(s);
         this.shells.clear();
-        for (const r of this.auraRings.values()) this.scene.remove(r);
+        for (const r of this.auraRings.values()) drop(r);
         this.auraRings.clear();
         for (const l of this.lights) l.life = 0;
     }
@@ -1024,9 +1033,7 @@ export class Effects {
             if (d.color) d.mesh.material.color.copy(d.color).multiplyScalar(Math.max(0, k));
             else d.mesh.material.opacity = Math.min(1, k * 2);
             if (d.life <= 0) {
-                this.scene.remove(d.mesh);
-                d.mesh.geometry.dispose();
-                d.mesh.material.dispose();
+                drop(d.mesh);
                 d.done = true;
             }
         }
@@ -1060,7 +1067,7 @@ export class Effects {
                 alpha: 0.5
             });
             if (k >= 1) {
-                this.scene.remove(m.rock, m.warn);
+                drop(m.rock, m.warn);
                 m.done = true;
             }
         }
@@ -1190,7 +1197,7 @@ export class Effects {
         }
         for (const [id, ring] of this.auraRings) {
             if (!seen.has(id)) {
-                this.scene.remove(ring);
+                drop(ring);
                 this.auraRings.delete(id);
             }
         }
@@ -1224,7 +1231,7 @@ export class Effects {
         }
         for (const [id, shell] of this.shells) {
             if (!frozen.has(id)) {
-                this.scene.remove(shell);
+                drop(shell);
                 this.burst(this.add, shell.position, 10, {
                     color: COL.iceWhite,
                     size: 0.1,
