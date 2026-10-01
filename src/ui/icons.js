@@ -73,6 +73,12 @@ export const ICONS = {
     star: svg(
         '<path d="M12 2.8 L14.8 8.7 L21.2 9.4 L16.4 13.8 L17.8 20.2 L12 16.9 L6.2 20.2 L7.6 13.8 L2.8 9.4 L9.2 8.7 Z" fill="currentColor"/>'
     ),
+    crown: svg(
+        '<path d="M3.5 8 L8 12 L12 4.5 L16 12 L20.5 8 L18.8 18 H5.2 Z" fill="currentColor"/><rect x="5.2" y="19" width="13.6" height="2" rx="1" fill="currentColor"/>'
+    ),
+    moon: svg(
+        '<path d="M15.5 3.2 A9 9 0 1 0 20.8 15.6 A7.2 7.2 0 0 1 15.5 3.2 Z" fill="currentColor"/><circle cx="18.5" cy="5.5" r="1" fill="currentColor"/><circle cx="21" cy="9.5" r="0.7" fill="currentColor"/>'
+    ),
     skull: svg(
         '<path d="M12 2.5c-4.7 0-8 3.3-8 7.8 0 2.7 1.3 4.6 3 5.8V19h2.3v-2h1.4v2h2.6v-2h1.4v2H17v-2.9c1.7-1.2 3-3.1 3-5.8 0-4.5-3.3-7.8-8-7.8Z" fill="currentColor"/><circle cx="8.8" cy="11" r="2" fill="#1b1529"/><circle cx="15.2" cy="11" r="2" fill="#1b1529"/>'
     ),

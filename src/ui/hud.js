@@ -3,6 +3,7 @@ import { ICONS } from './icons.js';
 import { SKILLS, canCallWave, EARLY_BONUS_PER_SEC, WAVE_GAP } from '../core/game.js';
 import { ENEMIES } from '../core/data/enemies.js';
 import { waveSummary } from '../core/data/waves.js';
+import { DIFFICULTY } from '../core/data/difficulty.js';
 
 const h = (html) => {
     const t = document.createElement('template');
@@ -19,7 +20,8 @@ export class Hud {
         <div class="resources">
             <div class="res life panel ornate" title="마지막 빛의 내구도"><i class="ico">${ICONS.life}</i><div><div class="val num" data-life>20</div><div class="lbl">생명</div></div><span class="delta" data-life-delta></span></div>
             <div class="res gold panel" title="골드"><i class="ico">${ICONS.gold}</i><div><div class="val num" data-gold>0</div><div class="lbl">골드</div></div><span class="delta" data-gold-delta></span></div>
-            <div class="res wave panel" title="웨이브"><i class="ico">${ICONS.wave}</i><div><div class="val num" data-wave>0/20</div><div class="lbl">웨이브</div></div></div>
+            <div class="res wave panel" title="웨이브"><i class="ico">${ICONS.wave}</i><div><div class="val num" data-wave>0/20</div><div class="lbl" data-wave-lbl>웨이브</div></div><div class="wave-prog"><i data-wave-prog></i></div></div>
+            <div class="mode-tag" data-mode-tag></div>
         </div>
         <div class="controls panel">
             <button class="icon-btn" data-speed title="배속 (F)" aria-label="배속 전환">${ICONS.play}</button>
@@ -42,7 +44,7 @@ export class Hud {
         <div class="banner" data-banner><div class="big" data-banner-big></div><div class="rule"></div><div class="sub" data-banner-sub></div></div>
         <div class="toasts" data-toasts></div>
         <div class="hint-box panel" data-hint></div>
-        <div class="boss-bar" data-boss><div class="label">공허의 거상</div><div class="track"><div class="fill" data-boss-fill></div></div></div>
+        <div class="boss-bar" data-boss><div class="label"><span data-boss-name>공허의 거상</span><span class="hp num" data-boss-hp></span></div><div class="track"><div class="lag" data-boss-lag></div><div class="fill" data-boss-fill></div><div class="ticks"></div></div></div>
         <div class="portal-marker" data-marker><button title="웨이브 호출 (Space)" aria-label="포털에서 웨이브 호출">${ICONS.skull}</button><div class="bonus" data-marker-bonus></div></div>
         <div class="vignette-hit" data-vig></div>`;
         const q = (s) => this.el.querySelector(s);
@@ -53,6 +55,12 @@ export class Hud {
             gold: q('[data-gold]'),
             goldDelta: q('[data-gold-delta]'),
             wave: q('[data-wave]'),
+            waveLbl: q('[data-wave-lbl]'),
+            waveProg: q('[data-wave-prog]'),
+            modeTag: q('[data-mode-tag]'),
+            bossName: q('[data-boss-name]'),
+            bossHp: q('[data-boss-hp]'),
+            bossLag: q('[data-boss-lag]'),
             speed: q('[data-speed]'),
             pause: q('[data-pause]'),
             sound: q('[data-sound]'),
@@ -89,6 +97,29 @@ export class Hud {
         this.$.settings.addEventListener('click', () => actions.openSettings());
         this.last = {};
         this.previewWave = -1;
+        this.goldShown = 0;
+        this.bossLag = 1;
+    }
+
+    /** 새 판을 시작할 때: 캐시를 비우고 난이도·모드 표시를 맞춘다 */
+    reset(state) {
+        this.last = {};
+        this.previewWave = -1;
+        this.goldShown = state.gold;
+        this.bossLag = 1;
+        this.waveTotal = 0;
+        this.applyMode(state);
+    }
+
+    applyMode(state) {
+        const d = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+        const tags = [];
+        if (d.id !== 'normal')
+            tags.push(`<span class="t d-${d.id}">${d.id === 'hero' ? ICONS.crown : ''}${d.name}</span>`);
+        if (state.endless) tags.push(`<span class="t endless">${ICONS.moon}끝없는 밤</span>`);
+        this.$.modeTag.innerHTML = tags.join('');
+        this.$.lifeBox.classList.toggle('hero', d.id === 'hero');
+        this.el.classList.toggle('endless', !!state.endless);
     }
 
     setVisible(v) {
@@ -112,14 +143,42 @@ export class Hud {
     update(state, loop, project, sound) {
         const prevGold = this.last.gold;
         this.set('gold', state.gold, (v) => {
-            this.$.gold.textContent = v;
             if (prevGold != null && v - prevGold >= 40) this.pop(this.$.goldDelta, '+' + (v - prevGold), '#ffd66e');
+            if (prevGold == null || v < prevGold) {
+                // 첫 표시와 지출은 즉시
+                this.goldShown = v;
+                this.$.gold.textContent = v;
+            }
         });
+        // 골드 수입은 숫자가 굴러 올라가게
+        if (this.goldShown !== state.gold) {
+            const diff = state.gold - this.goldShown;
+            this.goldShown += Math.sign(diff) * Math.max(1, Math.ceil(Math.abs(diff) * 0.18));
+            if (Math.abs(state.gold - this.goldShown) < 1) this.goldShown = state.gold;
+            this.$.gold.textContent = this.goldShown;
+        }
         this.set('life', state.lives, (v) => {
             this.$.life.textContent = v;
             this.$.lifeBox.classList.toggle('low', v <= 5);
         });
-        this.set('wave', state.waveIndex, (v) => (this.$.wave.textContent = `${v}/${state.waves.length}`));
+        this.set('wave', state.waveIndex + (state.endless ? 'e' : ''), () => {
+            const v = state.waveIndex;
+            this.$.wave.textContent = state.endless ? String(v) : `${v}/${state.waves.length}`;
+            this.$.waveLbl.textContent = state.endless ? '끝없는 밤' : '웨이브';
+            if (state.endless !== this.endlessShown) {
+                this.endlessShown = state.endless;
+                this.applyMode(state);
+            }
+        });
+        // 이번 웨이브 진행도: 남은 적(스폰 대기 포함) 비율
+        const pending = state.spawners.reduce((n, sp) => n + sp.group.count - sp.spawned, 0);
+        const remain = pending + state.enemies.length;
+        if (remain > (this.waveTotal || 0) || state.waveIndex !== this.waveTotalFor) {
+            this.waveTotal = Math.max(remain, state.waveIndex !== this.waveTotalFor ? 0 : this.waveTotal);
+            this.waveTotalFor = state.waveIndex;
+        }
+        const prog = this.waveTotal ? 1 - remain / this.waveTotal : 1;
+        this.set('wprog', Math.round(prog * 100), (v) => (this.$.waveProg.style.width = v + '%'));
         this.set('speed', loop.speed, (v) => {
             this.$.speed.innerHTML = v > 1 ? ICONS.fast : ICONS.play;
             this.$.speed.classList.toggle('on', v > 1);
@@ -134,6 +193,12 @@ export class Hud {
             const ready = cd <= 0 && !locked;
             s.sweep.style.setProperty('--cd', locked ? 1 : cd / max);
             this.set('skilltext' + id, locked ? '—' : cd > 0 ? Math.ceil(cd) : '', (v) => (s.text.textContent = v));
+            if (ready && this.last['ready' + id] === false) {
+                s.btn.classList.remove('flash');
+                void s.btn.offsetWidth;
+                s.btn.classList.add('flash');
+            }
+            this.last['ready' + id] = ready;
             s.btn.classList.toggle('ready', ready && this.armed !== id);
             s.btn.classList.toggle('cooling', !ready);
             s.btn.classList.toggle('armed', this.armed === id);
@@ -148,7 +213,7 @@ export class Hud {
         if (state.waveIndex === 0) {
             this.set('wcTitle', 'first', () => (this.$.wcTitle.textContent = '전투 개시'));
             this.set('wcSub', 'first', () => (this.$.wcSub.innerHTML = '첫 웨이브를 부릅니다 · <b>Space</b>'));
-        } else if (!next) {
+        } else if (!next && !state.endless) {
             this.set('wcTitle', 'last', () => (this.$.wcTitle.textContent = '최후의 웨이브'));
             this.set('wcSub', 'last', () => (this.$.wcSub.textContent = '남은 적을 모두 막아내세요'));
         } else if (state.nextWaveIn != null) {
@@ -196,9 +261,21 @@ export class Hud {
         }
 
         // 보스 체력
-        const boss = state.enemies.find((e) => e.def.boss);
-        this.$.boss.classList.toggle('show', !!boss);
-        if (boss) this.$.bossFill.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+        const bosses = state.enemies.filter((e) => e.def.boss);
+        this.$.boss.classList.toggle('show', bosses.length > 0);
+        if (bosses.length) {
+            const hp = bosses.reduce((n, b) => n + Math.max(0, b.hp), 0);
+            const max = bosses.reduce((n, b) => n + b.maxHp, 0);
+            const r = hp / max;
+            // 깎인 만큼 하얀 잔상이 천천히 따라온다
+            this.bossLag = r > this.bossLag ? r : this.bossLag + (r - this.bossLag) * 0.04;
+            this.$.bossFill.style.width = `${r * 100}%`;
+            this.$.bossLag.style.width = `${this.bossLag * 100}%`;
+            this.set('bossName', bosses.length, (n) => {
+                this.$.bossName.textContent = n > 1 ? `공허의 거상 ×${n}` : '공허의 거상';
+            });
+            this.set('bossHp', Math.ceil(hp), (v) => (this.$.bossHp.textContent = v.toLocaleString()));
+        } else this.bossLag = 1;
     }
 
     handle(events, state) {
@@ -208,7 +285,7 @@ export class Hud {
                     ev.boss ? '공허의 거상' : `WAVE ${ev.wave}`,
                     ev.boss
                         ? '균열의 주인이 깨어났다'
-                        : ev.wave === state.waves.length
+                        : ev.wave === state.waves.length && !state.endless
                           ? '최후의 웨이브'
                           : waveLine(state.waves[ev.wave - 1]),
                     ev.boss
@@ -216,6 +293,9 @@ export class Hud {
                 if (ev.hint) this.showHint(ev.hint);
             } else if (ev.type === 'leak') {
                 this.pop(this.$.lifeDelta, '-' + ev.lives, '#ff6a6a');
+                this.$.lifeBox.classList.remove('hit');
+                void this.$.lifeBox.offsetWidth;
+                this.$.lifeBox.classList.add('hit');
                 this.$.vig.classList.add('on');
                 clearTimeout(this.vigT);
                 this.vigT = setTimeout(() => this.$.vig.classList.remove('on'), 160);

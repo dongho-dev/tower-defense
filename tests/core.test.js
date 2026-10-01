@@ -15,13 +15,15 @@ import {
     drainEvents,
     setTargeting,
     upgradeOptions,
+    continueEndless,
+    wavesSurvived,
     WAVE_GAP,
     TICK
 } from '../src/core/game.js';
 import { MAPS } from '../src/core/data/maps.js';
 import { TOWERS, TOWER_ORDER } from '../src/core/data/towers.js';
 import { ENEMIES } from '../src/core/data/enemies.js';
-import { WAVES } from '../src/core/data/waves.js';
+import { WAVES, endlessWave } from '../src/core/data/waves.js';
 import { runUntil } from './helpers.js';
 
 function addEnemy(state, type, d = 5, extra = {}) {
@@ -275,4 +277,52 @@ test('타겟팅 모드 변경', () => {
     assert.ok(setTargeting(s, t.id, 'strong').ok);
     assert.equal(t.targeting, 'strong');
     assert.equal(setTargeting(s, t.id, 'nope').ok, false);
+});
+
+test('난이도: 쉬움은 골드·생명 여유, 영웅은 생명 1', () => {
+    const easy = createGame('dusk', { difficulty: 'easy' });
+    const normal = createGame('dusk');
+    const hero = createGame('dusk', { difficulty: 'hero' });
+    assert.equal(normal.difficulty, 'normal');
+    assert.ok(easy.gold > normal.gold && easy.lives > normal.lives && easy.hpMul < normal.hpMul);
+    assert.equal(hero.lives, 1);
+    addEnemy(hero, 'grunt', hero.paths[0].length - 0.05);
+    step(hero, TICK * 5);
+    assert.equal(hero.status, 'lost', '영웅은 한 마리만 새도 패배');
+});
+
+test('끝없는 밤: 승리 후 이어 가면 21웨이브 이후가 생성된다', () => {
+    const s = createGame('frostvale');
+    s.waveIndex = s.waves.length;
+    step(s, TICK);
+    assert.equal(s.status, 'won');
+    assert.ok(continueEndless(s).ok);
+    assert.equal(s.status, 'playing');
+    assert.equal(s.waves.length, 22, '다음 웨이브까지 미리 만들어 둔다');
+    assert.equal(WAVES.frostvale.length, 20, '원본 캠페인 웨이브는 그대로');
+    runUntil(s, (st) => st.waveIndex === 21, 30);
+    assert.equal(s.waveIndex, 21);
+    assert.ok(s.waves.length >= 22);
+    s.lives = 0;
+    s.status = 'lost';
+    assert.equal(wavesSurvived(s), 20);
+});
+
+test('끝없는 밤 웨이브: 결정적이고, 경로 범위 안이며, 5웨이브마다 거상', () => {
+    for (let n = 21; n <= 60; n++) {
+        const a = endlessWave(n, 3, 7);
+        assert.deepEqual(a, endlessWave(n, 3, 7));
+        assert.ok(a.groups.every((g) => g.path >= 0 && g.path < 3 && g.count > 0));
+        assert.equal(
+            a.groups.some((g) => g.enemy === 'colossus'),
+            (n - 20) % 5 === 0
+        );
+    }
+});
+
+test('끝없는 밤으로 시작하면 20웨이브를 넘겨도 승리하지 않는다', () => {
+    const s = createGame('dusk', { endless: true });
+    s.waveIndex = 20;
+    step(s, TICK);
+    assert.equal(s.status, 'playing');
 });

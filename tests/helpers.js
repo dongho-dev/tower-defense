@@ -23,12 +23,12 @@ export function runUntil(state, predicate, maxSeconds = 1200) {
  * plan: [[socketId, type, branch], ...] 앞에서부터 우선순위.
  */
 export function playWithPlan(mapId, plan, opts = {}) {
-    const state = createGame(mapId);
+    const state = createGame(mapId, opts.game);
     const branchOf = new Map(plan.map(([sid, , br]) => [sid, br || 'a']));
     let think = 0;
     const log = [];
     callWave(state);
-    while (state.status === 'playing' && state.time < 3000) {
+    while (state.status === 'playing' && state.time < (opts.maxTime ?? 3000)) {
         step(state, TICK);
         drainEvents(state);
         think -= TICK;

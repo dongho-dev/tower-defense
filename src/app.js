@@ -12,6 +12,8 @@ import {
     castSkill,
     findTower,
     starsFor,
+    continueEndless,
+    wavesSurvived,
     TICK,
     SKILLS
 } from './core/game.js';
@@ -24,16 +26,36 @@ import { Effects } from './render/fx/Effects.js';
 import { Overlay } from './ui/overlay.js';
 import { Hud } from './ui/hud.js';
 import { Radial } from './ui/radial.js';
-import { Screens, Coach } from './ui/screens.js';
+import { Screens, Coach, recordOf } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 
 const SAVE_KEY = 'lastlight.v2';
 
 function loadSave() {
-    const base = { stars: {}, settings: { quality: 'high', sound: true, shake: true }, tutorialDone: false };
+    const base = {
+        records: {},
+        settings: { quality: 'high', sound: true, shake: true },
+        tutorialDone: false,
+        lastDifficulty: 'normal',
+        lastEndless: false
+    };
     try {
         const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-        if (raw) return { ...base, ...raw, settings: { ...base.settings, ...raw.settings } };
+        if (raw) {
+            const save = {
+                ...base,
+                ...raw,
+                records: raw.records || {},
+                settings: { ...base.settings, ...raw.settings }
+            };
+            // 예전 저장(맵별 별 개수)은 보통 난이도 기록으로 옮긴다
+            for (const [mapId, stars] of Object.entries(raw.stars || {})) {
+                const r = (save.records[mapId] ??= {});
+                r.normal = { best: 0, ...r.normal, stars: Math.max(stars, r.normal?.stars || 0) };
+            }
+            delete save.stars;
+            return save;
+        }
     } catch {
         /* 저장소를 못 쓰면 기본값 */
     }
@@ -91,11 +113,16 @@ export class App {
         this.enemyCard.className = 'card panel';
         this.uiRoot.appendChild(this.enemyCard);
         this.screens = new Screens(this.uiRoot, {
-            toSelect: () => this.toSelect(),
+            toSelect: (opts) => this.toSelect(opts),
             toTitle: () => this.toTitle(),
-            startMap: (id) => this.startMap(id),
+            startMap: (id, opts) => this.startMap(id, opts),
             resume: () => this.resume(),
-            restart: () => this.startMap(this.state.mapId),
+            restart: () => this.startMap(this.state.mapId, this.runOpts),
+            continueEndless: () => this.continueEndless(),
+            setPref: (k, v) => {
+                this.save[k] = v;
+                this.persist();
+            },
             openSettings: (fromPause) => this.openSettings(fromPause),
             closeSettings: (fromPause) =>
                 fromPause && this.mode === 'paused'
@@ -166,12 +193,31 @@ export class App {
         this.coach?.destroy();
         this.rig.orbit = true;
         this.rig.goal.set(0, -2.5, 0);
-        this.rig.goalDistance = 44;
-        this.rig.setPitch(16);
-        this.screens.title(Object.keys(this.save.stars).length > 0);
+        this.rig.goalDistance = 52;
+        this.rig.setPitch(18);
+        this.rig.shift = window.innerWidth > 900 ? 0.2 : 0;
+        this.screens.title(this.progressSummary());
     }
 
-    toSelect() {
+    progressSummary() {
+        const recs = Object.values(this.save.records);
+        let stars = 0;
+        let heroCleared = 0;
+        let bestWave = 0;
+        for (const r of recs) {
+            stars += Math.max(0, ...Object.values(r).map((d) => d.stars || 0));
+            if (r.hero?.stars) heroCleared++;
+            bestWave = Math.max(bestWave, ...Object.values(r).map((d) => d.best || 0));
+        }
+        return { stars, maxStars: 9, heroCleared, bestWave, hasProgress: recs.length > 0 };
+    }
+
+    toSelect(opts = {}) {
+        if (opts.endless) {
+            this.save.lastEndless = true;
+            this.persist();
+        }
+        this.rig.shift = 0;
         this.mode = 'select';
         this.hud.setVisible(false);
         this.closeMenus();
@@ -182,10 +228,11 @@ export class App {
         this.screens.select(this.save, this.thumbs);
     }
 
-    startMap(mapId) {
+    startMap(mapId, opts = {}) {
+        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless };
         this.fade.classList.add('on');
         setTimeout(() => {
-            this.state = createGame(mapId);
+            this.state = createGame(mapId, this.runOpts);
             if (this.worldMap !== mapId) this.buildWorld();
             else {
                 this.world.state = this.state;
@@ -199,6 +246,8 @@ export class App {
             this.screens.clear();
             this.hud.setVisible(true);
             this.rig.orbit = false;
+            this.rig.shift = 0;
+            this.rig.shiftCur = 0;
             this.rig.goalYaw = 0;
             this.rig.yaw = 0;
             this.rig.goalDistance = 34;
@@ -208,7 +257,15 @@ export class App {
             const from = new THREE.Vector3(s.xs[0] + 3, 0, s.zs[0]);
             this.rig.playIntro(from, new THREE.Vector3(0.5, 0, 0.6), 3.2);
             this.fade.classList.remove('on');
-            this.hud.showBanner(this.state.map.name, '마지막 빛을 지켜라');
+            this.hud.reset(this.state);
+            this.hud.showBanner(
+                this.state.map.name,
+                this.state.endless
+                    ? '끝없는 밤 · 얼마나 버틸 수 있는가'
+                    : this.state.difficulty === 'hero'
+                      ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                      : '마지막 빛을 지켜라'
+            );
             this.coach?.destroy();
             this.coach = this.save.tutorialDone
                 ? null
@@ -251,18 +308,33 @@ export class App {
     }
 
     showResults() {
-        const won = this.state.status === 'won';
-        const stars = won ? starsFor(this.state) : 0;
-        if (won) {
-            const prev = this.save.stars[this.state.mapId] || 0;
-            this.save.stars[this.state.mapId] = Math.max(prev, stars);
+        const st = this.state;
+        const won = st.status === 'won';
+        const stars = won ? starsFor(st) : 0;
+        const survived = wavesSurvived(st);
+        const rec = { ...recordOf(this.save, st.mapId, st.difficulty) };
+        // 캠페인을 이기고 이어 간 끝없는 밤은 이미 별을 받았으므로 웨이브 기록만 갱신한다
+        if (won) rec.stars = Math.max(rec.stars, stars);
+        const newBest = st.endless && survived > (rec.best || 0);
+        if (st.endless) rec.best = Math.max(rec.best || 0, survived);
+        if (won || st.endless) {
+            (this.save.records[st.mapId] ??= {})[st.difficulty] = rec;
             this.persist();
         }
         this.mode = 'results';
         this.closeMenus();
         this.coach?.destroy();
-        this.screens.results({ won, stars, state: this.state, best: this.save.stars[this.state.mapId] });
-        this.audio.play(won ? 'victory' : 'defeat');
+        this.screens.results({ won, stars, state: st, record: rec, newBest, survived });
+        this.audio.play(won || newBest ? 'victory' : 'defeat');
+    }
+
+    continueEndless() {
+        if (!continueEndless(this.state).ok) return;
+        this.runOpts = { ...this.runOpts, endless: true };
+        this.mode = 'playing';
+        this.resultT = null;
+        this.screens.clear();
+        this.hud.showBanner('끝없는 밤', '빛이 꺼질 때까지 싸운다', true);
     }
 
     // ---------- 명령 ----------

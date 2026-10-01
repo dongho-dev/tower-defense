@@ -108,7 +108,7 @@ export class EntityView {
             }
             if (v.sig !== sig) {
                 if (v.model) v.root.remove(v.model.group);
-                v.model = buildTowerModel(tower.type, tower.tier, tower.branch);
+                v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id);
                 if (v.model.turret) v.model.turret.rotation.y = -tower.aim;
                 v.root.add(v.model.group);
                 v.sig = sig;

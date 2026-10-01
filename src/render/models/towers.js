@@ -413,9 +413,74 @@ function storm(M, tier, branch) {
 
 const BUILDERS = { ranger, ember, frost, storm };
 
-export function buildTowerModel(type, tier, branch) {
+// 종류별 상징색: 룬 고리와 레벨 보석
+const TYPE_GLOW = { ranger: 0xffc45a, ember: 0xff6a2a, frost: 0x5cc8ff, storm: 0xa86cff };
+const glowCache = new Map();
+function typeGlow(type) {
+    if (!glowCache.has(type)) {
+        glowCache.set(type, {
+            rune: new THREE.MeshStandardMaterial({
+                color: 0x111111,
+                emissive: TYPE_GLOW[type],
+                emissiveIntensity: 2.6,
+                roughness: 0.4
+            }),
+            gem: new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: TYPE_GLOW[type],
+                emissiveIntensity: 5,
+                roughness: 0.15,
+                flatShading: true
+            })
+        });
+    }
+    return glowCache.get(type);
+}
+
+/** 모든 타워 공통 장식: 받침 위 룬 고리, 앞쪽 레벨 보석, 받침 둘레 돌·이끼 */
+function decorate(M, g, type, tier, branch, id) {
+    const G = typeGlow(type);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.012, 4, 40), G.rune);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.165;
+    g.add(ring);
+    // 레벨 보석: 카메라 쪽(+z) 받침 둘레에 레벨 수만큼, 분기는 금테 큰 보석 하나 추가
+    const n = branch ? 3 : tier;
+    for (let i = 0; i < n; i++) {
+        const a = Math.PI / 2 + (i - (n - 1) / 2) * 0.32;
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.038), G.gem);
+        gem.position.set(Math.cos(a) * 0.53, 0.085, Math.sin(a) * 0.53);
+        gem.scale.y = 1.4;
+        g.add(gem);
+    }
+    if (branch) {
+        const a = Math.PI / 2 + Math.PI;
+        const set = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 5, 10), M.gold);
+        set.position.set(Math.cos(a) * 0.535, 0.09, Math.sin(a) * 0.535);
+        set.rotation.y = -a + Math.PI / 2;
+        const big = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), G.gem);
+        big.position.copy(set.position);
+        g.add(set, big);
+    }
+    // 받침 둘레 자갈 (타워마다 다르게)
+    let r = (id * 2654435761) >>> 0;
+    const rnd = () => (r = (r * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const pebbles = 3 + Math.floor(rnd() * 3);
+    for (let i = 0; i < pebbles; i++) {
+        const a = rnd() * Math.PI * 2;
+        const p = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035 + rnd() * 0.05), M.stoneDark);
+        p.position.set(Math.cos(a) * (0.6 + rnd() * 0.12), 0.02, Math.sin(a) * (0.6 + rnd() * 0.12));
+        p.scale.y = 0.6;
+        p.rotation.set(rnd() * 3, rnd() * 3, 0);
+        g.add(p);
+    }
+    return ring;
+}
+
+export function buildTowerModel(type, tier, branch, id = 1) {
     const M = materials();
     const v = BUILDERS[type](M, tier, branch);
+    v.rune = decorate(M, v.group, type, tier, branch, id);
     shadowAll(v.group);
     v.spinBase = v.spin ? v.spin.position.y : 0;
     v.cloths = v.cloths || [];
@@ -441,4 +506,5 @@ export function animateTower(v, tower, t, dt, recoilK) {
     }
     if (v.orbit) v.orbit.rotation.y += dt * (v.orbitSpeed || 1.2);
     for (const c of v.cloths) c.rotation.y = Math.sin(t * 2.4 + tower.id) * 0.4;
+    if (v.rune) v.rune.scale.setScalar(1 + recoilK * 0.05);
 }

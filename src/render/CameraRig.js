@@ -18,6 +18,9 @@ export class CameraRig {
         this.pitch = PITCH;
         this.goalPitch = PITCH;
         this.orbit = false;
+        // 화면 가로 비율만큼 그림을 옆으로 민다 (타이틀에서 섬을 오른쪽에 두기 위함)
+        this.shift = 0;
+        this.shiftCur = 0;
         this.shakeAmp = 0;
         this.intro = null;
         this.keys = new Set();
@@ -122,6 +125,8 @@ export class CameraRig {
             this.yaw += d * (1 - Math.exp(-dt * 2.5));
         }
         this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.6);
+        this.shiftCur += (this.shift - this.shiftCur) * (1 - Math.exp(-dt * 3));
+        if (Math.abs(this.shift - this.shiftCur) < 1e-4) this.shiftCur = this.shift;
         this.apply();
     }
 
@@ -140,5 +145,10 @@ export class CameraRig {
             c.position.y += (Math.random() - 0.5) * s;
         }
         c.lookAt(this.target);
+        if (this.shiftCur !== 0) {
+            const w = window.innerWidth;
+            const hh = window.innerHeight;
+            c.setViewOffset(w, hh, -this.shiftCur * w, 0, w, hh);
+        } else if (c.view?.enabled) c.clearViewOffset();
     }
 }

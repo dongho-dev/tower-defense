@@ -156,6 +156,56 @@ export function puffSprite(seed = 3) {
     });
 }
 
+/**
+ * 적운 덩어리: 위는 밝고 아래는 그늘진 둥근 봉우리, 바닥은 평평하게 사라진다.
+ * RGB에 명암을 구워 두고 재질 색으로 물들인다.
+ */
+export function cumulusSprite(seed = 1) {
+    return cached('cumulus' + seed, () => {
+        const W = 256;
+        const H = 128;
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const g = c.getContext('2d');
+        const rand = mulberry32(seed * 31 + 7);
+        // 봉우리: 가운데가 높고 양 끝이 낮은 반원 위에 원을 겹친다
+        const bumps = 9 + Math.floor(rand() * 5);
+        for (let i = 0; i < bumps; i++) {
+            const t = (i + 0.5) / bumps;
+            const x = 34 + t * (W - 68) + (rand() - 0.5) * 14;
+            const dome = Math.sin(t * Math.PI);
+            const r = 16 + dome * 26 + rand() * 12;
+            const y = H - 30 - dome * 34 - rand() * 10;
+            const grd = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+            grd.addColorStop(0, 'rgba(255,255,255,1)');
+            grd.addColorStop(0.7, 'rgba(255,255,255,0.92)');
+            grd.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = grd;
+            g.beginPath();
+            g.arc(x, y, r, 0, Math.PI * 2);
+            g.fill();
+        }
+        // 명암: 위쪽(해) 밝고 아래로 갈수록 그늘
+        g.globalCompositeOperation = 'source-atop';
+        const shade = g.createLinearGradient(0, 8, 0, H - 14);
+        shade.addColorStop(0, 'rgb(255,255,255)');
+        shade.addColorStop(0.45, 'rgb(225,215,230)');
+        shade.addColorStop(1, 'rgb(120,110,150)');
+        g.fillStyle = shade;
+        g.fillRect(0, 0, W, H);
+        // 바닥은 안개처럼 풀어진다
+        g.globalCompositeOperation = 'destination-out';
+        const base = g.createLinearGradient(0, H - 34, 0, H);
+        base.addColorStop(0, 'rgba(0,0,0,0)');
+        base.addColorStop(1, 'rgba(0,0,0,1)');
+        g.fillStyle = base;
+        g.fillRect(0, 0, W, H);
+        g.globalCompositeOperation = 'source-over';
+        return toTexture(c, { srgb: false });
+    });
+}
+
 /** 룬 원: 소켓 바닥·수정 고리에 쓰는 문양 (흰색, 재질 색으로 물든다) */
 export function runeCircle() {
     return cached('rune', () => {
