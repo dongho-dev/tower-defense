@@ -85,6 +85,18 @@ export const ICONS = {
     physical: svg(
         '<path d="M4 20 L16 8 M14 4 L20 10 L17 13 L11 7 Z" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linejoin="round"/>'
     ),
+    arcane: svg(
+        '<path d="M12 2.5 L17.5 9 L12 21.5 L6.5 9 Z" fill="currentColor" opacity="0.9"/><path d="M6.5 9 H17.5 M12 2.5 V21.5" stroke="#1a1028" stroke-width="1.2" opacity="0.55"/><path d="M18.5 4 L22 2.5 M19 7.5 L22.5 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    mine: svg(
+        '<path d="M3.5 21 L11 13.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M5 9.5 C9 4.5 15 4 20 7 C15 7.5 11.5 9.5 9 13 Z" fill="currentColor"/><path d="M15.5 14 L19 12.5 L21.5 15.5 L19.5 20 L15 20.5 L13.5 17 Z" fill="currentColor" opacity="0.75"/>'
+    ),
+    link: svg(
+        '<path d="M10 14 L14 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 11.5 L6 14 A3.5 3.5 0 0 0 11 19 L13.5 16.5 M15.5 12.5 L18 10 A3.5 3.5 0 0 0 13 5 L10.5 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'
+    ),
+    book: svg(
+        '<path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6 V20" stroke="currentColor" stroke-width="1.6"/>'
+    ),
     magic: svg('<path d="M12 2 L13.8 9.2 L21 12 L13.8 14.8 L12 22 L10.2 14.8 L3 12 L10.2 9.2 Z" fill="currentColor"/>')
 };
 
@@ -92,5 +104,7 @@ export const TOWER_TINT = {
     ranger: '#f2c46b',
     ember: '#ff7a3d',
     frost: '#8fe3ff',
-    storm: '#b890ff'
+    storm: '#b890ff',
+    arcane: '#ff7ad9',
+    mine: '#7fe0a0'
 };

@@ -11,13 +11,18 @@ import {
     callWave,
     castSkill,
     findTower,
+    towerStats,
+    upgradeOptions,
+    resonanceInfo,
+    resonancePreview,
     starsFor,
     continueEndless,
     wavesSurvived,
     TICK,
     SKILLS
 } from './core/game.js';
-import { TOWER_ORDER, MAX_TIER } from './core/data/towers.js';
+import { TOWER_ORDER, TOWERS } from './core/data/towers.js';
+import { TOWER_TINT } from './ui/icons.js';
 import { Renderer, QUALITY } from './render/Renderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { World } from './render/World.js';
@@ -26,6 +31,7 @@ import { Effects } from './render/fx/Effects.js';
 import { Overlay } from './ui/overlay.js';
 import { Hud } from './ui/hud.js';
 import { Radial } from './ui/radial.js';
+import { Inspector } from './ui/panel.js';
 import { Screens, Coach, recordOf } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 
@@ -37,7 +43,8 @@ function loadSave() {
         settings: { quality: 'high', sound: true, shake: true },
         tutorialDone: false,
         lastDifficulty: 'normal',
-        lastEndless: false
+        lastEndless: false,
+        seen: []
     };
     try {
         const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
@@ -46,6 +53,7 @@ function loadSave() {
                 ...base,
                 ...raw,
                 records: raw.records || {},
+                seen: raw.seen || [],
                 settings: { ...base.settings, ...raw.settings }
             };
             // 예전 저장(맵별 별 개수)은 보통 난이도 기록으로 옮긴다
@@ -98,20 +106,22 @@ export class App {
             toggleSpeed: () => this.toggleSpeed(),
             pause: () => this.pause(),
             toggleSound: () => this.setSetting('sound', !this.save.settings.sound),
-            openSettings: () => this.openSettings(true)
+            openSettings: () => this.openSettings(true),
+            openBestiary: () => this.openBestiary(false)
         });
         this.hud.setVisible(false);
         this.radial = new Radial(this.uiRoot, {
             build: (sid, type) => this.build(sid, type),
+            denied: (label) => this.hud.toast(`골드가 부족합니다 · ${label}`, true),
+            hover: (type) => this.hoverBuild(type)
+        });
+        this.inspector = new Inspector(this.uiRoot, {
             upgrade: (id, br) => this.upgrade(id, br),
             sell: (id) => this.sell(id),
             target: (id, mode) => setTargeting(this.state, id, mode),
             preview: (opt) => this.world.showRange(opt),
-            denied: (label) => this.hud.toast(`골드가 부족합니다 · ${label}`, true)
+            closed: () => this.closeMenus()
         });
-        this.enemyCard = document.createElement('div');
-        this.enemyCard.className = 'card panel';
-        this.uiRoot.appendChild(this.enemyCard);
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
             toTitle: () => this.toTitle(),
@@ -130,7 +140,9 @@ export class App {
                     : this.mode === 'title'
                       ? this.toTitle()
                       : this.resume(),
-            setSetting: (k, v) => this.setSetting(k, v)
+            setSetting: (k, v) => this.setSetting(k, v),
+            openBestiary: (fromPause) => this.openBestiary(fromPause),
+            closeBestiary: (fromPause) => (fromPause && this.mode === 'paused' ? this.screens.pause() : this.resume())
         });
 
         this.bindInput();
@@ -295,6 +307,22 @@ export class App {
         this.screens.settings(this.save.settings, fromPause);
     }
 
+    openBestiary(fromPause) {
+        if (this.mode === 'playing') this.mode = 'paused';
+        this.closeMenus();
+        this.screens.bestiary(this.save.seen, fromPause);
+    }
+
+    /** 처음 보는 적: 도감에 기록하고 소개 카드 */
+    noteSpawns(events) {
+        for (const ev of events) {
+            if (ev.type !== 'spawn' || this.save.seen.includes(ev.enemy)) continue;
+            this.save.seen.push(ev.enemy);
+            this.persist();
+            this.hud.introEnemy(ev.enemy);
+        }
+    }
+
     setSetting(key, value) {
         this.save.settings[key] = value;
         this.persist();
@@ -346,6 +374,7 @@ export class App {
     }
 
     upgrade(id, branch) {
+        if (this.mode !== 'playing') return;
         const r = upgradeTower(this.state, id, branch);
         if (!r.ok) return this.hud.toast(r.reason, true);
         const t = findTower(this.state, id);
@@ -383,13 +412,78 @@ export class App {
     }
 
     selectTower(tower) {
+        this.radial.close();
         this.selected = tower;
-        this.radial.openTower(tower, this.state);
+        this.selectedEnemy = null;
+        this.inspector.showTower(tower, this.state);
+        this.world.showRange({
+            x: tower.x,
+            z: tower.z,
+            r: towerStats(this.state, tower).range,
+            color: TOWER_TINT[tower.type]
+        });
+    }
+
+    selectEnemy(e) {
+        this.radial.close();
+        this.selected = null;
+        this.selectedEnemy = e;
+        this.world.showRange(null);
+        this.inspector.showEnemy(e, this.state);
+    }
+
+    /** 건설 메뉴에서 종류에 마우스를 올리면: 하단 패널 미리보기 + 사거리 */
+    hoverBuild(type) {
+        const socket = this.radial.target;
+        this.buildHover = type;
+        if (!type || !socket) {
+            if (this.radial.open) this.inspector.hide();
+            this.world.showRange(null);
+            return;
+        }
+        this.inspector.showBuild(socket, type, this.state);
+        this.world.showRange({ x: socket.x, z: socket.z, r: TOWERS[type].tiers[0].range, color: TOWER_TINT[type] });
+    }
+
+    /** 오버레이에 그릴 공명 연결선: 선택한 타워나 건설 미리보기 기준 */
+    resonanceLinks() {
+        let socketId;
+        let type;
+        let info;
+        if (this.selected) {
+            socketId = this.selected.socketId;
+            type = this.selected.type;
+            info = resonanceInfo(this.state, this.selected);
+        } else if (this.radial.open && this.buildHover) {
+            socketId = this.radial.target.id;
+            type = this.buildHover;
+            info = resonancePreview(this.state, socketId, type);
+        } else return null;
+        const s0 = this.state.sockets[socketId];
+        const links = [];
+        for (const id of info.links) {
+            const s1 = this.state.sockets[id];
+            const recv = info.received.find((r) => r.from.some((tid) => findTower(this.state, tid)?.socketId === id));
+            const give = info.given.find((g) => g.socketId === id);
+            const other = s1.towerId != null ? findTower(this.state, s1.towerId) : null;
+            links.push({
+                a: { x: s0.x, z: s0.z },
+                b: { x: s1.x, z: s1.z },
+                recv: recv ? { color: TOWER_TINT[recv.type], label: recv.label } : null,
+                give: give ? { color: TOWER_TINT[type], label: give.label } : null,
+                same: other && other.type === type,
+                empty: !other
+            });
+        }
+        return links;
     }
 
     closeMenus() {
         this.radial.close();
+        this.inspector.hide();
         this.selected = null;
+        this.selectedEnemy = null;
+        this.buildHover = null;
         this.targeting = null;
         this.hud.armed = null;
         this.world.showRange(null);
@@ -472,6 +566,8 @@ export class App {
         if (hit.tower) {
             if (this.selected === hit.tower) this.closeMenus();
             else this.selectTower(hit.tower);
+        } else if (hit.enemy) {
+            this.selectEnemy(hit.enemy);
         } else if (hit.socket) {
             this.closeMenus();
             this.radial.openBuild(hit.socket, this.state);
@@ -486,7 +582,7 @@ export class App {
         if (k === 'Escape') {
             if (this.mode === 'paused') return this.resume();
             if (this.mode !== 'playing') return;
-            if (this.targeting || this.radial.open) return this.closeMenus();
+            if (this.targeting || this.radial.open || this.inspector.open) return this.closeMenus();
             return this.pause();
         }
         if (this.mode !== 'playing') return;
@@ -497,26 +593,18 @@ export class App {
         } else if (k === 'q' || k === 'Q') this.useSkill('meteor');
         else if (k === 'w' || k === 'W') this.useSkill('freeze');
         else if (k === 'f' || k === 'F') this.toggleSpeed();
-        else if (/^[1-4]$/.test(k)) {
+        else if (/^[1-6]$/.test(k)) {
             const type = TOWER_ORDER[Number(k) - 1];
             const socket = this.radial.mode === 'build' ? this.radial.target : this.hover.socket;
-            if (socket && socket.towerId == null) this.build(socket.id, type);
-        } else if (
-            (k === 'u' || k === 'U') &&
-            this.selected &&
-            this.selected.tier < MAX_TIER &&
-            !this.selected.branch
-        ) {
-            this.upgrade(this.selected.id, null);
-        } else if (
-            (k === 'a' || k === 'b' || k === 'A' || k === 'B') &&
-            this.selected &&
-            this.selected.tier === MAX_TIER &&
-            !this.selected.branch
-        ) {
-            this.upgrade(this.selected.id, k.toLowerCase());
+            if (type && socket && socket.towerId == null) this.build(socket.id, type);
+        } else if ((k === 'u' || k === 'U') && this.selected) {
+            const o = upgradeOptions(this.selected)[0];
+            if (o && o.kind !== 'branch') this.upgrade(this.selected.id, null);
+        } else if ((k === 'a' || k === 'b' || k === 'A' || k === 'B') && this.selected) {
+            if (upgradeOptions(this.selected).some((o) => o.kind === 'branch'))
+                this.upgrade(this.selected.id, k.toLowerCase());
         } else if ((k === 'Delete' || k === 'Backspace') && this.selected) {
-            this.sell(this.selected.id);
+            this.inspector.trySell(this.selected, this.state);
         }
     }
 
@@ -567,6 +655,7 @@ export class App {
         this.world.update(this.t, dt);
         if (this.mode === 'playing' || this.mode === 'paused') {
             this.hud.handle(events, this.state);
+            this.noteSpawns(events);
             this.hud.update(
                 this.state,
                 this.loop,
@@ -582,7 +671,8 @@ export class App {
         this.overlay.draw(
             this.mode === 'title' || this.mode === 'select' ? { enemies: [] } : this.state,
             dt,
-            this.hover.enemy?.id
+            this.hover.enemy?.id,
+            this.selectedEnemy?.id
         );
         // 메뉴 앵커
         if (this.radial.open) {
@@ -590,9 +680,10 @@ export class App {
             const p = this.overlay.project(
                 new THREE.Vector3(target.x, this.world.heightAt(target.x, target.z) + 0.9, target.z)
             );
-            this.radial.update(p, this.state);
+            this.radial.update(p);
         }
-        this.updateEnemyCard();
+        this.inspector.update(this.state);
+        this.overlay.links = this.mode === 'playing' ? this.resonanceLinks() : null;
         if (this.state.status !== 'playing' && this.mode === 'playing') {
             this.resultT = (this.resultT ?? 0) + dt;
             if (this.resultT > 1.8) this.showResults();
@@ -610,20 +701,6 @@ export class App {
             }
         }
         requestAnimationFrame((n) => this.frame(n));
-    }
-
-    updateEnemyCard() {
-        const e = this.hover.enemy;
-        const show = e && e.alive && !this.radial.open && this.mode === 'playing';
-        this.enemyCard.classList.toggle('show', !!show);
-        if (!show) return;
-        const key = e.id + ':' + Math.ceil(e.hp);
-        if (this.enemyCardKey !== key) {
-            this.enemyCardKey = key;
-            this.enemyCard.innerHTML = this.radial.enemyCard(e);
-        }
-        this.enemyCard.style.left = Math.min(window.innerWidth - 316, this.pointer.x + 18) + 'px';
-        this.enemyCard.style.top = Math.max(80, this.pointer.y - 60) + 'px';
     }
 
     // ---------- 개발용 ----------

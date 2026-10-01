@@ -1,7 +1,7 @@
 // 인게임 HUD: 자원, 속도·일시정지, 스킬, 웨이브 호출, 배너, 토스트, 힌트, 보스 체력, 포털 마커.
 import { ICONS } from './icons.js';
 import { SKILLS, canCallWave, EARLY_BONUS_PER_SEC, WAVE_GAP } from '../core/game.js';
-import { ENEMIES } from '../core/data/enemies.js';
+import { ENEMIES, ELITE, hpScale } from '../core/data/enemies.js';
 import { waveSummary } from '../core/data/waves.js';
 import { DIFFICULTY } from '../core/data/difficulty.js';
 
@@ -27,6 +27,7 @@ export class Hud {
             <button class="icon-btn" data-speed title="배속 (F)" aria-label="배속 전환">${ICONS.play}</button>
             <button class="icon-btn" data-pause title="일시정지 (Esc)" aria-label="일시정지">${ICONS.pause}</button>
             <button class="icon-btn" data-sound title="소리" aria-label="소리 켜기/끄기">${ICONS.sound}</button>
+            <button class="icon-btn" data-book title="적 도감" aria-label="적 도감">${ICONS.book}</button>
             <button class="icon-btn" data-settings title="설정" aria-label="설정">${ICONS.gear}</button>
         </div>
         <div class="skills">
@@ -41,6 +42,8 @@ export class Hud {
             <div class="ring"><div class="core">${ICONS.skull}</div></div>
             <div><div class="title" data-wc-title>첫 웨이브</div><div class="sub" data-wc-sub>준비되면 호출하세요 · Space</div><div class="preview" data-wc-preview></div></div>
         </button>
+        <div class="wave-intel panel ornate" data-intel></div>
+        <div class="enemy-intro panel ornate" data-intro></div>
         <div class="banner" data-banner><div class="big" data-banner-big></div><div class="rule"></div><div class="sub" data-banner-sub></div></div>
         <div class="toasts" data-toasts></div>
         <div class="hint-box panel" data-hint></div>
@@ -78,7 +81,9 @@ export class Hud {
             bossFill: q('[data-boss-fill]'),
             marker: q('[data-marker]'),
             markerBonus: q('[data-marker-bonus]'),
-            vig: q('[data-vig]')
+            vig: q('[data-vig]'),
+            intel: q('[data-intel]'),
+            intro: q('[data-intro]')
         };
         this.skills = {};
         for (const btn of this.el.querySelectorAll('[data-skill]')) {
@@ -95,6 +100,12 @@ export class Hud {
         this.$.pause.addEventListener('click', () => actions.pause());
         this.$.sound.addEventListener('click', () => actions.toggleSound());
         this.$.settings.addEventListener('click', () => actions.openSettings());
+        this.el.querySelector('[data-book]').addEventListener('click', () => actions.openBestiary());
+        // 웨이브 호출 버튼에 마우스를 올리면 다음 웨이브 상세
+        for (const el of [this.$.waveCall, this.$.marker]) {
+            el.addEventListener('pointerenter', () => (this.intelHover = true));
+            el.addEventListener('pointerleave', () => (this.intelHover = false));
+        }
         this.last = {};
         this.previewWave = -1;
         this.goldShown = 0;
@@ -105,6 +116,7 @@ export class Hud {
     reset(state) {
         this.last = {};
         this.previewWave = -1;
+        this.intelKey = null;
         this.goldShown = state.gold;
         this.bossLag = 1;
         this.waveTotal = 0;
@@ -260,6 +272,8 @@ export class Hud {
             this.set('markerBonus', bonus, (v) => (this.$.markerBonus.textContent = v > 0 ? `+${v}` : ''));
         }
 
+        this.updateIntel(state);
+
         // 보스 체력
         const bosses = state.enemies.filter((e) => e.def.boss);
         this.$.boss.classList.toggle('show', bosses.length > 0);
@@ -301,6 +315,65 @@ export class Hud {
                 this.vigT = setTimeout(() => this.$.vig.classList.remove('on'), 160);
             }
         }
+    }
+
+    /** 다음(또는 진행 중) 웨이브의 적 구성: 이번 웨이브 기준 체력까지 계산해 보여 준다 */
+    updateIntel(state) {
+        const show = this.intelHover;
+        this.$.intel.classList.toggle('show', !!show);
+        if (!show) return;
+        const idx = state.nextWaveIn != null || state.waveIndex === 0 ? state.waveIndex : state.waveIndex - 1;
+        const wave = state.waves[idx];
+        const key = idx + '|' + state.difficulty;
+        if (!wave || this.intelKey === key) return;
+        this.intelKey = key;
+        const waveNo = idx + 1;
+        const rows = waveSummary(wave)
+            .map((c) => {
+                const d = ENEMIES[c.enemy];
+                const hp = Math.round(d.hp * hpScale(waveNo) * state.hpMul * (c.elite ? ELITE.hp : 1));
+                const traits = [];
+                if (d.armor) traits.push(`<span class="t phys">방어 ${Math.round(d.armor * 100)}%</span>`);
+                if (d.resist) traits.push(`<span class="t">저항 ${Math.round(d.resist * 100)}%</span>`);
+                if (d.heal) traits.push('<span class="t warn">치유</span>');
+                if (d.boss) traits.push('<span class="t warn">보스</span>');
+                if (d.speed >= 2) traits.push('<span class="t">빠름</span>');
+                if (d.speed <= 0.9) traits.push('<span class="t">느림</span>');
+                return `<div class="irow ${c.elite ? 'elite' : ''} ${d.boss ? 'boss' : ''}">
+                    <i class="ico">${ICONS[c.enemy]}</i>
+                    <div class="nm"><b>${d.name}${c.elite ? ' · 정예' : ''}</b><span>${traits.join('')}</span></div>
+                    <div class="n">×${c.count}</div>
+                    <div class="hp"><b>${hp.toLocaleString()}</b><span>체력</span></div>
+                </div>`;
+            })
+            .join('');
+        const tips = [...new Set(waveSummary(wave).map((c) => c.enemy))]
+            .filter((id) => ENEMIES[id].tip)
+            .slice(0, 2)
+            .map((id) => `<li><b>${ENEMIES[id].name}</b> · ${ENEMIES[id].tip}</li>`)
+            .join('');
+        this.$.intel.innerHTML = `<div class="ihead"><span>웨이브 ${waveNo}${state.endless && waveNo > 20 ? ' · 끝없는 밤' : ''}</span><small>총 ${waveSummary(wave).reduce((n, c) => n + c.count, 0)}마리</small></div>
+            ${rows}
+            ${tips ? `<ul class="itips">${tips}</ul>` : ''}`;
+    }
+
+    /** 처음 보는 적이 나오면 왼쪽에 소개 카드 */
+    introEnemy(type) {
+        const d = ENEMIES[type];
+        const traits = [];
+        if (d.armor) traits.push(`물리 피해 ${Math.round(d.armor * 100)}% 경감`);
+        if (d.resist) traits.push(`마법 피해 ${Math.round(d.resist * 100)}% 경감`);
+        if (d.heal) traits.push('주변 아군 치유');
+        if (d.boss) traits.push('빙결·기절 30%만 받음');
+        this.$.intro.innerHTML = `<div class="ktag">새로운 적</div>
+            <div class="ibody"><i class="ico">${ICONS[type]}</i><div><div class="nm">${d.name}</div><div class="tr">${traits.join(' · ') || '특별한 내성 없음'}</div></div></div>
+            <p>${d.desc}</p>
+            <div class="tip"><b>공략</b> ${d.tip || ''}</div>`;
+        this.$.intro.classList.remove('show');
+        void this.$.intro.offsetWidth;
+        this.$.intro.classList.add('show');
+        clearTimeout(this.introT);
+        this.introT = setTimeout(() => this.$.intro.classList.remove('show'), 8000);
     }
 
     showBanner(big, sub, boss = false) {

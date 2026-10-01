@@ -39,6 +39,8 @@ export class Overlay {
             } else if (ev.type === 'leak') {
                 const c = this.entities.world.core.top;
                 this.float('-' + ev.lives, c.clone().add(new THREE.Vector3(0, 1.5, 0)), '#ff6a6a', 26);
+            } else if (ev.type === 'income') {
+                this.float('+' + ev.amount, new THREE.Vector3(ev.x, 2, ev.z), '#9dffbe', 18);
             } else if (ev.type === 'sell') {
                 this.float('+' + ev.value, new THREE.Vector3(ev.x, 1.8, ev.z), '#ffd66e', 18);
             } else if (ev.type === 'waveStart' && ev.bonus > 0) {
@@ -49,14 +51,130 @@ export class Overlay {
         void state;
     }
 
-    draw(state, dt, hoverEnemyId) {
+    /** 공명 연결선: 받는 효과는 이웃 → 이 타워, 주는 효과는 이 타워 → 이웃 화살표와 라벨 */
+    drawLinks(g, t) {
+        if (!this.links || !this.links.length) return;
+        const world = this.entities.world;
+        const P = (p) => this.project(_v.set(p.x, world.heightAt(p.x, p.z) + 0.35, p.z));
+        g.save();
+        g.font = '700 12px "Noto Sans KR", sans-serif';
+        g.textBaseline = 'middle';
+        for (const L of this.links) {
+            const a = P(L.a);
+            const b = P(L.b);
+            if (a.behind || b.behind) continue;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            if (L.empty || L.same) {
+                g.setLineDash([4, 6]);
+                g.lineWidth = 1.5;
+                g.strokeStyle = L.same ? 'rgba(200,190,210,0.45)' : 'rgba(255,227,163,0.55)';
+                g.beginPath();
+                g.moveTo(a.x, a.y);
+                g.lineTo(b.x, b.y);
+                g.stroke();
+                g.setLineDash([]);
+                this.chip(
+                    g,
+                    b.x,
+                    b.y - 18,
+                    L.same ? '같은 종류 · 공명 없음' : '빈 자리 · 다른 종류를 지으면 공명',
+                    L.same ? '#a89fb8' : '#ffe3a3',
+                    true
+                );
+                continue;
+            }
+            const both = L.recv && L.give;
+            const arrow = (from, to, off, color, k) => {
+                const fx = from.x + nx * off;
+                const fy = from.y + ny * off;
+                const tx = to.x + nx * off;
+                const ty = to.y + ny * off;
+                const ux = (tx - fx) / len;
+                const uy = (ty - fy) / len;
+                const sx = fx + ux * 22;
+                const sy = fy + uy * 22;
+                const ex = tx - ux * 26;
+                const ey = ty - uy * 26;
+                g.lineWidth = 3;
+                g.strokeStyle = color;
+                g.shadowColor = color;
+                g.shadowBlur = 10;
+                g.globalAlpha = 0.9;
+                g.beginPath();
+                g.moveTo(sx, sy);
+                g.lineTo(ex, ey);
+                g.stroke();
+                g.beginPath();
+                g.moveTo(ex + ux * 9, ey + uy * 9);
+                g.lineTo(ex - uy * 6, ey + ux * 6);
+                g.lineTo(ex + uy * 6, ey - ux * 6);
+                g.closePath();
+                g.fillStyle = color;
+                g.fill();
+                // 흐르는 빛 점
+                const p = (t * 0.8 + k) % 1;
+                g.beginPath();
+                g.arc(sx + (ex - sx) * p, sy + (ey - sy) * p, 2.6, 0, Math.PI * 2);
+                g.fillStyle = '#fff';
+                g.fill();
+                g.shadowBlur = 0;
+                g.globalAlpha = 1;
+            };
+            if (L.recv) arrow(b, a, both ? 6 : 0, L.recv.color, 0);
+            if (L.give) arrow(a, b, both ? -6 : 0, L.give.color, 0.5);
+            // 라벨은 이웃 소켓 위에 한데 모은다: 받음(이웃 색) / 줌(내 색)
+            let y = b.y - 30 - (both ? 11 : 0);
+            if (L.recv) {
+                this.chip(g, b.x, y, '받음 · ' + L.recv.label, L.recv.color);
+                y += 22;
+            }
+            if (L.give) this.chip(g, b.x, y, '줌 · ' + L.give.label, L.give.color);
+        }
+        g.restore();
+    }
+
+    chip(g, x, y, text, color, faint = false) {
+        const w = g.measureText(text).width + 14;
+        g.fillStyle = faint ? 'rgba(14,9,22,0.6)' : 'rgba(14,9,22,0.85)';
+        g.strokeStyle = color;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.roundRect(x - w / 2, y - 10, w, 20, 10);
+        g.fill();
+        g.globalAlpha = faint ? 0.6 : 1;
+        g.stroke();
+        g.fillStyle = color;
+        g.textAlign = 'center';
+        g.fillText(text, x, y + 0.5);
+        g.globalAlpha = 1;
+    }
+
+    draw(state, dt, hoverEnemyId, selectedEnemyId) {
         const g = this.ctx;
         g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         g.clearRect(0, 0, this.w, this.h);
+        this.time = (this.time || 0) + dt;
+        this.drawLinks(g, this.time);
+        // 선택한 적 표시
+        const sel = selectedEnemyId != null && state.enemies.find((e) => e.id === selectedEnemyId);
+        if (sel) {
+            const c = this.entities.enemyCenter(sel, _v.set(0, 0, 0));
+            const p = this.project(c);
+            const r = 20 * sel.scale + Math.sin(this.time * 6) * 2;
+            g.strokeStyle = '#ffe3a3';
+            g.lineWidth = 2;
+            g.beginPath();
+            g.ellipse(p.x, p.y + r * 0.6, r, r * 0.45, 0, 0, Math.PI * 2);
+            g.stroke();
+        }
         // 체력바: 맞았거나 정예·보스이거나 마우스를 올린 적만
         for (const e of state.enemies) {
             const hurt = e.hp < e.maxHp;
-            if (!hurt && !e.elite && e.id !== hoverEnemyId) continue;
+            if (!hurt && !e.elite && e.id !== hoverEnemyId && e.id !== selectedEnemyId) continue;
             if (e.def.boss) continue; // 보스는 상단 전용 바
             const top = this.entities.enemyCenter(e, _v.set(0, 0, 0));
             top.y += 0.55 * e.scale + (e.def.flying ? 0.15 : 0.35);

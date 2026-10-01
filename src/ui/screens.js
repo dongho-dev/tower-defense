@@ -1,6 +1,7 @@
 // 전체 화면 UI: 타이틀, 맵 선택, 일시정지, 설정, 결과, 튜토리얼 안내.
 import { ICONS } from './icons.js';
 import { MAPS } from '../core/data/maps.js';
+import { ENEMIES } from '../core/data/enemies.js';
 import { DIFFICULTY, DIFFICULTY_ORDER } from '../core/data/difficulty.js';
 
 /** 저장 데이터에서 맵·난이도 기록 */
@@ -180,13 +181,45 @@ export class Screens {
             <div class="menu">
                 <button class="menu-btn primary" data-a="resume">계속하기</button>
                 <button class="menu-btn" data-a="restart">처음부터 다시</button>
+                <button class="menu-btn" data-a="book">적 도감</button>
                 <button class="menu-btn" data-a="settings">설정</button>
                 <button class="menu-btn ghost" data-a="quit">전장 선택으로</button>
             </div></div></div>`);
+        el.querySelector('[data-a=book]').onclick = () => this.actions.openBestiary(true);
         el.querySelector('[data-a=resume]').onclick = () => this.actions.resume();
         el.querySelector('[data-a=restart]').onclick = () => this.actions.restart();
         el.querySelector('[data-a=settings]').onclick = () => this.actions.openSettings(true);
         el.querySelector('[data-a=quit]').onclick = () => this.actions.toSelect();
+        return this.mount(el);
+    }
+
+    /** 적 도감: 만난 적만 자세히, 아직 못 만난 적은 실루엣 */
+    bestiary(seen, fromPause) {
+        const cards = Object.values(ENEMIES)
+            .map((d) => {
+                const known = seen.includes(d.id);
+                if (!known)
+                    return `<div class="beast unknown"><i class="ico">${ICONS[d.id]}</i><div class="nm">???</div><p>아직 마주치지 않은 적</p></div>`;
+                const row = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+                return `<div class="beast ${d.boss ? 'boss' : ''}">
+                    <i class="ico">${ICONS[d.id]}</i>
+                    <div class="nm">${d.name}</div>
+                    <p>${d.desc}</p>
+                    <div class="bstats">
+                        ${row('기본 체력', d.hp)}${row('속도', d.speed)}${row('물리 방어', Math.round(d.armor * 100) + '%')}
+                        ${row('마법 저항', Math.round(d.resist * 100) + '%')}${row('처치 골드', d.bounty)}${row('돌파 시 생명', '-' + d.lives)}
+                    </div>
+                    <div class="btip"><b>공략</b> ${d.tip || ''}</div>
+                </div>`;
+            })
+            .join('');
+        const el = h(`<div class="screen dim"><div class="bestiary-wrap">
+            <h2>적 도감</h2>
+            <div class="sub">${seen.length} / ${Object.keys(ENEMIES).length} 발견 · 체력은 웨이브마다 10.5%씩 늘어납니다 · 정예는 체력 3배</div>
+            <div class="beasts">${cards}</div>
+            <div class="back-row"><button class="menu-btn ghost" data-back>돌아가기</button></div>
+        </div></div>`);
+        el.querySelector('[data-back]').onclick = () => this.actions.closeBestiary(fromPause);
         return this.mount(el);
     }
 

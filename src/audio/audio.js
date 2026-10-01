@@ -4,6 +4,8 @@ const THROTTLE = {
     fire_ranger: 0.05,
     fire_ember: 0.08,
     fire_frost: 0.06,
+    fire_arcane: 0.12,
+    income: 0.08,
     chain: 0.06,
     hit: 0.04,
     death: 0.05,
@@ -109,6 +111,14 @@ export class Audio {
             case 'fire_frost':
                 this.tone('sine', 1800 * r(), 2400, 0.12, 0.08, t);
                 this.tone('triangle', 2600 * r(), 1900, 0.18, 0.05, t + 0.02);
+                break;
+            case 'fire_arcane':
+                this.tone('sine', 880 * r(), 1320, 0.25, 0.06, t);
+                this.tone('triangle', 1320 * r(), 1760, 0.3, 0.04, t + 0.03);
+                break;
+            case 'income':
+                for (let i = 0; i < 3; i++)
+                    this.tone('triangle', 1400 + i * 350, 1500 + i * 350, 0.12, 0.06, t + i * 0.06);
                 break;
             case 'chain':
                 for (let i = 0; i < 4; i++)
@@ -316,6 +326,9 @@ export class Audio {
                     break;
                 case 'sell':
                     this.play('sell');
+                    break;
+                case 'income':
+                    this.play('income');
                     break;
                 case 'leak':
                     this.play('leak');

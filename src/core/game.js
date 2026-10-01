@@ -1,7 +1,16 @@
 // 게임 엔진. 순수 로직만 담고, 렌더러/UI는 state와 events를 읽기만 한다.
 import { buildPath, samplePath } from './path.js';
 import { MAPS } from './data/maps.js';
-import { TOWERS, MAX_TIER, SELL_RATE, CHAIN_JUMP, baseStats } from './data/towers.js';
+import {
+    TOWERS,
+    MAX_TIER,
+    MAX_MASTERY,
+    SELL_RATE,
+    CHAIN_JUMP,
+    baseStats,
+    masteryCost,
+    resonanceLabel
+} from './data/towers.js';
 import { ENEMIES, ELITE, hpScale } from './data/enemies.js';
 import { WAVES, CAMPAIGN_WAVES, endlessWave } from './data/waves.js';
 import { DIFFICULTY } from './data/difficulty.js';
@@ -124,17 +133,63 @@ const emit = (state, ev) => state.events.push(ev);
 
 // ---------- 타워 스탯 · 공명 ----------
 
+/** 타워가 주는 공명 값 (분기에 따라 커질 수 있다) */
+function resonanceValue(tower) {
+    const def = TOWERS[tower.type];
+    return (tower.branch && def.branches[tower.branch].resonanceValue) || def.resonance.value;
+}
+
+/**
+ * 이 소켓에 type 타워가 있을 때 받는 공명: 연결된 다른 종류 타워마다 종류별 최댓값 하나.
+ * 반환: [{ type, stat, value, label, from: [towerId...] }]
+ */
+function sourcesAt(state, socketId, type, excludeId = null) {
+    const byType = new Map();
+    for (const id of state.sockets[socketId].links) {
+        const other = state.sockets[id].towerId;
+        if (other == null || other === excludeId) continue;
+        const t = findTower(state, other);
+        if (!t || t.type === type) continue;
+        const r = TOWERS[t.type].resonance;
+        const cur = byType.get(t.type) || { type: t.type, stat: r.stat, value: 0, from: [] };
+        cur.value = Math.max(cur.value, resonanceValue(t));
+        cur.from.push(t.id);
+        byType.set(t.type, cur);
+    }
+    return [...byType.values()].map((x) => ({ ...x, label: resonanceLabel(x.stat, x.value) }));
+}
+
 /** 이 타워에 공명 버프를 주는 이웃 타워 종류 목록 (중복 없음, 같은 종류 제외) */
 export function resonanceDonors(state, tower) {
-    const socket = state.sockets[tower.socketId];
-    const types = new Set();
-    for (const id of socket.links) {
+    return sourcesAt(state, tower.socketId, tower.type, tower.id).map((x) => x.type);
+}
+
+/**
+ * UI용 공명 정보. received: 이 타워가 받는 효과, given: 이 타워가 이웃에게 주는 효과,
+ * openLinks: 아직 빈 연결 소켓 수
+ */
+export function resonanceInfo(state, tower) {
+    return resonancePreview(state, tower.socketId, tower.type, tower);
+}
+
+/** 소켓에 type을 지었다고 치고 공명을 미리 계산한다 (건설 미리보기) */
+export function resonancePreview(state, socketId, type, self = null) {
+    const received = sourcesAt(state, socketId, type, self?.id ?? null);
+    const r = TOWERS[type].resonance;
+    const value = self ? resonanceValue(self) : r.value;
+    const given = [];
+    let openLinks = 0;
+    for (const id of state.sockets[socketId].links) {
         const other = state.sockets[id].towerId;
-        if (other == null) continue;
+        if (other == null) {
+            openLinks++;
+            continue;
+        }
         const t = findTower(state, other);
-        if (t && t.type !== tower.type) types.add(t.type);
+        if (!t || t.type === type) continue;
+        given.push({ towerId: t.id, type: t.type, socketId: id, stat: r.stat, label: resonanceLabel(r.stat, value) });
     }
-    return [...types];
+    return { received, given, openLinks, links: state.sockets[socketId].links.slice() };
 }
 
 export function towerStats(state, tower) {
@@ -142,10 +197,12 @@ export function towerStats(state, tower) {
     const cached = state.statsCache.get(key);
     if (cached && cached.v === state.statsVersion) return cached.s;
     const b = baseStats(tower);
+    const m = tower.mastery || 0;
+    const dmgUp = 1 + 0.25 * m;
     const s = {
-        dmg: b.dmg || 0,
+        dmg: (b.dmg || 0) * dmgUp,
         rate: b.rate || 0,
-        range: b.range,
+        range: b.range * (1 + 0.05 * m),
         splash: b.splash || 0,
         slow: b.slow || 0,
         slowTime: b.slowTime || 0,
@@ -153,20 +210,26 @@ export function towerStats(state, tower) {
         falloff: b.falloff || 1,
         multi: b.multi || 1,
         pierce: b.pierce || 0,
-        burn: b.burn || null,
-        aura: b.aura || null,
+        burn: b.burn ? { ...b.burn, dps: b.burn.dps * dmgUp } : null,
+        aura: b.aura ? { ...b.aura, dps: b.aura.dps * dmgUp } : null,
         shatter: b.shatter || 1,
         stun: b.stun || 0,
+        ramp: b.ramp || null,
+        income: Math.round((b.income || 0) * (1 + 0.3 * m)),
         dmgMult: 1,
         vulnerable: 0,
-        donors: resonanceDonors(state, tower)
+        pen: 0,
+        bountyMult: 1,
+        donors: []
     };
-    for (const type of s.donors) {
-        const r = TOWERS[type].resonance;
-        if (r.stat === 'range') s.range *= 1 + r.value;
-        else if (r.stat === 'damage') s.dmgMult *= 1 + r.value;
-        else if (r.stat === 'rate') s.rate /= 1 + r.value;
-        else if (r.stat === 'vulnerable') s.vulnerable += r.value;
+    for (const src of sourcesAt(state, tower.socketId, tower.type, tower.id)) {
+        s.donors.push(src.type);
+        if (src.stat === 'range') s.range *= 1 + src.value;
+        else if (src.stat === 'damage') s.dmgMult *= 1 + src.value;
+        else if (src.stat === 'rate') s.rate /= 1 + src.value;
+        else if (src.stat === 'vulnerable') s.vulnerable += src.value;
+        else if (src.stat === 'pen') s.pen = Math.max(s.pen, src.value);
+        else if (src.stat === 'bounty') s.bountyMult += src.value;
     }
     state.statsCache.set(key, { v: state.statsVersion, s });
     return s;
@@ -176,6 +239,7 @@ export function towerStats(state, tower) {
 export function estimateDps(state, tower) {
     const s = towerStats(state, tower);
     if (s.aura) return s.aura.dps * s.dmgMult;
+    if (s.ramp) return ((s.dmg * s.dmgMult * s.multi) / s.rate) * ((1 + s.ramp.max) / 2);
     return s.rate > 0 ? (s.dmg * s.dmgMult * s.multi) / s.rate : 0;
 }
 
@@ -206,6 +270,8 @@ export function buildTower(state, socketId, type) {
         z: socket.z,
         tier: 1,
         branch: null,
+        mastery: 0,
+        beams: [],
         spent: cost,
         cooldown: 0.25,
         aim: Math.PI / 2,
@@ -229,14 +295,16 @@ export function upgradeTower(state, towerId, branch = null) {
     if (!tower || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
     const def = TOWERS[tower.type];
     let cost;
-    if (tower.branch) return { ok: false, reason: '이미 최종 단계입니다.' };
-    if (tower.tier < MAX_TIER) cost = def.tiers[tower.tier].cost;
+    if (tower.branch && tower.mastery >= MAX_MASTERY) return { ok: false, reason: '이미 최종 단계입니다.' };
+    if (tower.branch) cost = masteryCost(tower);
+    else if (tower.tier < MAX_TIER) cost = def.tiers[tower.tier].cost;
     else if (branch && def.branches[branch]) cost = def.branches[branch].cost;
     else return { ok: false, reason: '특화 분기를 골라야 합니다.' };
     if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
     state.gold -= cost;
     tower.spent += cost;
-    if (tower.tier < MAX_TIER) tower.tier++;
+    if (tower.branch) tower.mastery++;
+    else if (tower.tier < MAX_TIER) tower.tier++;
     else tower.branch = branch;
     state.statsVersion++;
     emit(state, {
@@ -245,6 +313,7 @@ export function upgradeTower(state, towerId, branch = null) {
         tower: tower.type,
         tier: tower.tier,
         branch: tower.branch,
+        mastery: tower.mastery,
         x: tower.x,
         z: tower.z
     });
@@ -291,6 +360,7 @@ export function callWave(state) {
         state.stats.earlyBonus += bonus;
     }
     const waveNo = ++state.waveIndex;
+    if (waveNo > 1) payIncome(state);
     if (state.endless) ensureWaves(state);
     const wave = state.waves[waveNo - 1];
     for (const grp of wave.groups) {
@@ -306,6 +376,16 @@ export function callWave(state) {
         endless: !!wave.endless
     });
     return { ok: true, bonus };
+}
+
+function payIncome(state) {
+    for (const t of state.towers) {
+        const inc = towerStats(state, t).income;
+        if (!inc) continue;
+        state.gold += inc;
+        state.stats.mined = (state.stats.mined || 0) + inc;
+        emit(state, { type: 'income', towerId: t.id, x: t.x, z: t.z, amount: inc });
+    }
 }
 
 export function castSkill(state, id, x = 0, z = 0) {
@@ -452,15 +532,18 @@ function isDisabled(e) {
 export function dealDamage(state, e, amount, type, opts = {}) {
     if (!e.alive || amount <= 0) return 0;
     let dmg = amount;
+    const ts = opts.tower ? towerStats(state, opts.tower) : null;
+    const pen = ts ? ts.pen : 0;
     if (opts.vulnerable && isDisabled(e)) dmg *= 1 + opts.vulnerable;
-    if (type === 'physical') dmg *= 1 - e.def.armor * (1 - (opts.pierce || 0));
-    else if (type === 'magic') dmg *= 1 - e.def.resist;
+    if (type === 'physical') dmg *= 1 - e.def.armor * (1 - (opts.pierce || 0)) * (1 - pen);
+    else if (type === 'magic') dmg *= 1 - e.def.resist * (1 - pen);
     e.hp -= dmg;
     if (opts.tower) opts.tower.damage += dmg;
     if (e.hp <= 0) {
         e.alive = false;
-        state.gold += e.bounty;
-        state.stats.goldEarned += e.bounty;
+        const bounty = Math.round(e.bounty * (ts ? ts.bountyMult : 1));
+        state.gold += bounty;
+        state.stats.goldEarned += bounty;
         state.stats.kills++;
         if (opts.tower) opts.tower.kills++;
         emit(state, {
@@ -470,7 +553,7 @@ export function dealDamage(state, e, amount, type, opts = {}) {
             elite: e.elite,
             x: e.x,
             z: e.z,
-            bounty: e.bounty,
+            bounty,
             cause: opts.cause || type
         });
     }
@@ -504,8 +587,13 @@ function updateTowers(state, dt) {
     if (auraPulse) state.auraTick += 0.25;
     for (const tower of state.towers) {
         const def = TOWERS[tower.type];
+        if (def.attack === 'none') continue;
         const s = towerStats(state, tower);
         tower.cooldown -= dt;
+        if (def.attack === 'beam') {
+            updateBeam(state, tower, s, dt);
+            continue;
+        }
 
         if (s.aura) {
             if (auraPulse) {
@@ -592,6 +680,50 @@ function updateTowers(state, dt) {
             count: targets.length
         });
     }
+}
+
+/** 광선: 같은 적을 비출수록 피해 배율이 오른다. tower.beams = [{ id, t, k }] (k는 렌더용 0~1) */
+function updateBeam(state, tower, s, dt) {
+    const targets = acquireTargets(state, tower, s.range, s.multi);
+    const prev = tower.beams || [];
+    const next = targets.map((e) => {
+        const old = prev.find((b) => b.id === e.id);
+        return { id: e.id, t: old ? old.t + dt : 0, k: 0, x: e.x, z: e.z };
+    });
+    if (next.some((b) => !prev.find((p) => p.id === b.id)) && next.length) {
+        emit(state, {
+            type: 'fire',
+            towerId: tower.id,
+            tower: tower.type,
+            branch: tower.branch,
+            x: tower.x,
+            z: tower.z,
+            aim: tower.aim,
+            count: next.length
+        });
+    }
+    tower.beams = next;
+    if (!targets.length) {
+        tower.targetId = null;
+        return;
+    }
+    tower.targetId = targets[0].id;
+    tower.aim = Math.atan2(targets[0].z - tower.z, targets[0].x - tower.x);
+    const fire = tower.cooldown <= 0;
+    if (fire) tower.cooldown += s.rate;
+    if (tower.cooldown < 0) tower.cooldown = 0;
+    targets.forEach((e, i) => {
+        const b = next[i];
+        const mult = Math.min(s.ramp.max, 1 + b.t * s.ramp.rate);
+        b.k = (mult - 1) / (s.ramp.max - 1);
+        if (fire) {
+            dealDamage(state, e, s.dmg * s.dmgMult * mult, 'magic', {
+                tower,
+                vulnerable: s.vulnerable,
+                cause: 'arcane'
+            });
+        }
+    });
 }
 
 function fireChain(state, tower, s, first, dmg) {
@@ -802,7 +934,10 @@ export function starsFor(state) {
 /** UI 미리보기: 업그레이드 선택지 목록 */
 export function upgradeOptions(tower) {
     const def = TOWERS[tower.type];
-    if (tower.branch) return [];
+    if (tower.branch) {
+        if (tower.mastery >= MAX_MASTERY) return [];
+        return [{ kind: 'mastery', cost: masteryCost(tower), label: `각성 ${tower.mastery + 1}` }];
+    }
     if (tower.tier < MAX_TIER)
         return [
             {
@@ -820,4 +955,18 @@ export function upgradeOptions(tower) {
         label: def.branches[k].name,
         desc: def.branches[k].desc
     }));
+}
+
+/** UI 미리보기: 단계 변경(tier/branch/mastery)을 가정한 스탯. 캐시를 오염시키지 않는다 */
+export function previewStats(state, tower, change) {
+    const fake = { ...tower, ...change, id: Symbol('preview') };
+    const s = towerStats(state, fake);
+    state.statsCache.delete(fake.id);
+    return { stats: s, dps: estimateDpsOf(s) };
+}
+
+function estimateDpsOf(s) {
+    if (s.aura) return s.aura.dps * s.dmgMult;
+    if (s.ramp) return ((s.dmg * s.dmgMult * s.multi) / s.rate) * ((1 + s.ramp.max) / 2);
+    return s.rate > 0 ? (s.dmg * s.dmgMult * s.multi) / s.rate : 0;
 }

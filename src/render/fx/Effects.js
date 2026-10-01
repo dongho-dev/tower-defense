@@ -24,7 +24,9 @@ const COL = {
     voidDark: HDR('#7a2aff', 2.5),
     heal: HDR('#6dff9a', 3.5),
     blood: HDR('#ff3d4a', 4),
-    firefly: HDR('#ffe08a', 3.2)
+    firefly: HDR('#ffe08a', 3.2),
+    arcane: HDR('#ff6ad8', 4.5),
+    mint: HDR('#7dffb0', 3.5)
 };
 
 let ringTex = null;
@@ -93,6 +95,7 @@ export class Effects {
     }
 
     reset() {
+        this.releaseBeams(true);
         this.add.count = 0;
         this.smoke.count = 0;
         for (const r of this.rings) r.mesh.visible = false;
@@ -312,6 +315,87 @@ export class Effects {
             this.burst(this.add, m, 6, { color: COL.ice, size: 0.1, speed: 1, life: 0.35 });
         } else if (ev.tower === 'storm') {
             this.burst(this.add, m, 10, { color: COL.storm, size: 0.14, speed: 1.6, life: 0.3 });
+        } else if (ev.tower === 'arcane') {
+            this.burst(this.add, m, 12, { color: COL.arcane, size: 0.12, speed: 1.4, life: 0.35 });
+            this.flash(m, 0xff6ad8, 5, 0.15, 4);
+        }
+    }
+
+    /** 광산 수입: 초록 수정 조각과 금화가 솟는다 */
+    on_income(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 1.1);
+        this.burst(this.add, p, Math.round(24 * this.q), {
+            color: COL.gold,
+            size: 0.12,
+            speed: 1.2,
+            upMin: 2,
+            upMax: 3.5,
+            life: 1,
+            grav: 4
+        });
+        this.burst(this.add, p, Math.round(14 * this.q), { color: COL.mint, size: 0.1, speed: 1.8, life: 0.7 });
+        this.ring(this.groundPoint(ev.x, ev.z, 0.2), 1.1, COL.mint, 0.5);
+    }
+
+    /** 비전 광선: 타워의 beams를 매 프레임 리본으로 그린다. 오래 비출수록 굵고 하얗게 */
+    updateBeams(state, t) {
+        this.beams ??= new Map();
+        const used = new Set();
+        for (const tower of state.towers) {
+            if (!tower.beams || !tower.beams.length) continue;
+            const m = this.entities.muzzleOf(tower.id, new THREE.Vector3());
+            if (!m) continue;
+            tower.beams.forEach((b, i) => {
+                const key = tower.id + ':' + i;
+                let it = this.beams.get(key);
+                if (!it) {
+                    it = { outer: this.ribbons.get(), inner: this.ribbons.get() };
+                    this.beams.set(key, it);
+                }
+                used.add(key);
+                const end = this.enemyPoint(state, b.id, b.x, b.z);
+                const pts = [];
+                for (let j = 0; j <= 12; j++) {
+                    const p = new THREE.Vector3().lerpVectors(m, end, j / 12);
+                    const w = Math.sin((j / 12) * Math.PI) * 0.05;
+                    p.x += Math.sin(t * 30 + j * 1.7 + i) * w;
+                    p.y += Math.cos(t * 26 + j * 2.1) * w;
+                    pts.push(p);
+                }
+                const width = 0.05 + 0.11 * b.k + Math.sin(t * 40) * 0.008;
+                it.outer.set(pts, width, this.ribbons.camera);
+                it.inner.set(pts, width * 0.32, this.ribbons.camera);
+                it.outer.mat.color.setRGB(4.5, 1.2 + b.k * 1.5, 3.8).multiplyScalar(0.8 + b.k * 0.6);
+                it.inner.mat.color.setRGB(6, 5, 6);
+                if (Math.random() < 0.5 * this.q) {
+                    this.add.emit({
+                        x: end.x,
+                        y: end.y,
+                        z: end.z,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: Math.random() * 1.5,
+                        vz: (Math.random() - 0.5) * 2,
+                        life: 0.3,
+                        size: 0.08 + b.k * 0.1,
+                        size1: 0.01,
+                        color: COL.arcane,
+                        drag: 1
+                    });
+                }
+            });
+        }
+        this.releaseBeams(false, used);
+    }
+
+    releaseBeams(all, used = null) {
+        if (!this.beams) return;
+        for (const [key, it] of this.beams) {
+            if (!all && used.has(key)) continue;
+            for (const r of [it.outer, it.inner]) {
+                r.active = false;
+                r.mesh.visible = false;
+            }
+            this.beams.delete(key);
         }
     }
 
@@ -646,6 +730,7 @@ export class Effects {
 
     ambient(dt, t, state) {
         this.ambientT += dt;
+        this.updateBeams(state, t);
         const q = this.q;
         // 투사체 궤적
         for (const p of state.projectiles) {

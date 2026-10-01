@@ -98,7 +98,7 @@ export class EntityView {
         for (const tower of state.towers) {
             alive.add(tower.id);
             let v = this.towers.get(tower.id);
-            const sig = tower.tier + (tower.branch || '');
+            const sig = tower.tier + (tower.branch || '') + (tower.mastery || 0);
             if (!v) {
                 v = { root: new THREE.Group(), model: null, sig: null, recoil: 0, pop: 0, built: 0 };
                 v.root.userData.towerId = tower.id;
@@ -108,7 +108,7 @@ export class EntityView {
             }
             if (v.sig !== sig) {
                 if (v.model) v.root.remove(v.model.group);
-                v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id);
+                v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id, tower.mastery);
                 if (v.model.turret) v.model.turret.rotation.y = -tower.aim;
                 v.root.add(v.model.group);
                 v.sig = sig;
