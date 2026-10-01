@@ -105,7 +105,7 @@ export class Overlay {
                     g,
                     b.x,
                     b.y - 18,
-                    L.same ? '같은 종류 · 공명 없음' : '빈 자리 · 다른 종류를 지으면 공명',
+                    L.same ? '같은 종류 · 공명 없음' : '빈 자리 · 다른 종류가 서면 공명',
                     L.same ? '#a89fb8' : '#ffe3a3',
                     true
                 );

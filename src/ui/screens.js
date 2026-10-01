@@ -20,7 +20,7 @@ const MODES = {
     endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
     siege: {
         label: '공성전',
-        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 길 없이 사방에서 몰려오는 적을 동이 틀 때까지 타워만으로 버팁니다'
+        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 길 없이 사방에서 몰려오는 적을 동이 틀 때까지 타워만으로 버팁니다<br><b>랜덤 디펜스</b> · 골드로 무작위 타워를 소환하고 같은 타워 셋을 합성해 등급을 올립니다. 필드에 적이 100마리를 넘으면 패배'
     }
 };
 
@@ -37,6 +37,7 @@ const genreBadge = (m) =>
 
 /** 맵 카드 아래 한 줄: 길 갈래·성문·사방 습격 */
 function mapMeta(m) {
+    if (m.rtd) return '랜덤 소환·합성 · ';
     if (m.survival) return '사방 습격 · ';
     if (m.gates) return `성문 ${m.gates.length}곳 · `;
     return m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : '';
@@ -58,7 +59,8 @@ const THUMB_FALLBACK = {
     dawn: 'linear-gradient(160deg,#ffc8b0 0%,#6a8ad0 55%,#2a3a7a 100%)',
     storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)',
     citadel: 'linear-gradient(160deg,#f4ae6a 0%,#57406e 55%,#1c1838 100%)',
-    nightfall: 'linear-gradient(160deg,#c8706a 0%,#2e2c62 50%,#03040e 100%)'
+    nightfall: 'linear-gradient(160deg,#c8706a 0%,#2e2c62 50%,#03040e 100%)',
+    fate: 'linear-gradient(160deg,#ffd2a0 0%,#5c7ec0 45%,#2f5a2a 100%)'
 };
 
 /** 공성전 모드에는 공성전 전용 맵만, 다른 모드에는 일반 맵만 보인다 */
@@ -190,7 +192,9 @@ export class Screens {
                     ? '∞ 웨이브'
                     : sv
                       ? `동틀 때까지 ${Math.round((sv.dawn || 600) / 60)}분`
-                      : '20 웨이브';
+                      : MAPS[id].rtd
+                        ? '40 웨이브'
+                        : '20 웨이브';
                 card.querySelector('[data-rec]').innerHTML = endless
                     ? `<span class="best">${ICONS.moon}<b>${rec.best || '—'}</b>${rec.best ? ' 웨이브' : ''}</span>`
                     : `<span class="stars">${starRow(rec.stars)}</span>`;
@@ -335,17 +339,24 @@ export class Screens {
         const endless = state.endless;
         const sv = state.survival;
         const title = endless ? '밤이 끝났다' : won ? (sv ? '동이 텄다' : '승리') : '패배';
+        const R = state.rtd;
         const sub = endless
             ? `끝없는 밤에서 ${survived} 웨이브를 버텨 냈다`
-            : sv
+            : R
               ? won
-                  ? '기나긴 밤을 타워만으로 버텨 냈다'
-                  : `동트기 ${formatClock(sv.dawn - sv.clock)} 전, 마지막 빛이 꺼졌다`
-              : won
-                ? '마지막 빛이 지켜졌다'
-                : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
+                  ? `마지막 보스를 쓰러뜨렸다 · 필드 최대 ${R.peak}마리`
+                  : R.lostBy === 'boss'
+                    ? `웨이브 ${state.waveIndex} 보스를 제한 시간 안에 잡지 못했다`
+                    : `웨이브 ${state.waveIndex}에서 필드가 ${R.limit}마리를 넘었다`
+              : sv
+                ? won
+                    ? '기나긴 밤을 타워만으로 버텨 냈다'
+                    : `동트기 ${formatClock(sv.dawn - sv.clock)} 전, 마지막 빛이 꺼졌다`
+                : won
+                  ? '마지막 빛이 지켜졌다'
+                  : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
         // 살아남기는 동이 트면 끝난다 (끝없는 밤으로 잇지 않는다)
-        const offerEndless = won && !endless && !sv;
+        const offerEndless = won && !endless && !sv && !R;
         const el = h(`<div class="screen dim"><div class="modal panel ornate results" style="min-width:520px">
             <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}${state.siege ? ' · 공성전' : ''}${state.map.genre ? ' · ' + GENRES[state.map.genre].label : ''}</div>
             <h2 style="margin-bottom:6px;${won || endless ? '' : 'color:#ffb0b0'}">${title}</h2>
@@ -359,13 +370,19 @@ export class Screens {
             }
             <div class="result-grid">
                 <div class="stat"><b>${state.stats.kills}</b><span>처치</span></div>
-                <div class="stat"><b>${state.lives}/${state.maxLives}</b><span>남은 생명</span></div>
+                ${
+                    R
+                        ? `<div class="stat"><b>${R.peak}/${R.limit}</b><span>필드 최대</span></div>`
+                        : `<div class="stat"><b>${state.lives}/${state.maxLives}</b><span>남은 생명</span></div>`
+                }
                 <div class="stat"><b>${state.stats.goldEarned + state.stats.earlyBonus}</b><span>획득 골드</span></div>
                 <div class="stat"><b>${time}</b><span>전투 시간</span></div>
                 ${
-                    state.siege
-                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div>${state.hero ? `<div class="stat"><b>Lv ${state.hero.level}</b><span>영웅 레벨</span></div>` : ''}${sv ? `<div class="stat"><b>${formatClock(sv.clock)}</b><span>버틴 밤</span></div>` : ''}${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
-                        : ''
+                    R
+                        ? `<div class="stat"><b>${R.summons}</b><span>소환</span></div><div class="stat"><b>${R.merges}</b><span>합성</span></div><div class="stat"><b>${R.myths}</b><span>신화</span></div>`
+                        : state.siege
+                          ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div>${state.hero ? `<div class="stat"><b>Lv ${state.hero.level}</b><span>영웅 레벨</span></div>` : ''}${sv ? `<div class="stat"><b>${formatClock(sv.clock)}</b><span>버틴 밤</span></div>` : ''}${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
+                          : ''
                 }
             </div>
             ${offerEndless ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">${diff.name} 최고 기록 · 별 ${record.stars}개</div>` : ''}

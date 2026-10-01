@@ -1,11 +1,15 @@
 // 맵 정의. 좌표는 지면 (x, z), +z가 화면 아래(카메라 쪽).
 // sockets: [x, z], links: 공명 레이 라인으로 연결되는 소켓 인덱스 쌍.
 // 공성전 전용 맵(siegeOnly)은 genre로 장르를 밝힌다: 'defense'(디펜스) | 'survival'(살아남기).
+// rtd: 랜덤 타워 디펜스(고리 길·소환·합성, src/core/randomtd.js).
 import { survivalLanes, survivalSockets } from '../survival.js';
+import { loopTrack, arenaCells } from './randomtd.js';
 
 // 살아남기 맵: 골목 6개, 가장자리 5도마다 레인 하나 (survival.js 참고)
 const LONG_NIGHT = { dawn: 600, corridors: 6, corridorAt: 0, laneStep: 5, spawnR: 11.6, stretch: 1.27 };
 const LONG_NIGHT_SOCKETS = survivalSockets(LONG_NIGHT);
+// 랜덤 디펜스 맵: 칸 격자를 감싼 사각 고리 길 (data/randomtd.js 참고)
+const ARENA_GRID = arenaCells();
 
 export const MAPS = {
     dusk: {
@@ -641,5 +645,30 @@ export const MAPS = {
         sockets: LONG_NIGHT_SOCKETS.sockets,
         links: LONG_NIGHT_SOCKETS.links,
         waves: 'longnight'
+    },
+    randomtd: {
+        id: 'randomtd',
+        name: '운명의 제단',
+        en: 'Altar of Fate',
+        desc: '숲속 경기장. 적이 칸 격자를 감싼 고리 길을 끝없이 돈다. 골드로 무작위 타워를 소환하고, 같은 타워 셋을 합쳐 더 높은 등급을 노려라. 필드에 적이 100마리를 넘으면 진다.',
+        difficulty: 2,
+        theme: 'fate',
+        siegeOnly: true,
+        genre: 'defense',
+        // 랜덤 타워 디펜스 규칙 (src/core/randomtd.js): 소환·합성·필드 한도·보스 제한 시간.
+        // 떠 있는 섬 대신 직사각형 경기장으로 그린다 (src/render/env/arena.js)
+        rtd: true,
+        noHero: true,
+        startGold: 100,
+        lives: 20,
+        hpMul: 1,
+        speedMul: 0.9,
+        // 카메라가 움직일 수 있는 범위
+        island: { rx: 9.5, rz: 6.5 },
+        view: { distance: 21 },
+        paths: [loopTrack()],
+        sockets: ARENA_GRID.sockets,
+        links: ARENA_GRID.links,
+        waves: 'randomtd'
     }
 };

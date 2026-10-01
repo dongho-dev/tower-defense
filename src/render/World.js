@@ -17,6 +17,7 @@ import {
 import { createFortress } from './env/fortress.js';
 import { createRifts } from './env/rifts.js';
 import { createNightCycle } from './env/nightcycle.js';
+import { buildArena } from './env/arena.js';
 
 export class World {
     constructor(renderer, state, quality) {
@@ -53,6 +54,11 @@ export class World {
         const rim = new THREE.DirectionalLight(th.rim.color, th.rim.intensity);
         rim.position.set(18, 14, -22);
         scene.add(rim);
+        // 랜덤 디펜스: 떠 있는 섬 대신 숲속 직사각형 경기장 (env/arena.js)
+        if (state.rtd) {
+            buildArena(this, scene, state, th, quality);
+            return;
+        }
 
         const cloud = (this.cloud = createCloudSea(sunDir, th));
         scene.add(cloud.sea, cloud.puffs);

@@ -95,7 +95,8 @@ test('맵 데이터: 소켓은 경로·서로와 떨어져 있고, 링크는 가
             const [bx, bz] = map.sockets[b];
             assert.ok(Math.hypot(ax - bx, az - bz) <= 2.9, `${map.id} 링크 ${a}-${b}가 너무 멂`);
         }
-        assert.ok(WAVES[map.waves].length === 20);
+        // 랜덤 디펜스는 전용 40웨이브 (randomtd.test.js)
+        if (!map.rtd) assert.ok(WAVES[map.waves].length === 20);
     }
 });
 
