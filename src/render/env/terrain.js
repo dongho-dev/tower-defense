@@ -2,7 +2,6 @@
 import * as THREE from 'three';
 import { createNoise, smoothstep, lerp } from '../util/noise.js';
 import { grassDetail } from '../util/textures.js';
-import { createMountainField } from './mountainField.js';
 
 export const ROAD_Y = -0.04;
 const RES = 0.2;
@@ -18,52 +17,43 @@ export function createTerrain(state, theme) {
     const gz0 = -rz - 1.5;
     const gw = Math.ceil((2 * rx + 3) / RES);
     const gh = Math.ceil((2 * rz + 3) / RES);
-    function distanceField(paths, reach) {
-        const field = new Float32Array(gw * gh).fill(99);
-        const R = Math.ceil(reach / RES);
-        for (const path of paths) {
-            for (let k = 0; k < path.count; k += 2) {
-                const px = path.xs[k];
-                const pz = path.zs[k];
-                const ci = Math.round((px - gx0) / RES);
-                const cj = Math.round((pz - gz0) / RES);
-                for (let j = Math.max(0, cj - R); j < Math.min(gh, cj + R); j++) {
-                    for (let i = Math.max(0, ci - R); i < Math.min(gw, ci + R); i++) {
-                        const d = Math.hypot(gx0 + i * RES - px, gz0 + j * RES - pz);
-                        const idx = j * gw + i;
-                        if (d < field[idx]) field[idx] = d;
-                    }
+    const pathField = new Float32Array(gw * gh).fill(99);
+    for (const path of state.paths) {
+        for (let k = 0; k < path.count; k += 2) {
+            const px = path.xs[k];
+            const pz = path.zs[k];
+            const ci = Math.round((px - gx0) / RES);
+            const cj = Math.round((pz - gz0) / RES);
+            const R = Math.ceil(4 / RES);
+            for (let j = Math.max(0, cj - R); j < Math.min(gh, cj + R); j++) {
+                for (let i = Math.max(0, ci - R); i < Math.min(gw, ci + R); i++) {
+                    const d = Math.hypot(gx0 + i * RES - px, gz0 + j * RES - pz);
+                    const idx = j * gw + i;
+                    if (d < pathField[idx]) pathField[idx] = d;
                 }
             }
         }
-        return field;
     }
-    // 살아남기 맵은 길이 없는 산이다: 높이·색·빈터 판정을 산 높이장(mountainField)이 맡는다
-    const mtn = state.survival ? createMountainField(state, noise) : null;
-    const pathField = mtn ? null : distanceField(state.paths, 4);
-    const fieldAt = (field, x, z) => {
+    function pathDist(x, z) {
         const fi = (x - gx0) / RES;
         const fj = (z - gz0) / RES;
         const i = Math.max(0, Math.min(gw - 2, Math.floor(fi)));
         const j = Math.max(0, Math.min(gh - 2, Math.floor(fj)));
         const tx = Math.min(1, Math.max(0, fi - i));
         const tz = Math.min(1, Math.max(0, fj - j));
-        const a = field[j * gw + i];
-        const b = field[j * gw + i + 1];
-        const c = field[(j + 1) * gw + i];
-        const d = field[(j + 1) * gw + i + 1];
+        const a = pathField[j * gw + i];
+        const b = pathField[j * gw + i + 1];
+        const c = pathField[(j + 1) * gw + i];
+        const d = pathField[(j + 1) * gw + i + 1];
         return lerp(lerp(a, b, tx), lerp(c, d, tx), tz);
-    };
-    const pathDist = mtn ? mtn.trailDist : (x, z) => fieldAt(pathField, x, z);
+    }
     const socketDist = (x, z) => {
         let best = 99;
         for (const s of state.sockets) best = Math.min(best, Math.hypot(s.x - x, s.z - z));
         return best;
     };
     const coreEnd = state.paths[0];
-    const core = state.survival
-        ? { x: state.survival.base.x, z: state.survival.base.z }
-        : { x: coreEnd.xs[coreEnd.count - 1], z: coreEnd.zs[coreEnd.count - 1] };
+    const core = { x: coreEnd.xs[coreEnd.count - 1], z: coreEnd.zs[coreEnd.count - 1] };
 
     const rimFactor = (theta) =>
         1 +
@@ -71,13 +61,10 @@ export function createTerrain(state, theme) {
         0.025 * n2(Math.cos(theta) * 5, Math.sin(theta) * 5);
     // 성채(공성전 맵): 성벽 사각형까지의 거리. 안쪽은 음수
     const fort = state.map.fortress;
-    let fortDist = fort ? (x, z) => Math.max(Math.abs(x) - fort.hx, Math.abs(z) - fort.hz) : () => 99;
-    // 산: 바위 위에는 풀이 나지 않는다 (풀 배치가 fortDist > 0.45를 본다)
-    if (mtn) fortDist = (x, z) => (mtn.rockDist(x, z) < 0.15 ? 99 : 0);
+    const fortDist = fort ? (x, z) => Math.max(Math.abs(x) - fort.hx, Math.abs(z) - fort.hz) : () => 99;
     const ellipseR = (x, z) => Math.sqrt((x / rx) ** 2 + (z / rz) ** 2) / rimFactor(Math.atan2(z / rz, x / rx));
 
     function heightAt(x, z) {
-        if (mtn) return mtn.heightAt(x, z);
         const dp = pathDist(x, z);
         const hills = 0.75 * Math.max(0, fbm(x * 0.085 + 3.1, z * 0.085 - 1.7, 4)) + 0.1 * fbm(x * 0.35, z * 0.35, 2);
         const away = smoothstep(1.2, 3.6, dp);
@@ -97,9 +84,8 @@ export function createTerrain(state, theme) {
     group.name = 'terrain';
 
     // ---------- 윗면 (극좌표 격자) ----------
-    // 산은 절벽·봉우리가 있어 더 촘촘하게
-    const NA = mtn ? 400 : 240;
-    const NR = mtn ? 170 : 96;
+    const NA = 240;
+    const NR = 96;
     const topPos = [];
     const topCol = [];
     const topUv = [];
@@ -120,13 +106,6 @@ export function createTerrain(state, theme) {
             const y = heightAt(x, z);
             topPos.push(x, y, z);
             topUv.push(x * 0.35, z * 0.35);
-            if (mtn) {
-                mtn.paint(c, x, z, y, pal, theme);
-                c.lerp(rimRock, smoothstep(0.95, 1.0, r) * 0.5);
-                topCol.push(c.r, c.g, c.b);
-                if (i === NR) rimPts.push({ x, y, z, theta, rf });
-                continue;
-            }
             const dp = pathDist(x, z);
             const n = fbm(x * 0.18 + 10, z * 0.18, 3) * 0.5 + 0.5;
             c.copy(grassA).lerp(grassB, smoothstep(0.25, 0.8, n));
@@ -177,9 +156,7 @@ export function createTerrain(state, theme) {
     const deep = new THREE.Color(theme.cliff.deep);
     for (let j = 0; j < NA; j++) {
         const { theta, rf, y: y0 } = rimPts[j];
-        // 가장자리가 높으면(산) 그만큼 더 깊이 내려가야 아랫면이 윗면을 뚫고 올라오지 않는다
-        const depth =
-            7.5 + 3.5 * fbm(Math.cos(theta) * 1.7, Math.sin(theta) * 1.7 + 9, 3) + Math.max(0, y0 - 0.3) * 1.3;
+        const depth = 7.5 + 3.5 * fbm(Math.cos(theta) * 1.7, Math.sin(theta) * 1.7 + 9, 3);
         for (let k = 0; k <= NK; k++) {
             const t = k / NK;
             // 입술처럼 살짝 튀어나왔다가 뾰족하게 좁아지는 옆모습
@@ -225,7 +202,6 @@ export function createTerrain(state, theme) {
 
     function isFree(x, z, margin = 0) {
         if (ellipseR(x, z) > 0.94 - margin * 0.02) return false;
-        if (mtn) return mountainFree(x, z, margin);
         if (pathDist(x, z) < 1.3 + margin) return false;
         if (socketDist(x, z) < 1.1 + margin) return false;
         if (Math.hypot(x - core.x, z - core.z) < 2.4 + margin) return false;
@@ -233,20 +209,7 @@ export function createTerrain(state, theme) {
         return true;
     }
 
-    /** 산: 땅은 흙길·소켓·본진·동굴을 피하고, 바위는 너무 높지 않은 비탈에만 */
-    function mountainFree(x, z, margin) {
-        const d = mtn.rockDist(x, z);
-        if (d < 0.15) {
-            if (pathDist(x, z) < 1.0 + margin * 0.5) return false;
-            if (socketDist(x, z) < 1.1 + margin) return false;
-            if (Math.hypot(x - core.x, z - core.z) < 2.4 + margin) return false;
-            for (const cv of state.survival.caves) if (Math.hypot(x - cv.x, z - cv.z) < 2.2) return false;
-            return true;
-        }
-        return d > 0.7 && heightAt(x, z) < 3.4 && n2(x * 0.35 + 20, z * 0.35) > -0.15;
-    }
-
-    return { group, heightAt, pathDist, mtn, socketDist, ellipseR, isFree, fortDist, rimPts, core, noise };
+    return { group, heightAt, pathDist, socketDist, ellipseR, isFree, fortDist, rimPts, core, noise };
 }
 
 export function hashString(s) {

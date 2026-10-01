@@ -31,6 +31,8 @@ export class CameraRig {
         this.dom = dom;
         let drag = null;
         dom.addEventListener('pointerdown', (e) => {
+            // 살아남기 건설 중에는 왼쪽 끌기가 방벽 줄 긋기다
+            if (this.dragLock && e.button === 0) return;
             if (e.button === 1 || e.button === 2 || e.button === 0) {
                 drag = { x: e.clientX, y: e.clientY, moved: false, button: e.button };
             }
@@ -72,6 +74,12 @@ export class CameraRig {
     }
 
     clampGoal() {
+        // 살아남기(넓은 맵): 맵 전체를 자유롭게 (rect = { x0, x1, z0, z1 })
+        if (this.rect) {
+            this.goal.x = THREE.MathUtils.clamp(this.goal.x, this.rect.x0, this.rect.x1);
+            this.goal.z = THREE.MathUtils.clamp(this.goal.z, this.rect.z0, this.rect.z1);
+            return;
+        }
         const { rx, rz } = this.bounds;
         this.goal.x = THREE.MathUtils.clamp(this.goal.x, -rx * 0.7, rx * 0.7);
         this.goal.z = THREE.MathUtils.clamp(this.goal.z, -rz * 0.7, rz * 0.8);

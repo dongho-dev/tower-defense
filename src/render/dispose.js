@@ -42,4 +42,6 @@ export function disposeScene(scene) {
     });
     tex(scene.background);
     tex(scene.environment);
+    // 셰이더 uniform으로만 쓰여 재질 속성에 없는 텍스처 (살아남기 탐험 안개 등)
+    for (const v of scene.userData.disposables || []) tex(v);
 }

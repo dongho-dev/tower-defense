@@ -98,6 +98,9 @@ export const ICONS = {
         '<path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6 V20" stroke="currentColor" stroke-width="1.6"/>'
     ),
     magic: svg('<path d="M12 2 L13.8 9.2 L21 12 L13.8 14.8 L12 22 L10.2 14.8 L3 12 L10.2 9.2 Z" fill="currentColor"/>'),
+    wall: svg(
+        '<path d="M3 9 H21 V20 H3 Z" fill="currentColor" opacity="0.85"/><path d="M3 9 V5 H6.5 V7 H10 V5 H14 V7 H17.5 V5 H21 V9" fill="currentColor"/><path d="M3 14.5 H21 M9 9 V14.5 M15 9 V14.5 M6 14.5 V20 M12 14.5 V20 M18 14.5 V20" stroke="#0b0b14" stroke-width="1.1" opacity="0.55"/>'
+    ),
     barracks: svg(
         '<path d="M5 4.5 L19 18.5 M19 4.5 L5 18.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M3.5 3 L7 4 L6 7.5 Z M20.5 3 L17 4 L18 7.5 Z" fill="currentColor"/><path d="M12 8.5 L17 10.5 V14c0 3-2.2 5.2-5 6.5-2.8-1.3-5-3.5-5-6.5v-3.5Z" fill="currentColor" stroke="#1b1529" stroke-width="1"/>'
     ),
@@ -176,5 +179,6 @@ export const TOWER_TINT = {
     storm: '#b890ff',
     arcane: '#ff7ad9',
     mine: '#7fe0a0',
-    barracks: '#9fc0ff'
+    barracks: '#9fc0ff',
+    wall: '#c9d4e6'
 };

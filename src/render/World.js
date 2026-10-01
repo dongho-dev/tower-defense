@@ -15,14 +15,19 @@ import {
     createLeyLines
 } from './env/structures.js';
 import { createFortress } from './env/fortress.js';
-import { createCaves, createVeins } from './env/caves.js';
 import { createNightCycle } from './env/nightcycle.js';
+import { buildSurvivalWorld } from './survival/world.js';
 
 export class World {
     constructor(renderer, state, quality) {
         this.state = state;
         const th = (this.theme = themeOf(state.map));
         const scene = (this.scene = new THREE.Scene());
+        // 살아남기는 섬이 아니라 넓은 설원 한 장이다 (survival/world.js가 같은 모양으로 채운다)
+        if (state.survival) {
+            buildSurvivalWorld(this, renderer, state, quality, th);
+            return;
+        }
         scene.fog = new THREE.Fog(th.fog, 60, 150);
 
         const { sky, env } = createSky(renderer, th);
@@ -61,18 +66,14 @@ export class World {
 
         const terrain = (this.terrain = createTerrain(state, th));
         scene.add(terrain.group);
-        // 살아남기 맵은 길이 없는 산이다 (비탈길 흙빛은 지형 색으로만)
-        const survival = !!state.survival;
-        if (!survival) scene.add(createRoad(state, th).group);
+        scene.add(createRoad(state, th).group);
         this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass, theme: th });
         scene.add(this.vegetation.group);
-        this.lanterns = survival ? { group: new THREE.Group(), update() {} } : createLanterns(state, terrain);
+        this.lanterns = createLanterns(state, terrain);
         // 성채 맵은 섬 가장자리 성벽 대신 수정을 둘러싼 성벽과 성문을 세운다
-        // 산은 섬 둘레가 바위라 성벽을 두르지 않는다
-        this.ramparts =
-            state.map.fortress || survival
-                ? { group: new THREE.Group(), update() {} }
-                : createRamparts(state, terrain, th);
+        this.ramparts = state.map.fortress
+            ? { group: new THREE.Group(), update() {} }
+            : createRamparts(state, terrain, th);
         this.fortress = createFortress(state, terrain, th);
         // 시작점이 같은 갈래(갈라지는 길)는 포털 하나를 같이 쓴다
         const starts = [];
@@ -80,11 +81,8 @@ export class World {
             if (!starts.some((j) => Math.hypot(state.paths[j].xs[0] - p.xs[0], state.paths[j].zs[0] - p.zs[0]) < 1))
                 starts.push(i);
         });
-        // 살아남기: 포털 대신 산기슭 동굴 (다음 웨이브가 나올 동굴이 밝아진다)과 광맥
-        this.caves = survival ? createCaves(state, terrain, th) : null;
-        this.veins = survival ? createVeins(state, terrain) : null;
-        this.portals = survival ? [] : starts.map((i) => createPortal(state, terrain, i));
-        this.portal = survival ? this.caves.portal : this.portals[0];
+        this.portals = starts.map((i) => createPortal(state, terrain, i));
+        this.portal = this.portals[0];
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);
         this.ley = createLeyLines(state, terrain);
@@ -93,7 +91,6 @@ export class World {
             this.ramparts,
             this.fortress,
             ...this.portals,
-            ...(this.caves ? [this.caves, this.veins] : []),
             this.core,
             this.sockets,
             this.ley
@@ -121,8 +118,6 @@ export class World {
         this.ramparts.update(t);
         this.fortress.update(t, dt, this.state);
         for (const p of this.portals) p.update(t);
-        this.caves?.update(t, dt);
-        this.veins?.update(t);
         this.night.update(dt);
         this.core.update(t);
         this.core.setHealth(this.state.lives / this.state.maxLives);

@@ -2,7 +2,8 @@
 // node tests/balance-probe.mjs 로 시나리오별 결과를 보고 의도한 변화인지 판단한다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { playWithPlan, STANDARD_PLAN, autoPlan, MOUNTAIN_PLAN } from './helpers.js';
+import { playWithPlan, STANDARD_PLAN, autoPlan } from './helpers.js';
+import { playSurvival } from './survivalAi.js';
 
 test('아무것도 짓지 않으면 초반에 패배한다', () => {
     const { state } = playWithPlan('dusk', [], { noUpgrades: true, skills: false });
@@ -61,33 +62,21 @@ test('성채 방어: 무대응은 초반 패배, 성문 곁 8타워는 승리', 
     assert.equal(state.status, 'won');
 });
 
-// 눈마루 고개(살아남기): 광맥 소켓 26~32 (helpers.js MOUNTAIN_PLAN 참고)
-const MOUNTAIN_TURTLE = [
-    [26, 'mine', 'a'],
-    [4, 'ranger', 'b'],
-    [5, 'ember', 'a'],
-    [0, 'frost', 'a'],
-    [1, 'storm', 'a'],
-    [2, 'ranger', 'b'],
-    [3, 'storm', 'b'],
-    [6, 'ember', 'b']
-];
-
-test('눈마루 고개(살아남기): 무대응은 2분 안에 패배, 넓혀 가며 키우면 승리, 약한 구성은 무너진다', () => {
-    const none = playWithPlan('mountain', [], { noUpgrades: true, skills: false }).state;
+// 얼어붙은 분지(살아남기): tests/survivalAi.js의 AI가 명당을 골라 방벽·타워·광산을 짓는다.
+// 수치를 바꿨다면 node tests/survival-probe.mjs <명당>으로 전략별 결과를 본다.
+test('얼어붙은 분지(살아남기): 무대응은 3분 안에 패배, 명당에 벽+타워+광산은 승리, 약한 전략은 무너진다', () => {
+    const none = playSurvival({ site: 'nw', idle: true }).state;
     assert.equal(none.status, 'lost');
-    assert.ok(none.survival.clock < 150, `${Math.round(none.survival.clock)}초 버팀`);
-    // 적당한 플레이: 광맥을 차지하며 넓히고, 지은 타워를 2레벨로 키운 뒤 다음 것을 짓는다
-    const good = playWithPlan('mountain', MOUNTAIN_PLAN, { tierGate: 2 }).state;
-    assert.equal(good.status, 'won');
-    assert.ok(good.lives >= good.maxLives * 0.5, `본진 ${Math.round(good.lives)}`);
-    assert.ok(good.stats.mined > 3000, `캔 골드 ${good.stats.mined}`);
-    // 광산 없이 6타워(업그레이드 없음)는 중반을 못 넘긴다
-    const weak = playWithPlan('mountain', MOUNTAIN_PLAN.filter(([, t]) => t !== 'mine').slice(0, 6), {
-        noUpgrades: true
-    }).state;
-    assert.equal(weak.status, 'lost');
-    // 광맥을 넓히지 않고 본진에서만 버티면 수입이 모자라 무너진다
-    const turtle = playWithPlan('mountain', MOUNTAIN_TURTLE, { tierGate: 2 }).state;
-    assert.equal(turtle.status, 'lost');
+    assert.ok(none.survival.clock < 200, `${Math.round(none.survival.clock)}초 버팀`);
+    for (const site of ['nw', 'w']) {
+        const good = playSurvival({ site, tierGate: 4 }).state;
+        assert.equal(good.status, 'won', `${site} 좋은 운영`);
+        assert.ok(good.stats.mined > 3000, `캔 골드 ${good.stats.mined}`);
+    }
+    // 방벽 없이 타워만: 적이 곧장 타워를 부순다
+    assert.equal(playSurvival({ site: 'nw', walls: false, tierGate: 4 }).state.status, 'lost');
+    // 광산 없이: 수입이 모자라 중반에 무너진다
+    assert.equal(playSurvival({ site: 'nw', mines: false, tierGate: 4 }).state.status, 'lost');
+    // 벽만: 타워가 없으면 아무것도 못 막는다
+    assert.equal(playSurvival({ site: 'nw', towers: [], maxTowers: 0 }).state.status, 'lost');
 });

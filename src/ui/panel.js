@@ -21,10 +21,12 @@ import { enemyTraits } from '../core/data/enemies.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
 
-/** 살아남기: 소켓이 광맥이면 수입 배율과 캐는 간격 */
-function veinInfo(state, socketId) {
-    const v = state.survival && state.sockets[socketId].vein;
-    return v ? { __vein: v, __pay: state.survival.payEvery } : {};
+/** 살아남기: 광맥 위 광산이면 수입 배율과 캐는 간격 */
+function veinInfo(state, tower) {
+    const sv = state.survival;
+    if (!sv) return {};
+    const v = tower.veinId != null ? sv.field.veins[tower.veinId] : null;
+    return { __vein: v || { yield: 1 }, __pay: sv.payEvery };
 }
 
 const fmt = (v) => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
@@ -39,6 +41,13 @@ function diff(a, b, better = 'up') {
 
 function statsRow(s, dps, prev) {
     const def = s.__def;
+    if (def.attack === 'wall') {
+        const hp = def.tiers[(s.__tier || 1) - 1].hp;
+        return `<div class="ip-stats">
+            <div><b>${hp}</b><span>체력</span></div>
+            <div><b>1×1</b><span>칸</span></div>
+        </div>`;
+    }
     if (def.attack === 'barracks') {
         return `<div class="ip-stats">
             <div><b>${s.soldiers}${diff(s.soldiers, prev?.soldiers)}</b><span>병사</span></div>
@@ -175,7 +184,8 @@ export class Inspector {
         const cur = towerStats(state, tower);
         cur.__def = def;
         cur.__resValue = tower.branch ? def.branches[tower.branch].resonanceValue : null;
-        Object.assign(cur, veinInfo(state, tower.socketId));
+        Object.assign(cur, veinInfo(state, tower));
+        cur.__tier = tower.tier;
         const curDps = estimateDps(state, tower);
         let shown = cur;
         let shownDps = curDps;
@@ -193,7 +203,8 @@ export class Inspector {
             shown = p.stats;
             shown.__def = def;
             shown.__resValue = h.kind === 'branch' ? def.branches[h.key].resonanceValue : cur.__resValue;
-            Object.assign(shown, veinInfo(state, tower.socketId));
+            Object.assign(shown, veinInfo(state, tower));
+            shown.__tier = h.kind === 'tier' ? tower.tier + 1 : tower.tier;
             shownDps = p.dps;
             prev = {
                 dps: curDps,
@@ -226,7 +237,7 @@ export class Inspector {
         const maxed = !opts.length;
         const info = resonanceInfo(state, tower);
         info.value = cur.__resValue || def.resonance.value;
-        const canTarget = def.attack !== 'none' && def.attack !== 'barracks' && !cur.aura;
+        const canTarget = def.attack !== 'none' && def.attack !== 'barracks' && def.attack !== 'wall' && !cur.aura;
         const rc = repairCost(tower);
         const hpBlock =
             tower.hp != null
@@ -243,7 +254,7 @@ export class Inspector {
                 ${hpBlock}
                 <div class="tag-row">${stun}${tags(shown, def)}</div>
             </div>
-            ${resonanceBlock(info, tower.type)}
+            ${tower.socketId == null ? '' : resonanceBlock(info, tower.type)}
             <div class="ip-actions">
                 ${maxed ? '<div class="maxed">최종 단계</div>' : opts.map(optBtn).join('')}
                 <div class="ip-row">
@@ -329,7 +340,7 @@ export class Inspector {
     buildHtml(socket, type, state) {
         const def = TOWERS[type];
         const p = previewStats(state, { type, tier: 1, branch: null, mastery: 0, socketId: socket.id }, {});
-        const s = { ...p.stats, __def: def, ...veinInfo(state, socket.id) };
+        const s = { ...p.stats, __def: def, ...(state.survival ? {} : veinInfo(state, socket)) };
         const dps = p.dps;
         const info = resonancePreview(state, socket.id, type);
         const cost = def.tiers[0].cost;
@@ -440,17 +451,17 @@ export class Inspector {
         const rc = baseRepairCost(state);
         const at = state.enemies.filter((e) => e.atkTargetId === 'base').length;
         const mines = state.towers.filter((t) => t.type === 'mine').length;
-        const veins = state.sockets.filter((s) => s.vein).length;
+        const veins = state.survival.field.veins.length;
         const tags = [];
         if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
         tags.push(`<span class="tag good">광산 ${mines}/${veins}</span>`);
         tags.push('<span class="tag">무너지면 패배</span>');
         return `<div class="ip-head" style="--tint:#ffd27a">
                 <i class="ico">${ICONS.shield}</i>
-                <div><div class="name">본진 · 마지막 빛</div><div class="sub">산 중턱 수정 성소</div></div>
+                <div><div class="name">본진 · 마지막 빛</div><div class="sub">명당에 세운 수정 성소</div></div>
             </div>
             <div class="ip-main">
-                <div class="ip-desc">적은 가는 길에 닿는 건물부터 부수고 마지막에 이 수정을 노린다. 저절로 고쳐지지 않는다.</div>
+                <div class="ip-desc">적은 가장 가까운 건물을 노리고, 길을 막은 방벽은 부수고 들어온다. 저절로 고쳐지지 않는다.</div>
                 <div class="ip-thp ${r < 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${Math.ceil(state.lives)} / ${state.maxLives}</b></div>
                 <div class="tag-row">${tags.join('')}</div>
             </div>

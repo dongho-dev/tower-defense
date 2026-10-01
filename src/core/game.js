@@ -26,11 +26,18 @@ import {
     payMines,
     allowedHere,
     baseRepairCost,
-    HEIGHT_RANGE
+    HEIGHT_RANGE,
+    checkPlacement,
+    occupy,
+    release,
+    placeBase as placeSurvivalBase,
+    footprintCenter,
+    sizeOf,
+    updateFog
 } from './survival.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
-export { baseRepairCost } from './survival.js';
+export { baseRepairCost, checkPlacement } from './survival.js';
 export {
     repairGate,
     reinforceGate,
@@ -217,6 +224,8 @@ export function resonanceInfo(state, tower) {
 
 /** 소켓에 type을 지었다고 치고 공명을 미리 계산한다 (건설 미리보기) */
 export function resonancePreview(state, socketId, type, self = null) {
+    // 살아남기의 건물은 소켓 없이 자유롭게 짓는다: 공명 연결이 없다
+    if (socketId == null || !state.sockets[socketId]) return { received: [], given: [], openLinks: 0, links: [] };
     const received = sourcesAt(state, socketId, type, self?.id ?? null);
     const r = TOWERS[type].resonance;
     const value = self ? resonanceValue(self) : r.value;
@@ -272,9 +281,10 @@ export function towerStats(state, tower) {
         bountyMult: 1,
         donors: []
     };
-    // 살아남기: 높은 곳의 타워는 멀리 본다
-    if (state.survival) s.range *= 1 + HEIGHT_RANGE * (state.sockets[tower.socketId].h || 0);
-    for (const src of sourcesAt(state, tower.socketId, tower.type, tower.id)) {
+    // 살아남기: 넓은 맵이라 사거리가 조금 길고, 높은 곳의 타워는 더 멀리 본다
+    if (state.survival) s.range *= (state.survival.cfg.rangeMul ?? 1) * (1 + HEIGHT_RANGE * (tower.h || 0));
+    const sources = tower.socketId == null ? [] : sourcesAt(state, tower.socketId, tower.type, tower.id);
+    for (const src of sources) {
         s.donors.push(src.type);
         if (src.stat === 'range') s.range *= 1 + src.value;
         else if (src.stat === 'damage') s.dmgMult *= 1 + src.value;
@@ -347,6 +357,63 @@ export function buildTower(state, socketId, type) {
     return { ok: true, tower };
 }
 
+/**
+ * 살아남기: 빈 땅에 자유롭게 짓는다. (i, j) = 건물의 왼쪽 위 타일. 방벽 1×1, 타워·광산 2×2.
+ * 광산은 광맥(2×2)에 꼭 맞게만 지을 수 있다.
+ */
+export function placeBuilding(state, type, i, j) {
+    if (state.status !== 'playing') return { ok: false, reason: '게임이 끝났습니다.' };
+    const sv = state.survival;
+    const def = TOWERS[type];
+    if (!sv || !def) return { ok: false, reason: '잘못된 명령입니다.' };
+    const chk = checkPlacement(state, type, i, j);
+    if (!chk.ok) return { ok: false, reason: chk.reason };
+    const cost = def.tiers[0].cost;
+    if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
+    state.gold -= cost;
+    const s = sizeOf(type);
+    const c = footprintCenter(sv.field, i, j, s);
+    const f = sv.field;
+    const tower = {
+        id: state.nextId++,
+        type,
+        socketId: null,
+        cell: { i, j, s },
+        veinId: type === 'mine' ? chk.vein : null,
+        h: f.level[j * f.N + i],
+        x: c.x,
+        z: c.z,
+        tier: 1,
+        branch: null,
+        mastery: 0,
+        beams: [],
+        spent: cost,
+        cooldown: 0.25,
+        aim: Math.PI / 2,
+        targetId: null,
+        targeting: 'first',
+        kills: 0,
+        damage: 0,
+        builtAt: state.time
+    };
+    state.towers.push(tower);
+    occupy(state, i, j, s, tower.id);
+    state.statsVersion++;
+    state.stats.built++;
+    tower.hp = tower.maxHp = maxHpOf(state, tower);
+    updateFog(state, true);
+    emit(state, { type: 'build', towerId: tower.id, tower: type, x: tower.x, z: tower.z, free: true });
+    return { ok: true, tower };
+}
+
+/** 살아남기: 본진을 세울 터를 고른다. 그때부터 밤 시계가 흐른다 */
+export function placeBase(state, i, j) {
+    if (!state.survival || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
+    const r = placeSurvivalBase(state, i, j);
+    if (r.ok) emit(state, { type: 'baseBuilt', x: r.base.x, z: r.base.z });
+    return r;
+}
+
 /** 레벨업 또는 분기 선택. 레벨 3에서는 branch('a'|'b')가 필요하다 */
 export function upgradeTower(state, towerId, branch = null) {
     const tower = findTower(state, towerId);
@@ -356,6 +423,7 @@ export function upgradeTower(state, towerId, branch = null) {
     if (tower.branch && tower.mastery >= MAX_MASTERY) return { ok: false, reason: '이미 최종 단계입니다.' };
     if (tower.branch) cost = masteryCost(tower);
     else if (tower.tier < MAX_TIER) cost = def.tiers[tower.tier].cost;
+    else if (def.noBranch) return { ok: false, reason: '이미 최종 단계입니다.' };
     else if (branch && def.branches[branch]) cost = def.branches[branch].cost;
     else return { ok: false, reason: '특화 분기를 골라야 합니다.' };
     if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
@@ -386,6 +454,8 @@ export function upgradeTower(state, towerId, branch = null) {
 
 /** 공성전 타워 체력. 살아남기는 건물이 성벽 노릇을 하므로 더 튼튼하다 (map.survival.towerHp 배율) */
 function maxHpOf(state, tower) {
+    // 방벽은 레벨마다 정해진 체력 (돌 → 다진 돌 → 쇠를 덧댄 벽)
+    if (TOWERS[tower.type].attack === 'wall') return TOWERS[tower.type].tiers[tower.tier - 1].hp;
     return Math.round(towerMaxHp(tower) * (state.map.survival?.towerHp ?? 1));
 }
 
@@ -410,8 +480,8 @@ export function buildableTypes(state, socket) {
 
 function removeTower(state, tower) {
     state.towers = state.towers.filter((t) => t !== tower);
-    if (state.survival) state.survival.flowDirty = true;
-    state.sockets[tower.socketId].towerId = null;
+    if (state.survival) release(state, tower);
+    if (tower.socketId != null) state.sockets[tower.socketId].towerId = null;
     state.statsCache.delete(tower.id);
     state.statsVersion++;
     removeUnitsOf(state, tower.id);
@@ -498,12 +568,15 @@ export function setTargeting(state, towerId, mode) {
 
 export function canCallWave(state) {
     if (state.status !== 'playing' || !hasMoreWaves(state)) return false;
+    // 살아남기: 본진을 세우기 전에는 부를 수 없다
+    if (state.survival && !state.survival.started) return false;
     if (state.waveIndex === 0) return true;
     return state.nextWaveIn != null;
 }
 
 export function callWave(state, force = false) {
     // force: 살아남기의 밤 시계가 정한 시각이 되면 앞 웨이브가 아직 나오는 중이어도 부른다
+    if (state.survival && !state.survival.started) return { ok: false, reason: '먼저 본진을 세우세요.' };
     if (!(force && state.status === 'playing' && hasMoreWaves(state)) && !canCallWave(state))
         return { ok: false, reason: '아직 다음 웨이브를 부를 수 없습니다.' };
     let bonus = 0;
@@ -1059,7 +1132,7 @@ function updateTowers(state, dt) {
             if (tower.beams?.length) tower.beams = [];
             continue;
         }
-        if (def.attack === 'none' || def.attack === 'barracks') continue;
+        if (def.attack === 'none' || def.attack === 'barracks' || def.attack === 'wall') continue;
         const s = towerStats(state, tower);
         tower.cooldown -= dt;
         if (def.attack === 'beam') {
@@ -1384,8 +1457,12 @@ export function step(state, dt = TICK) {
     state.time += dt;
     for (const k in state.skills) state.skills[k].cd = Math.max(0, state.skills[k].cd - dt);
     if (state.survival) {
-        updateNight(state, dt);
-        if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+        // 본진을 세우기 전에는 시계가 멈춰 있다 (터를 고르는 중)
+        if (state.survival.started) {
+            updateNight(state, dt);
+            if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+        }
+        updateFog(state, false, dt);
     } else if (state.nextWaveIn != null) {
         state.nextWaveIn -= dt;
         if (state.nextWaveIn <= 0) callWave(state);
@@ -1459,6 +1536,7 @@ export function upgradeOptions(tower) {
         if (tower.mastery >= MAX_MASTERY) return [];
         return [{ kind: 'mastery', cost: masteryCost(tower), label: `각성 ${tower.mastery + 1}` }];
     }
+    if (tower.tier >= MAX_TIER && def.noBranch) return [];
     if (tower.tier < MAX_TIER)
         return [
             {

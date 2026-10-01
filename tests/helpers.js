@@ -132,30 +132,6 @@ export const STANDARD_PLAN = [
     [17, 'ranger', 'a']
 ];
 
-/**
- * 눈마루 고개(살아남기): 소켓 0~6 본진 고원, 7~10 서쪽 고원, 11~14 동쪽 고원, 15 정상 샘터,
- * 16~19 남쪽 기슭, 20~22 서남 기슭, 23~25 동남 기슭, 26~32 광맥(본진·서·동·정상·남·서남·동남).
- * 본진 광맥을 먼저 캐고, 남쪽 협곡 어귀를 막은 뒤 좌우 고원으로 넓히며 광맥을 차지한다.
- */
-export const MOUNTAIN_PLAN = [
-    [26, 'mine', 'a'],
-    [4, 'ranger', 'b'],
-    [5, 'ember', 'a'],
-    [0, 'frost', 'a'],
-    [7, 'storm', 'a'],
-    [27, 'mine', 'a'],
-    [8, 'ranger', 'a'],
-    [11, 'storm', 'a'],
-    [28, 'mine', 'a'],
-    [12, 'ember', 'a'],
-    [1, 'storm', 'b'],
-    [29, 'mine', 'a'],
-    [2, 'ranger', 'b'],
-    [3, 'ember', 'b'],
-    [9, 'frost', 'b'],
-    [13, 'frost', 'b']
-];
-
 /** 맵에 상관없이: 경로 커버리지가 높은 소켓부터 종류를 섞어 배치하는 계획 */
 export function autoPlan(mapId, n = 10, cycleOverride = null) {
     const state = createGame(mapId);

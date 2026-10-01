@@ -289,6 +289,29 @@ export const TOWERS = {
     }
 };
 
+/**
+ * 살아남기 전용 방벽(1×1 타일). 건설 메뉴(TOWER_ORDER)에는 없고, 자유 배치 건설 막대에만 나온다.
+ * 공격하지 않는다. 붙여 지어 길목을 막으면 적은 돌아가거나, 너무 멀면 벽부터 부순다. 레벨마다 체력이 오른다.
+ */
+TOWERS.wall = {
+    id: 'wall',
+    name: '방벽',
+    en: 'Barricade',
+    hotkey: '1',
+    dmgType: 'none',
+    color: '#c9d4e6',
+    role: '적을 가로막는 튼튼한 돌벽. 길을 막으면 적은 돌아가거나 벽부터 부순다',
+    attack: 'wall',
+    noBranch: true,
+    resonance: { stat: 'none', value: 0, name: '없음', desc: '' },
+    tiers: [
+        { cost: 12, range: 0, hp: 900 },
+        { cost: 20, range: 0, hp: 1700 },
+        { cost: 35, range: 0, hp: 2800 }
+    ],
+    branches: {}
+};
+
 /** 공명 효과를 사람이 읽는 짧은 문구로 */
 export function resonanceLabel(stat, value) {
     const p = Math.round(value * 100);

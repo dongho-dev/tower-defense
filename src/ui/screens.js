@@ -20,7 +20,7 @@ const MODES = {
     endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
     siege: {
         label: '공성전',
-        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 길 없이 동굴에서 나와 가장 가까운 건물을 부수는 적을 막으며, 광맥을 차지해 터를 넓히고 동이 틀 때까지 본진을 지킵니다'
+        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 넓은 설원에서 명당을 골라 본진을 세우고, 빈 땅 어디든 방벽·타워를 붙여 지어 길목을 막으며 동이 틀 때까지 버팁니다'
     }
 };
 
@@ -37,7 +37,11 @@ const genreBadge = (m) =>
 
 /** 맵 카드 아래 한 줄: 길 갈래·성문·사방 습격 */
 function mapMeta(m) {
-    if (m.survival) return `동굴 ${m.survival.caves.length}곳 · 광맥 ${m.survival.veins.length}곳 · `;
+    if (m.survival) {
+        const sv = m.survival;
+        const veins = sv.veins.length + sv.sites.reduce((n, s) => n + s.veins.length, 0);
+        return `명당 ${sv.sites.length}곳 · 광맥 ${veins}곳 · `;
+    }
     if (m.gates) return `성문 ${m.gates.length}곳 · `;
     return m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : '';
 }
@@ -339,7 +343,7 @@ export class Screens {
             ? `끝없는 밤에서 ${survived} 웨이브를 버텨 냈다`
             : sv
               ? won
-                  ? '산의 밤을 짓고, 캐고, 고치며 버텨 냈다'
+                  ? '기나긴 밤을 짓고, 캐고, 고치며 버텨 냈다'
                   : `동트기 ${formatClock(sv.dawn - sv.clock)} 전, 본진이 무너졌다`
               : won
                 ? '마지막 빛이 지켜졌다'
@@ -364,7 +368,7 @@ export class Screens {
                 ${sv ? '' : `<div class="stat"><b>${time}</b><span>전투 시간</span></div>`}
                 ${
                     state.siege
-                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div>${state.hero ? `<div class="stat"><b>Lv ${state.hero.level}</b><span>영웅 레벨</span></div>` : ''}${sv ? `<div class="stat"><b>${formatClock(sv.clock)}</b><span>버틴 시간</span></div><div class="stat"><b>${state.stats.mined || 0}</b><span>캔 골드</span></div>` : ''}${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
+                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>${sv ? '무너진 건물' : '무너진 타워'}</span></div>${state.hero ? `<div class="stat"><b>Lv ${state.hero.level}</b><span>영웅 레벨</span></div>` : ''}${sv ? `<div class="stat"><b>${formatClock(sv.clock)}</b><span>버틴 시간</span></div><div class="stat"><b>${state.stats.mined || 0}</b><span>캔 골드</span></div>` : ''}${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
                         : ''
                 }
             </div>

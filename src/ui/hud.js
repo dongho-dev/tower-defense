@@ -164,6 +164,10 @@ export class Hud {
         this.el.classList.toggle('siege', !!state.siege);
         this.$.lifeBox.classList.toggle('hero', d.id === 'hero');
         this.el.classList.toggle('endless', !!state.endless);
+        // 살아남기: 미니맵 자리를 비우고, WASD가 카메라라 빙결은 E
+        this.el.classList.toggle('survival', !!state.survival);
+        const fk = this.el.querySelector('.skill.freeze .key');
+        if (fk) fk.textContent = state.survival ? 'E' : SKILLS.freeze.hotkey;
         // 성문 현황: 누르면 그 성문을 고른다
         this.$.gates.innerHTML = state.gates
             .map(
@@ -311,6 +315,9 @@ export class Hud {
                     ? `밤 시계가 흐르기 시작합니다 · <b>Space</b>`
                     : '첫 웨이브를 부릅니다 · <b>Space</b>';
             });
+        } else if (state.survival && !state.survival.started) {
+            this.set('wcTitle', 'site', () => (this.$.wcTitle.textContent = '터 고르기'));
+            this.set('wcSub', 'site', () => (this.$.wcSub.textContent = '본진을 세우면 밤 시계가 흐릅니다'));
         } else if (state.survival && !next) {
             const cur = state.waves[state.waveIndex - 1];
             this.set('wcTitle', 'last', () => (this.$.wcTitle.textContent = '마지막 대공세'));
@@ -456,9 +463,15 @@ export class Hud {
                 );
                 if (ev.hint) this.showHint(ev.hint);
             } else if (ev.type === 'dawn') {
-                this.showBanner('동이 텄다', '산의 밤을 버텨 냈다 · 남은 적이 햇빛에 타 사라진다');
+                this.showBanner('동이 텄다', '기나긴 밤을 버텨 냈다 · 남은 적이 햇빛에 타 사라진다');
             } else if (ev.type === 'towerDestroyed') {
-                this.toast(ev.tower === 'mine' ? '광산이 무너졌습니다!' : '타워가 무너졌습니다!', true);
+                // 방벽은 자주 무너지니 6초에 한 번만 알린다
+                if (ev.tower === 'wall') {
+                    if (state.time - (this.wallToast || -99) > 6) {
+                        this.wallToast = state.time;
+                        this.toast('방벽이 무너졌습니다!', true);
+                    }
+                } else this.toast(ev.tower === 'mine' ? '광산이 무너졌습니다!' : '타워가 무너졌습니다!', true);
             } else if (ev.type === 'enemyShot' && ev.base) {
                 // 본진이 맞으면 생명 칸이 흔들린다 (자주 오니 1초에 한 번만)
                 if (state.time - (this.baseHitShown || -9) > 1) {

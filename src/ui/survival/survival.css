@@ -1,0 +1,323 @@
+/* 살아남기 전용 화면: 미니맵(왼쪽 아래), 건설 막대(오른쪽), 명당 고르기, 보스 경고 */
+
+.sv-ui {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.sv-ui > * {
+    pointer-events: auto;
+}
+
+/* 미니맵 자리를 비운다: 스킬은 미니맵 위로 */
+.hud.survival .skills {
+    bottom: 278px;
+}
+
+.sv-mini {
+    position: absolute;
+    left: 18px;
+    bottom: 18px;
+    padding: 8px 8px 6px;
+}
+.sv-mini canvas {
+    display: block;
+    border-radius: 4px;
+    cursor: crosshair;
+    background: #05060c;
+    box-shadow: inset 0 0 0 1px rgba(255, 228, 170, 0.18);
+    image-rendering: pixelated;
+}
+.sv-mini-cap {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+}
+
+.sv-build {
+    position: absolute;
+    right: 18px;
+    top: 92px;
+    width: 196px;
+    padding: 10px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition:
+        opacity 0.2s,
+        transform 0.25s var(--ease);
+}
+.sv-build.off {
+    opacity: 0;
+    transform: translateX(16px);
+    pointer-events: none;
+}
+.sv-build-title {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--gold-hi);
+    letter-spacing: 0.06em;
+    margin: 0 2px 2px;
+}
+.sv-build-title small {
+    font-family: var(--body);
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-left: 4px;
+}
+.sv-bt {
+    display: grid;
+    grid-template-columns: 16px 30px 1fr auto;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+.sv-bt:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: color-mix(in srgb, var(--tint) 60%, transparent);
+}
+.sv-bt.on {
+    background: color-mix(in srgb, var(--tint) 22%, rgba(0, 0, 0, 0.4));
+    border-color: var(--tint);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--tint) 45%, transparent);
+}
+.sv-bt.poor .c {
+    color: var(--danger);
+}
+.sv-bt .hk {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--faint);
+}
+.sv-bt .ico {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    color: var(--tint);
+    background: rgba(0, 0, 0, 0.35);
+}
+.sv-bt .ico svg {
+    width: 20px;
+    height: 20px;
+}
+.sv-bt .nm {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    font-weight: 700;
+}
+.sv-bt .nm em {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 10.5px;
+    color: var(--muted);
+}
+.sv-bt .c {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: 700;
+    color: var(--gold-hi);
+    font-size: 12px;
+}
+.sv-bt .c svg {
+    width: 13px;
+    height: 13px;
+}
+.sv-build-tip {
+    font-size: 10.5px;
+    color: var(--faint);
+    text-align: center;
+    margin-top: 2px;
+}
+
+.sv-sites {
+    position: absolute;
+    right: 18px;
+    top: 92px;
+    width: 300px;
+    padding: 14px;
+    opacity: 0;
+    transform: translateX(16px);
+    pointer-events: none;
+    transition:
+        opacity 0.25s,
+        transform 0.3s var(--ease);
+}
+.sv-sites.show {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+.sv-sites-title {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--gold-hi);
+}
+.sv-sites-sub,
+.sv-sites-foot {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 6px 0 10px;
+    line-height: 1.45;
+}
+.sv-sites-foot {
+    margin: 10px 0 0;
+    font-size: 11px;
+    color: var(--faint);
+}
+.sv-sites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.sv-site {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1px 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.sv-site:hover {
+    border-color: var(--line-strong);
+    background: rgba(255, 220, 140, 0.08);
+}
+.sv-site b {
+    font-size: 13.5px;
+}
+.sv-site span {
+    font-size: 11.5px;
+    color: var(--gold);
+    align-self: center;
+}
+.sv-site small {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.sv-labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.sv-labels.off {
+    display: none;
+}
+.sv-site-tag {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: rgba(18, 12, 30, 0.82);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--shadow);
+}
+.sv-site-tag::after {
+    content: '';
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    background: inherit;
+    border-right: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+    transform: translateX(-50%) rotate(45deg);
+}
+.sv-site-tag b {
+    font-size: 13px;
+    color: var(--gold-hi);
+}
+.sv-site-tag span {
+    font-size: 10.5px;
+    color: var(--muted);
+}
+.sv-site-tag.hot,
+.sv-site-tag:hover {
+    border-color: #fff;
+    background: rgba(60, 40, 90, 0.92);
+}
+
+.sv-warn {
+    position: absolute;
+    top: 132px;
+    left: 50%;
+    transform: translate(-50%, -6px);
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: #ffd6ff;
+    background: rgba(70, 10, 80, 0.85);
+    border: 1px solid rgba(255, 120, 255, 0.7);
+    box-shadow: 0 0 20px rgba(220, 80, 255, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 0.2s,
+        transform 0.2s;
+}
+.sv-warn.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    animation: sv-warn 1s ease-in-out infinite;
+}
+@keyframes sv-warn {
+    50% {
+        box-shadow: 0 0 34px rgba(255, 110, 255, 0.85);
+    }
+}
+
+/* 좁은 화면: 건설 막대를 줄인다 */
+@media (max-width: 900px) {
+    .sv-build {
+        width: 150px;
+    }
+    .sv-bt .nm em {
+        display: none;
+    }
+    .sv-mini canvas {
+        width: 150px !important;
+        height: 150px !important;
+    }
+    .hud.survival .skills {
+        bottom: 200px;
+    }
+}

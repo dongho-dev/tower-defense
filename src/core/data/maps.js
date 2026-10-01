@@ -1,103 +1,8 @@
 // 맵 정의. 좌표는 지면 (x, z), +z가 화면 아래(카메라 쪽).
 // sockets: [x, z], links: 공명 레이 라인으로 연결되는 소켓 인덱스 쌍.
 // 공성전 전용 맵(siegeOnly)은 genre로 장르를 밝힌다: 'defense'(디펜스) | 'survival'(살아남기).
-import { survivalSockets, survivalPaths } from '../survival.js';
-
-// 살아남기 맵 '눈마루 고개': 산 중턱 본진, 고원 여섯, 산기슭 동굴 셋 (survival.js · mountain.js 참고).
-// plateaus = 걸을 수 있는 고원(h = 높이), ramps = 고원 사이 비탈길(w = 반폭, 좁을수록 길목),
-// pads = 타워 소켓, veins = 광산만 지을 수 있는 광맥(yield = 수입 배율, 위험한 터일수록 높다).
-const MOUNTAIN = {
-    dawn: 600,
-    payEvery: 15,
-    // 건물이 성벽 노릇을 한다: 타워 체력 2배
-    towerHp: 2,
-    base: { at: [0, -3.2] },
-    plateaus: [
-        { id: 'base', name: '본진 고원', at: [0, -3.0], r: [4.0, 3.0], h: 2.2 },
-        { id: 'west', name: '서쪽 고원', at: [-9.4, -3.4], r: [2.9, 2.4], h: 1.5 },
-        { id: 'east', name: '동쪽 고원', at: [9.6, -3.0], r: [2.9, 2.4], h: 1.5 },
-        { id: 'summit', name: '정상 샘터', at: [-4.8, -8.6], r: [2.3, 1.6], h: 3.1 },
-        { id: 'south', name: '남쪽 기슭', at: [0.4, 5.0], r: [3.5, 2.5], h: 0.7 },
-        { id: 'sw', name: '서남 기슭', at: [-9.6, 5.4], r: [2.9, 2.3], h: 0.35 },
-        { id: 'se', name: '동남 기슭', at: [9.8, 5.6], r: [2.9, 2.3], h: 0.35 },
-        { id: 'caveW', at: [-13.8, 3.4], r: [1.3, 1.3], h: 0.1, jag: 0.05 },
-        { id: 'caveS', at: [0.6, 9.9], r: [1.4, 1.1], h: 0.1, jag: 0.05 },
-        { id: 'caveE', at: [14.0, 3.6], r: [1.3, 1.3], h: 0.1, jag: 0.05 }
-    ],
-    ramps: [
-        { a: 'caveW', b: 'sw', via: [[-12.0, 4.5]], w: 1.0 },
-        { a: 'caveE', b: 'se', via: [[12.2, 4.7]], w: 1.0 },
-        { a: 'caveS', b: 'south', via: [[0.5, 8.2]], w: 1.0 },
-        { a: 'sw', b: 'south', via: [[-5.2, 6.6]], w: 1.15 },
-        { a: 'south', b: 'se', via: [[5.4, 6.8]], w: 1.15 },
-        // 계곡 길목: 기슭에서 고원으로 오르는 좁은 길
-        { a: 'sw', b: 'west', via: [[-10.7, 1.0]], w: 0.85 },
-        { a: 'se', b: 'east', via: [[10.9, 1.2]], w: 0.85 },
-        { a: 'south', b: 'base', via: [[0.2, 1.3]], w: 0.95 },
-        // 능선길: 좌우 고원과 본진
-        { a: 'west', b: 'base', via: [[-5.4, -2.0]], w: 0.85 },
-        { a: 'east', b: 'base', via: [[5.5, -1.8]], w: 0.85 },
-        // 정상 오솔길
-        {
-            a: 'west',
-            b: 'summit',
-            via: [
-                [-8.7, -6.6],
-                [-6.9, -7.7]
-            ],
-            w: 0.7
-        }
-    ],
-    caves: [
-        { id: 'caveW', name: '서쪽 동굴', short: '서' },
-        { id: 'caveS', name: '남쪽 동굴', short: '남' },
-        { id: 'caveE', name: '동쪽 동굴', short: '동' }
-    ],
-    pads: [
-        // 본진 고원
-        [-2.5, -1.9],
-        [2.5, -1.9],
-        [-2.8, -3.9],
-        [2.8, -3.9],
-        [-1.0, -0.6],
-        [1.0, -0.6],
-        [-1.3, -5.4],
-        // 서쪽 고원
-        [-8.2, -2.6],
-        [-10.2, -2.3],
-        [-8.4, -4.5],
-        [-11.4, -3.7],
-        // 동쪽 고원
-        [8.4, -2.2],
-        [10.4, -1.9],
-        [8.6, -4.2],
-        [11.6, -3.3],
-        // 정상 샘터
-        [-6.0, -8.1],
-        // 남쪽 기슭
-        [-1.4, 4.3],
-        [0.4, 3.4],
-        [2.4, 4.0],
-        [-0.5, 6.1],
-        // 서남·동남 기슭
-        [-8.6, 4.4],
-        [-10.6, 4.4],
-        [-8.5, 6.4],
-        [8.8, 4.6],
-        [10.8, 4.6],
-        [8.7, 6.6]
-    ],
-    veins: [
-        { at: [1.4, -5.4], name: '본진 광맥', yield: 0.75 },
-        { at: [-10.0, -4.4], name: '서쪽 고원 광맥', yield: 1.5 },
-        { at: [10.2, -4.0], name: '동쪽 고원 광맥', yield: 1.5 },
-        { at: [-4.0, -8.9], name: '정상 샘', yield: 1.75 },
-        { at: [1.5, 5.9], name: '남쪽 기슭 광맥', yield: 1.75 },
-        { at: [-10.4, 6.3], name: '서남 기슭 광맥', yield: 2 },
-        { at: [10.6, 6.5], name: '동남 기슭 광맥', yield: 2 }
-    ]
-};
-const MOUNTAIN_SOCKETS = survivalSockets(MOUNTAIN);
+import { survivalPaths } from '../survival.js';
+import { SNOW_BASIN } from './snowbasin.js';
 
 export const MAPS = {
     dusk: {
@@ -712,28 +617,30 @@ export const MAPS = {
     },
     mountain: {
         id: 'mountain',
-        name: '눈마루 고개',
-        en: 'Snowcrest Pass',
-        desc: '정해진 길이 없다. 적은 산기슭 세 동굴에서 올라와 가장 가까운 건물부터 부순다. 광맥에 광산을 지어 터를 넓히고, 본진이 무너지지 않게 동이 틀 때까지 버텨라.',
+        name: '얼어붙은 분지',
+        en: 'Frozen Basin',
+        desc: '스타 96×96급 넓은 설원. 한가운데 둥지가 깨어나면 적이 쏟아진다. 절벽에 둘러싸인 명당을 골라 본진을 세우고, 방벽을 붙여 지어 길목을 막아라. 동이 틀 때까지 본진을 지키면 승리.',
         difficulty: 3,
         theme: 'alpine',
         siegeOnly: true,
         genre: 'survival',
         // 영웅 없이 짓기·업그레이드·수리·확장만으로 버틴다
         noHero: true,
-        startGold: 360,
-        // 생명 = 본진(수정) 체력
-        lives: 1500,
-        hpMul: 1.25,
-        speedMul: 0.8,
+        startGold: 420,
+        // 생명 = 본진 체력
+        lives: 2000,
+        // 적이 무리 지어 오래 버틴다: 방벽으로 붙잡아 두고 녹이는 맵
+        hpMul: 3.5,
+        speedMul: 1.15,
         // 광산이 주 수입이라 처치 현상금은 적다
-        bountyMul: 0.6,
-        island: { rx: 17, rz: 12.6 },
-        view: { distance: 40, target: [0.3, 1.2, -0.6] },
-        survival: MOUNTAIN,
-        paths: survivalPaths(MOUNTAIN),
-        sockets: MOUNTAIN_SOCKETS.sockets,
-        links: MOUNTAIN_SOCKETS.links,
+        bountyMul: 0.55,
+        // 맵 전체 크기(반폭): 카메라·주변 연출이 쓴다
+        island: { rx: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2, rz: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2 },
+        view: { distance: 30 },
+        survival: SNOW_BASIN,
+        paths: survivalPaths(SNOW_BASIN),
+        sockets: [],
+        links: [],
         waves: 'mountain'
     }
 };

@@ -28,7 +28,11 @@ export class Overlay {
     }
 
     float(text, worldPos, color, size = 16) {
-        this.floaters.push({ text, pos: worldPos.clone(), color, size, t: 0, life: 1.1 });
+        const pos = worldPos.clone();
+        // 살아남기: 땅 높이가 제각각이라 땅 위로 올린다
+        const w = this.entities.world;
+        if (w.survival) pos.y += w.heightAt(pos.x, pos.z);
+        this.floaters.push({ text, pos, color, size, t: 0, life: 1.1 });
     }
 
     handle(events, state) {
@@ -309,10 +313,11 @@ export class Overlay {
             if (showHp) {
                 const r = Math.max(0, t.hp / t.maxHp);
                 const recent = t.hitT != null && now - t.hitT < 0.15;
+                const bw = t.type === 'wall' ? 26 : 44;
                 bar(
-                    Math.round(p.x - 22),
+                    Math.round(p.x - bw / 2),
                     Math.round(p.y),
-                    44,
+                    bw,
                     5,
                     r,
                     r > 0.5 ? '#c9d6ea' : r > 0.25 ? '#ffb24a' : '#ff5f5a',
@@ -370,7 +375,7 @@ export class Overlay {
         this.drawField(g, state);
         // 체력바: 맞았거나 정예·보스이거나 마우스를 올린 적만
         for (const e of state.enemies) {
-            if (e.burrowT > 0) continue;
+            if (e.burrowT > 0 || e.fogged) continue;
             const hurt = e.hp < e.maxHp || e.shield > 0;
             if (!hurt && !e.elite && e.id !== hoverEnemyId && e.id !== selectedEnemyId) continue;
             if (e.def.boss) continue; // 보스는 상단 전용 바

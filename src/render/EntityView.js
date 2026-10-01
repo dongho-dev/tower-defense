@@ -68,7 +68,12 @@ export class EntityView {
 
     towerTop(towerId, out = new THREE.Vector3()) {
         const v = this.towers.get(towerId);
-        if (!v) return null;
+        if (!v) {
+            // 살아남기 방벽은 인스턴스 메시로 따로 그린다
+            const b = this.world.buildings;
+            const t = b && this.state?.towers.find((x) => x.id === towerId);
+            return t && t.type === 'wall' ? b.wallTop(t, out) : null;
+        }
         return out.set(v.root.position.x, v.root.position.y + v.model.height, v.root.position.z);
     }
 
@@ -104,6 +109,7 @@ export class EntityView {
     }
 
     update(state, events, t, dt) {
+        this.state = state;
         this.handleEvents(events);
         this.syncTowers(state, t, dt);
         this.syncEnemies(state, t, dt);
@@ -115,13 +121,18 @@ export class EntityView {
     syncTowers(state, t, dt) {
         const alive = new Set();
         for (const tower of state.towers) {
+            // 살아남기 방벽은 world.buildings가 인스턴스로 그린다
+            if (tower.type === 'wall') continue;
             alive.add(tower.id);
             let v = this.towers.get(tower.id);
             const sig = tower.tier + (tower.branch || '') + (tower.mastery || 0);
             if (!v) {
                 v = { root: new THREE.Group(), model: null, sig: null, recoil: 0, pop: 0, built: 0 };
                 v.root.userData.towerId = tower.id;
-                v.root.position.set(tower.x, this.socketY(tower.socketId), tower.z);
+                const y = tower.socketId == null ? this.world.buildings.buildingY(tower) : this.socketY(tower.socketId);
+                v.root.position.set(tower.x, y, tower.z);
+                // 자유 배치(2×2) 건물은 소켓보다 넓은 자리를 차지한다
+                if (tower.socketId == null) v.free = true;
                 this.root.add(v.root);
                 this.towers.set(tower.id, v);
             }
@@ -137,7 +148,8 @@ export class EntityView {
             v.pop = Math.min(1, v.pop + dt * 2.6);
             const k = v.pop;
             const s = k < 1 ? 1 - Math.pow(1 - k, 3) * Math.cos(k * 9) * 0.9 : 1;
-            v.root.scale.set(s, Math.max(0.05, s), s);
+            const k0 = v.free ? 1.25 : 1;
+            v.root.scale.set(s * k0, Math.max(0.05, s) * k0, s * k0);
             v.recoil = Math.max(0, v.recoil - dt * 6);
             animateTower(v.model, tower, t, dt, v.recoil);
         }
@@ -155,6 +167,8 @@ export class EntityView {
             if (!v) {
                 v = buildEnemyModel(e.type, e.elite);
                 v.root.userData.enemyId = e.id;
+                // 살아남기는 적이 수백 마리라 그림자 패스를 아낀다 (보스만 그림자)
+                if (state.survival && !e.def.boss) v.root.traverse((o) => (o.castShadow = false));
                 v.root.scale.setScalar(e.scale * ENEMY_SCALE);
                 v.lastHp = e.hp;
                 v.spawnT = 0;
@@ -164,6 +178,8 @@ export class EntityView {
             if (e.hp < v.lastHp - 0.01) v.hitT = 0.12;
             v.lastHp = e.hp;
             v.spawnT = Math.min(1, v.spawnT + dt * 2.5);
+            // 살아남기: 안개 속 적은 보이지 않는다
+            v.root.visible = !e.fogged;
             // 땅굴: 숨은 동안 땅속으로 가라앉는다
             v.sink = THREE.MathUtils.lerp(v.sink || 0, e.burrowT > 0 ? 1 : 0, Math.min(1, dt * 10));
             v.root.position.set(e.x, this.groundY(e.x, e.z) - v.sink * 0.9, e.z);

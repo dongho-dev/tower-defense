@@ -43,6 +43,7 @@ import { Radial } from './ui/radial.js';
 import { Inspector } from './ui/panel.js';
 import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
+import { SurvivalUI } from './ui/survival/controller.js';
 
 const SAVE_KEY = 'lastlight.v2';
 
@@ -189,6 +190,8 @@ export class App {
             this.rig.attach(this.renderer.renderer.domElement);
         }
         this.rig.bounds = this.state.map.island;
+        // 살아남기 월드는 그림자를 카메라가 보는 곳에 맞춘다
+        this.world.rig = this.rig;
         this.renderer.buildComposer(this.world.scene, this.rig.camera);
         this.entities = new EntityView(this.world.scene, this.world);
         this.effects = new Effects(
@@ -214,6 +217,7 @@ export class App {
 
     // ---------- 화면 흐름 ----------
     toTitle() {
+        this.endSurvivalUI();
         this.mode = 'title';
         this.hud.setVisible(false);
         this.closeMenus();
@@ -245,6 +249,7 @@ export class App {
             this.persist();
         }
         this.rig.shift = 0;
+        this.endSurvivalUI();
         this.mode = 'select';
         this.hud.setVisible(false);
         this.closeMenus();
@@ -261,8 +266,10 @@ export class App {
         this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege };
         this.fade.classList.add('on');
         setTimeout(() => {
+            this.endSurvivalUI();
             this.state = createGame(mapId, this.runOpts);
-            if (this.worldMap !== mapId) this.buildWorld();
+            // 살아남기 월드는 판의 상태(안개·건물)를 붙잡고 있으므로 판마다 새로 짓는다
+            if (this.worldMap !== mapId || this.state.survival) this.buildWorld();
             else {
                 this.world.state = this.state;
                 this.entities.reset();
@@ -287,7 +294,11 @@ export class App {
             this.rig.goal.y = to.y;
             const s = this.state.paths[0];
             const from = new THREE.Vector3(s.xs[0] + 3, to.y, s.zs[0]);
-            this.rig.playIntro(from, to, 3.2);
+            if (this.state.survival) {
+                // 살아남기: 넓은 맵을 RTS처럼 (명당 고르기부터)
+                this.rig.skipIntro();
+                this.surv = new SurvivalUI(this);
+            } else this.rig.playIntro(from, to, 3.2);
             this.fade.classList.remove('on');
             this.hud.reset(this.state);
             this.hud.showBanner(
@@ -295,7 +306,7 @@ export class App {
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
                     : this.state.survival
-                      ? '살아남기 · 본진을 지키며 동이 틀 때까지 버텨라'
+                      ? '살아남기 · 명당을 골라 본진을 세우고 동이 틀 때까지 버텨라'
                       : this.state.gates.length
                         ? '공성전 · 성문이 무너지면 길이 열린다'
                         : this.state.siege
@@ -305,15 +316,17 @@ export class App {
                             : '마지막 빛을 지켜라'
             );
             this.coach?.destroy();
-            this.coach = this.save.tutorialDone
-                ? null
-                : new Coach(this.uiRoot, () => {
-                      this.save.tutorialDone = true;
-                      this.persist();
-                      this.coach = null;
-                  });
+            // 첫 판 안내(소켓 누르기)는 소켓이 있는 맵에서만
+            this.coach =
+                this.save.tutorialDone || this.state.survival
+                    ? null
+                    : new Coach(this.uiRoot, () => {
+                          this.save.tutorialDone = true;
+                          this.persist();
+                          this.coach = null;
+                      });
             this.resultT = null;
-            if (this.state.siege) {
+            if (this.state.siege && !this.state.survival) {
                 const gates = this.state.gates.length > 0;
                 setTimeout(
                     () =>
@@ -330,6 +343,14 @@ export class App {
                 );
             }
         }, 450);
+    }
+
+    /** 살아남기 화면 조작을 걷는다 (다른 맵으로 가거나 타이틀로) */
+    endSurvivalUI() {
+        this.surv?.destroy();
+        this.surv = null;
+        // 타이틀·전장 선택 배경으로 남는 설원은 안개를 걷어 전체를 보여 준다
+        if (this.world?.fogLayer) this.world.fogLayer.uniforms.uFogOn.value = 0;
     }
 
     pause() {
@@ -637,6 +658,7 @@ export class App {
                 this.inspector.rallyArmed = false;
                 return this.inspector.render(this.state, true);
             }
+            if (this.surv?.cancel()) return;
             this.closeMenus();
         });
         window.addEventListener('keydown', (e) => this.onKey(e));
@@ -725,6 +747,8 @@ export class App {
             if (t) this.selectTower(t);
             return;
         }
+        // 살아남기: 건설·명당 고르기·건물 고르기를 먼저
+        if (this.surv?.onClick(e)) return;
         const hit = this.pick(e.clientX, e.clientY);
         if (hit.unit) {
             if (hit.unit.kind === 'hero') return this.heroSelected ? this.closeMenus() : this.selectHero();
@@ -758,11 +782,13 @@ export class App {
         if (k === 'Escape') {
             if (this.mode === 'paused') return this.resume();
             if (this.mode !== 'playing') return;
+            if (this.surv?.onKey(e)) return;
             if (this.targeting || this.radial.open || this.inspector.open) return this.closeMenus();
             return this.pause();
         }
         if (this.mode !== 'playing') return;
         this.audio.unlock();
+        if (this.surv?.onKey(e)) return;
         if (k === ' ') {
             e.preventDefault();
             this.callWave();
@@ -839,6 +865,7 @@ export class App {
         this.effects.handle(events, this.state);
         this.effects.update(simDt || dt * 0.4, this.t, this.state);
         this.audio.handle(events, this.state);
+        this.surv?.update(dt);
         this.rig.update(dt);
         this.world.update(this.t, dt);
         if (this.mode === 'playing' || this.mode === 'paused') {
