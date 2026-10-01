@@ -1,7 +1,7 @@
 // 인게임 HUD: 자원, 속도·일시정지, 스킬, 웨이브 호출, 배너, 토스트, 힌트, 보스 체력, 포털 마커.
 import { ICONS } from './icons.js';
-import { SKILLS, canCallWave, EARLY_BONUS_PER_SEC, WAVE_GAP } from '../core/game.js';
-import { ENEMIES } from '../core/data/enemies.js';
+import { SKILLS, canCallWave, EARLY_BONUS_PER_SEC, WAVE_GAP, HERO } from '../core/game.js';
+import { ENEMIES, ELITE, hpScale, enemyTraits } from '../core/data/enemies.js';
 import { waveSummary } from '../core/data/waves.js';
 import { DIFFICULTY } from '../core/data/difficulty.js';
 
@@ -27,6 +27,7 @@ export class Hud {
             <button class="icon-btn" data-speed title="배속 (F)" aria-label="배속 전환">${ICONS.play}</button>
             <button class="icon-btn" data-pause title="일시정지 (Esc)" aria-label="일시정지">${ICONS.pause}</button>
             <button class="icon-btn" data-sound title="소리" aria-label="소리 켜기/끄기">${ICONS.sound}</button>
+            <button class="icon-btn" data-book title="적 도감" aria-label="적 도감">${ICONS.book}</button>
             <button class="icon-btn" data-settings title="설정" aria-label="설정">${ICONS.gear}</button>
         </div>
         <div class="skills">
@@ -41,6 +42,17 @@ export class Hud {
             <div class="ring"><div class="core">${ICONS.skull}</div></div>
             <div><div class="title" data-wc-title>첫 웨이브</div><div class="sub" data-wc-sub>준비되면 호출하세요 · Space</div><div class="preview" data-wc-preview></div></div>
         </button>
+        <div class="hero-card panel ornate" data-hero>
+            <button class="portrait" data-hero-sel title="영웅 선택 (H)" aria-label="영웅 선택"><i class="ico">${ICONS.hero}</i><span class="lv" data-hero-lv>1</span><span class="dead" data-hero-dead></span></button>
+            <div class="hbody">
+                <div class="hname">${HERO.name}<small>H 선택 · 땅 클릭 이동</small></div>
+                <div class="hbar hp"><i data-hero-hp></i></div>
+                <div class="hbar xp"><i data-hero-xp></i></div>
+            </div>
+            <button class="hskill" data-hero-skill title="${HERO.skill.name} (E) · ${HERO.skill.desc}" aria-label="${HERO.skill.name}"><i class="ico">${ICONS.sword}</i><span class="sweep"></span><span class="cdtext"></span><span class="key">E</span></button>
+        </div>
+        <div class="wave-intel panel ornate" data-intel></div>
+        <div class="enemy-intro panel ornate" data-intro></div>
         <div class="banner" data-banner><div class="big" data-banner-big></div><div class="rule"></div><div class="sub" data-banner-sub></div></div>
         <div class="toasts" data-toasts></div>
         <div class="hint-box panel" data-hint></div>
@@ -78,8 +90,18 @@ export class Hud {
             bossFill: q('[data-boss-fill]'),
             marker: q('[data-marker]'),
             markerBonus: q('[data-marker-bonus]'),
-            vig: q('[data-vig]')
+            vig: q('[data-vig]'),
+            intel: q('[data-intel]'),
+            intro: q('[data-intro]'),
+            hero: q('[data-hero]'),
+            heroLv: q('[data-hero-lv]'),
+            heroHp: q('[data-hero-hp]'),
+            heroXp: q('[data-hero-xp]'),
+            heroDead: q('[data-hero-dead]'),
+            heroSkill: q('[data-hero-skill]')
         };
+        this.$.hero.querySelector('[data-hero-sel]').addEventListener('click', () => actions.selectHero());
+        this.$.heroSkill.addEventListener('click', () => actions.heroSkill());
         this.skills = {};
         for (const btn of this.el.querySelectorAll('[data-skill]')) {
             this.skills[btn.dataset.skill] = {
@@ -95,6 +117,12 @@ export class Hud {
         this.$.pause.addEventListener('click', () => actions.pause());
         this.$.sound.addEventListener('click', () => actions.toggleSound());
         this.$.settings.addEventListener('click', () => actions.openSettings());
+        this.el.querySelector('[data-book]').addEventListener('click', () => actions.openBestiary());
+        // 웨이브 호출 버튼에 마우스를 올리면 다음 웨이브 상세
+        for (const el of [this.$.waveCall, this.$.marker]) {
+            el.addEventListener('pointerenter', () => (this.intelHover = true));
+            el.addEventListener('pointerleave', () => (this.intelHover = false));
+        }
         this.last = {};
         this.previewWave = -1;
         this.goldShown = 0;
@@ -105,6 +133,7 @@ export class Hud {
     reset(state) {
         this.last = {};
         this.previewWave = -1;
+        this.intelKey = null;
         this.goldShown = state.gold;
         this.bossLag = 1;
         this.waveTotal = 0;
@@ -117,7 +146,10 @@ export class Hud {
         if (d.id !== 'normal')
             tags.push(`<span class="t d-${d.id}">${d.id === 'hero' ? ICONS.crown : ''}${d.name}</span>`);
         if (state.endless) tags.push(`<span class="t endless">${ICONS.moon}끝없는 밤</span>`);
+        if (state.siege) tags.push(`<span class="t siege">${ICONS.shield}공성전</span>`);
         this.$.modeTag.innerHTML = tags.join('');
+        this.$.hero.style.display = state.hero ? '' : 'none';
+        this.el.classList.toggle('siege', !!state.siege);
         this.$.lifeBox.classList.toggle('hero', d.id === 'hero');
         this.el.classList.toggle('endless', !!state.endless);
     }
@@ -260,6 +292,8 @@ export class Hud {
             this.set('markerBonus', bonus, (v) => (this.$.markerBonus.textContent = v > 0 ? `+${v}` : ''));
         }
 
+        this.updateIntel(state);
+
         // 보스 체력
         const bosses = state.enemies.filter((e) => e.def.boss);
         this.$.boss.classList.toggle('show', bosses.length > 0);
@@ -271,26 +305,77 @@ export class Hud {
             this.bossLag = r > this.bossLag ? r : this.bossLag + (r - this.bossLag) * 0.04;
             this.$.bossFill.style.width = `${r * 100}%`;
             this.$.bossLag.style.width = `${this.bossLag * 100}%`;
-            this.set('bossName', bosses.length, (n) => {
-                this.$.bossName.textContent = n > 1 ? `공허의 거상 ×${n}` : '공허의 거상';
+            const names = [...new Set(bosses.map((b) => b.def.name))];
+            this.set('bossName', names.join('|') + bosses.length, () => {
+                this.$.bossName.textContent =
+                    names.length > 1
+                        ? names.join(' · ')
+                        : bosses.length > 1
+                          ? `${names[0]} ×${bosses.length}`
+                          : names[0];
+            });
+            const shield = bosses.some((b) => b.shield > 0);
+            const ward = bosses.some((b) => b.wardT > 0);
+            this.set('bossFx', shield + '|' + ward, () => {
+                this.$.boss.classList.toggle('shielded', shield);
+                this.$.boss.classList.toggle('warded', ward);
             });
             this.set('bossHp', Math.ceil(hp), (v) => (this.$.bossHp.textContent = v.toLocaleString()));
         } else this.bossLag = 1;
+
+        this.updateHero(state);
+    }
+
+    /** 영웅 카드: 체력·경험치·기술 쿨다운·부활 */
+    updateHero(state) {
+        const u = state.hero;
+        if (!u) return;
+        this.set('heroLv', u.level, (v) => {
+            this.$.heroLv.textContent = v;
+            if (this.last.heroLvSeen && v > this.last.heroLvSeen) {
+                this.$.hero.classList.remove('lvup');
+                void this.$.hero.offsetWidth;
+                this.$.hero.classList.add('lvup');
+            }
+            this.last.heroLvSeen = v;
+        });
+        this.set('heroHp', Math.round((u.hp / u.maxHp) * 100), (v) => (this.$.heroHp.style.width = v + '%'));
+        const maxed = u.level >= HERO.maxLevel;
+        const xpK = maxed ? 1 : (u.xp % HERO.xpPerLevel) / HERO.xpPerLevel;
+        this.set('heroXp', Math.round(xpK * 100), (v) => (this.$.heroXp.style.width = v + '%'));
+        this.set('heroDead', u.dead ? Math.ceil(u.respawnT) : 0, (v) => {
+            this.$.heroDead.textContent = v ? v : '';
+            this.$.hero.classList.toggle('down', !!v);
+        });
+        const cd = u.skillCd;
+        const ready = cd <= 0 && !u.dead;
+        this.$.heroSkill.querySelector('.sweep').style.setProperty('--cd', u.dead ? 1 : cd / HERO.skill.cooldown);
+        this.set('heroSkillT', u.dead ? '—' : cd > 0 ? Math.ceil(cd) : '', (v) => {
+            this.$.heroSkill.querySelector('.cdtext').textContent = v;
+        });
+        this.$.heroSkill.classList.toggle('ready', ready);
+        this.$.hero.classList.toggle('selected', !!this.heroSelected);
     }
 
     handle(events, state) {
         for (const ev of events) {
             if (ev.type === 'waveStart') {
                 this.showBanner(
-                    ev.boss ? '공허의 거상' : `WAVE ${ev.wave}`,
+                    ev.boss ? ev.bossName || '공허의 거상' : `WAVE ${ev.wave}`,
                     ev.boss
-                        ? '균열의 주인이 깨어났다'
+                        ? '전장의 주인이 깨어났다'
                         : ev.wave === state.waves.length && !state.endless
                           ? '최후의 웨이브'
                           : waveLine(state.waves[ev.wave - 1]),
                     ev.boss
                 );
                 if (ev.hint) this.showHint(ev.hint);
+            } else if (ev.type === 'towerDestroyed') {
+                this.toast('타워가 무너졌습니다!', true);
+            } else if (ev.type === 'heroLevel') {
+                this.toast(`${HERO.name} 레벨 ${ev.level}!`);
+            } else if (ev.type === 'unitDeath' && ev.kind === 'hero') {
+                this.toast(`${HERO.name}가 쓰러졌습니다 · ${HERO.respawn}초 뒤 부활`, true);
             } else if (ev.type === 'leak') {
                 this.pop(this.$.lifeDelta, '-' + ev.lives, '#ff6a6a');
                 this.$.lifeBox.classList.remove('hit');
@@ -301,6 +386,61 @@ export class Hud {
                 this.vigT = setTimeout(() => this.$.vig.classList.remove('on'), 160);
             }
         }
+    }
+
+    /** 다음(또는 진행 중) 웨이브의 적 구성: 이번 웨이브 기준 체력까지 계산해 보여 준다 */
+    updateIntel(state) {
+        const show = this.intelHover;
+        this.$.intel.classList.toggle('show', !!show);
+        if (!show) return;
+        const idx = state.nextWaveIn != null || state.waveIndex === 0 ? state.waveIndex : state.waveIndex - 1;
+        const wave = state.waves[idx];
+        const key = idx + '|' + state.difficulty;
+        if (!wave || this.intelKey === key) return;
+        this.intelKey = key;
+        const waveNo = idx + 1;
+        const rows = waveSummary(wave)
+            .map((c) => {
+                const d = ENEMIES[c.enemy];
+                const hp = Math.round(d.hp * hpScale(waveNo) * state.hpMul * (c.elite ? ELITE.hp : 1));
+                const traits = enemyTraits(d)
+                    .slice(0, 4)
+                    .map(
+                        (t) => `<span class="t ${t.kind === 'magic' ? '' : t.kind}" title="${t.long}">${t.short}</span>`
+                    );
+                return `<div class="irow ${c.elite ? 'elite' : ''} ${d.boss ? 'boss' : ''}">
+                    <i class="ico">${ICONS[c.enemy]}</i>
+                    <div class="nm"><b>${d.name}${c.elite ? ' · 정예' : ''}</b><span>${traits.join('')}</span></div>
+                    <div class="n">×${c.count}</div>
+                    <div class="hp"><b>${hp.toLocaleString()}</b><span>체력</span></div>
+                </div>`;
+            })
+            .join('');
+        const tips = [...new Set(waveSummary(wave).map((c) => c.enemy))]
+            .filter((id) => ENEMIES[id].tip)
+            .slice(0, 2)
+            .map((id) => `<li><b>${ENEMIES[id].name}</b> · ${ENEMIES[id].tip}</li>`)
+            .join('');
+        this.$.intel.innerHTML = `<div class="ihead"><span>웨이브 ${waveNo}${state.endless && waveNo > 20 ? ' · 끝없는 밤' : ''}</span><small>총 ${waveSummary(wave).reduce((n, c) => n + c.count, 0)}마리</small></div>
+            ${rows}
+            ${tips ? `<ul class="itips">${tips}</ul>` : ''}`;
+    }
+
+    /** 처음 보는 적이 나오면 왼쪽에 소개 카드 */
+    introEnemy(type) {
+        const d = ENEMIES[type];
+        const traits = enemyTraits(d)
+            .filter((t) => t.kind !== 'info' || d.flying)
+            .map((t) => t.long);
+        this.$.intro.innerHTML = `<div class="ktag">${d.boss ? '보스 출현' : '새로운 적'}</div>
+            <div class="ibody"><i class="ico">${ICONS[type]}</i><div><div class="nm">${d.name}</div><div class="tr">${traits.join(' · ') || '특별한 내성 없음'}</div></div></div>
+            <p>${d.desc}</p>
+            <div class="tip"><b>공략</b> ${d.tip || ''}</div>`;
+        this.$.intro.classList.remove('show');
+        void this.$.intro.offsetWidth;
+        this.$.intro.classList.add('show');
+        clearTimeout(this.introT);
+        this.introT = setTimeout(() => this.$.intro.classList.remove('show'), 8000);
     }
 
     showBanner(big, sub, boss = false) {

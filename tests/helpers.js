@@ -7,6 +7,8 @@ import {
     callWave,
     castSkill,
     drainEvents,
+    repairTower,
+    repairCost,
     TICK
 } from '../src/core/game.js';
 import { TOWERS, MAX_TIER } from '../src/core/data/towers.js';
@@ -30,10 +32,16 @@ export function playWithPlan(mapId, plan, opts = {}) {
     callWave(state);
     while (state.status === 'playing' && state.time < (opts.maxTime ?? 3000)) {
         step(state, TICK);
-        drainEvents(state);
+        const evs = drainEvents(state);
+        if (opts.onEvents) opts.onEvents(evs, state);
         think -= TICK;
         if (think > 0) continue;
         think = 0.5;
+        // 0) 공성전: 절반 아래로 떨어진 타워 수리
+        if (state.siege) {
+            const hurt = state.towers.find((t) => t.hp < t.maxHp * 0.5 && repairCost(t) <= state.gold);
+            if (hurt) repairTower(state, hurt.id);
+        }
         // 1) 계획상 다음 소켓에 건설
         const next = plan.find(([sid]) => state.sockets[sid].towerId == null);
         const builtCount = state.towers.length;
@@ -103,7 +111,7 @@ export const STANDARD_PLAN = [
 ];
 
 /** 맵에 상관없이: 경로 커버리지가 높은 소켓부터 종류를 섞어 배치하는 계획 */
-export function autoPlan(mapId, n = 10) {
+export function autoPlan(mapId, n = 10, cycleOverride = null) {
     const state = createGame(mapId);
     const cover = (s) => {
         let c = 0;
@@ -123,5 +131,6 @@ export function autoPlan(mapId, n = 10) {
         ['frost', 'b'],
         ['ember', 'b']
     ];
-    return order.map((s, i) => [s.id, cycle[i % cycle.length][0], cycle[i % cycle.length][1]]);
+    const cy = cycleOverride || cycle;
+    return order.map((s, i) => [s.id, cy[i % cy.length][0], cy[i % cy.length][1]]);
 }

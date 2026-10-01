@@ -1,66 +1,129 @@
 <!doctype html>
 <html lang="ko">
-<head>
-<meta charset="utf-8">
-<title>맵 미리보기</title>
-<style>
-  body { margin: 0; background: #111; color: #ddd; font: 13px system-ui; }
-  canvas { display: block; margin: 12px auto; background: #1b2a1b; width: min(100%, 1100px); height: auto; }
-  pre { margin: 0 16px; white-space: pre-wrap; }
-</style>
-</head>
-<body>
-<canvas id="c" width="1100" height="720"></canvas>
-<pre id="log"></pre>
-<script type="module">
-  import { MAPS } from '../src/core/data/maps.js';
-  import { buildPath, distanceToPath } from '../src/core/path.js';
-  const mapId = new URLSearchParams(location.search).get('map') || 'dusk';
-  const map = MAPS[mapId];
-  const c = document.getElementById('c');
-  const g = c.getContext('2d');
-  const S = 32, OX = c.width / 2, OY = c.height / 2;
-  const P = (x, z) => [OX + x * S, OY + z * S];
-  const paths = map.paths.map(buildPath);
-  // 섬
-  g.fillStyle = '#2f4a2a';
-  g.beginPath(); g.ellipse(OX, OY, map.island.rx * S, map.island.rz * S, 0, 0, Math.PI * 2); g.fill();
-  // 격자
-  g.strokeStyle = 'rgba(255,255,255,0.06)';
-  for (let x = -18; x <= 18; x++) { g.beginPath(); g.moveTo(...P(x, -12)); g.lineTo(...P(x, 12)); g.stroke(); }
-  for (let z = -12; z <= 12; z++) { g.beginPath(); g.moveTo(...P(-18, z)); g.lineTo(...P(18, z)); g.stroke(); }
-  g.fillStyle = '#888'; g.font = '10px system-ui';
-  for (let x = -16; x <= 16; x += 2) g.fillText(x, ...P(x, -11.5));
-  for (let z = -10; z <= 10; z += 2) g.fillText(z, ...P(-17.5, z));
-  // 경로
-  for (const p of paths) {
-    g.strokeStyle = '#b8955a'; g.lineWidth = S * 1.1; g.lineCap = 'round'; g.lineJoin = 'round';
-    g.beginPath();
-    for (let i = 0; i < p.count; i++) { const [x, y] = P(p.xs[i], p.zs[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
-    g.stroke();
-    g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1; g.stroke();
-    g.fillStyle = '#fff';
-    for (let d = 0; d < p.length; d += 5) { const i = Math.round(d / p.step); const [x, y] = P(p.xs[i], p.zs[i]); g.fillText(d, x + 4, y - 4); }
-  }
-  // 링크
-  g.strokeStyle = 'rgba(160,120,255,0.8)'; g.lineWidth = 2;
-  for (const [a, b] of map.links) { const A = map.sockets[a], B = map.sockets[b]; g.beginPath(); g.moveTo(...P(A[0], A[1])); g.lineTo(...P(B[0], B[1])); g.stroke(); }
-  // 소켓
-  const log = [];
-  map.sockets.forEach(([x, z], i) => {
-    const d = Math.min(...paths.map((p) => distanceToPath(p, x, z)));
-    g.fillStyle = d < 1.25 ? '#f55' : '#e8d9a8';
-    g.beginPath(); g.arc(...P(x, z), S * 0.45, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#222'; g.fillText(i, P(x, z)[0] - 4, P(x, z)[1] + 4);
-    // 3.4 사거리 링
-    g.strokeStyle = 'rgba(255,255,255,0.05)'; g.beginPath(); g.arc(...P(x, z), 3.4 * S, 0, Math.PI * 2); g.stroke();
-    if (d < 1.25) log.push(`소켓 ${i} 경로와 너무 가까움: ${d.toFixed(2)}`);
-    map.sockets.forEach(([x2, z2], j) => { if (j > i && Math.hypot(x - x2, z - z2) < 1.4) log.push(`소켓 ${i}-${j} 겹침`); });
-  });
-  log.unshift(`경로 길이: ${paths.map((p) => p.length.toFixed(1)).join(', ')} · 소켓 ${map.sockets.length} · 링크 ${map.links.length}`);
-  document.getElementById('log').textContent = log.join('\n');
-  c.onclick = (e) => { const r = c.getBoundingClientRect(); const k = c.width / r.width; console.log(((e.clientX - r.left) * k - OX) / S, ((e.clientY - r.top) * k - OY) / S); };
-  window.__ready = true;
-</script>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <title>맵 미리보기</title>
+        <style>
+            body {
+                margin: 0;
+                background: #111;
+                color: #ddd;
+                font: 13px system-ui;
+            }
+            canvas {
+                display: block;
+                margin: 12px auto;
+                background: #1b2a1b;
+                width: min(100%, 1100px);
+                height: auto;
+            }
+            pre {
+                margin: 0 16px;
+                white-space: pre-wrap;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="c" width="1100" height="720"></canvas>
+        <pre id="log"></pre>
+        <script type="module">
+            import { MAPS } from '../src/core/data/maps.js';
+            import { buildPath, distanceToPath } from '../src/core/path.js';
+            const mapId = new URLSearchParams(location.search).get('map') || 'dusk';
+            const map = MAPS[mapId];
+            const c = document.getElementById('c');
+            const g = c.getContext('2d');
+            const S = 32,
+                OX = c.width / 2,
+                OY = c.height / 2;
+            const P = (x, z) => [OX + x * S, OY + z * S];
+            const paths = map.paths.map(buildPath);
+            // 섬
+            g.fillStyle = '#2f4a2a';
+            g.beginPath();
+            g.ellipse(OX, OY, map.island.rx * S, map.island.rz * S, 0, 0, Math.PI * 2);
+            g.fill();
+            // 격자
+            g.strokeStyle = 'rgba(255,255,255,0.06)';
+            for (let x = -18; x <= 18; x++) {
+                g.beginPath();
+                g.moveTo(...P(x, -12));
+                g.lineTo(...P(x, 12));
+                g.stroke();
+            }
+            for (let z = -12; z <= 12; z++) {
+                g.beginPath();
+                g.moveTo(...P(-18, z));
+                g.lineTo(...P(18, z));
+                g.stroke();
+            }
+            g.fillStyle = '#888';
+            g.font = '10px system-ui';
+            for (let x = -16; x <= 16; x += 2) g.fillText(x, ...P(x, -11.5));
+            for (let z = -10; z <= 10; z += 2) g.fillText(z, ...P(-17.5, z));
+            // 경로
+            for (const p of paths) {
+                g.strokeStyle = '#b8955a';
+                g.lineWidth = S * 1.1;
+                g.lineCap = 'round';
+                g.lineJoin = 'round';
+                g.beginPath();
+                for (let i = 0; i < p.count; i++) {
+                    const [x, y] = P(p.xs[i], p.zs[i]);
+                    i ? g.lineTo(x, y) : g.moveTo(x, y);
+                }
+                g.stroke();
+                g.strokeStyle = 'rgba(0,0,0,0.4)';
+                g.lineWidth = 1;
+                g.stroke();
+                g.fillStyle = '#fff';
+                for (let d = 0; d < p.length; d += 5) {
+                    const i = Math.round(d / p.step);
+                    const [x, y] = P(p.xs[i], p.zs[i]);
+                    g.fillText(d, x + 4, y - 4);
+                }
+            }
+            // 링크
+            g.strokeStyle = 'rgba(160,120,255,0.8)';
+            g.lineWidth = 2;
+            for (const [a, b] of map.links) {
+                const A = map.sockets[a],
+                    B = map.sockets[b];
+                g.beginPath();
+                g.moveTo(...P(A[0], A[1]));
+                g.lineTo(...P(B[0], B[1]));
+                g.stroke();
+            }
+            // 소켓
+            const log = [];
+            map.sockets.forEach(([x, z], i) => {
+                const d = Math.min(...paths.map((p) => distanceToPath(p, x, z)));
+                g.fillStyle = d < 1.25 ? '#f55' : '#e8d9a8';
+                g.beginPath();
+                g.arc(...P(x, z), S * 0.45, 0, Math.PI * 2);
+                g.fill();
+                g.fillStyle = '#222';
+                g.fillText(i, P(x, z)[0] - 4, P(x, z)[1] + 4);
+                // 3.4 사거리 링
+                g.strokeStyle = 'rgba(255,255,255,0.05)';
+                g.beginPath();
+                g.arc(...P(x, z), 3.4 * S, 0, Math.PI * 2);
+                g.stroke();
+                if (d < 1.25) log.push(`소켓 ${i} 경로와 너무 가까움: ${d.toFixed(2)}`);
+                map.sockets.forEach(([x2, z2], j) => {
+                    if (j > i && Math.hypot(x - x2, z - z2) < 1.4) log.push(`소켓 ${i}-${j} 겹침`);
+                });
+            });
+            log.unshift(
+                `경로 길이: ${paths.map((p) => p.length.toFixed(1)).join(', ')} · 소켓 ${map.sockets.length} · 링크 ${map.links.length}`
+            );
+            document.getElementById('log').textContent = log.join('\n');
+            c.onclick = (e) => {
+                const r = c.getBoundingClientRect();
+                const k = c.width / r.width;
+                console.log(((e.clientX - r.left) * k - OX) / S, ((e.clientY - r.top) * k - OY) / S);
+            };
+            window.__ready = true;
+        </script>
+    </body>
 </html>

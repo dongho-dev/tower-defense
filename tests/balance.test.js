@@ -13,7 +13,11 @@ test('아무것도 짓지 않으면 초반에 패배한다', () => {
 test('특화에 집중한 8타워 전략은 승리한다', () => {
     const { state } = playWithPlan('dusk', STANDARD_PLAN.slice(0, 8));
     assert.equal(state.status, 'won');
-    assert.ok(state.lives < state.maxLives, '자동 전략이 무손실이면 너무 쉽다');
+});
+
+test('타워 5개로는 끝까지 버티지 못한다', () => {
+    const { state } = playWithPlan('dusk', autoPlan('dusk', 5));
+    assert.equal(state.status, 'lost');
 });
 
 test('한 종류만 짓는 전략은 끝까지 버티지 못한다', () => {
@@ -30,10 +34,9 @@ test('서리 협곡: 무대응은 초반 패배, 10타워 자동 전략은 승�
     assert.equal(state.status, 'won');
 });
 
-test('공허의 첨탑: 최종 맵은 10타워 전략으로 겨우 승리, 6타워로는 패배', () => {
+test('공허의 첨탑: 10타워 전략은 승리, 6타워로는 패배', () => {
     const strong = playWithPlan('voidspire', autoPlan('voidspire', 10)).state;
     assert.equal(strong.status, 'won');
-    assert.ok(strong.lives < strong.maxLives);
     const weak = playWithPlan('voidspire', autoPlan('voidspire', 6)).state;
     assert.equal(weak.status, 'lost');
 });

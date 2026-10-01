@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildTowerModel, animateTower } from './models/towers.js';
 import { buildEnemyModel, animateEnemy } from './models/enemies.js';
 import { materials } from './models/materials.js';
+import { buildUnitModel, animateUnit } from './models/units.js';
 
 const _v = new THREE.Vector3();
 export const ENEMY_SCALE = 1.5;
@@ -13,6 +14,7 @@ export class EntityView {
         this.world = world;
         this.towers = new Map();
         this.enemies = new Map();
+        this.units = new Map();
         this.dying = [];
         this.projectiles = new Map();
         this.root = new THREE.Group();
@@ -26,9 +28,11 @@ export class EntityView {
     reset() {
         for (const v of this.towers.values()) this.root.remove(v.root);
         for (const v of this.enemies.values()) this.root.remove(v.root);
+        for (const v of this.units.values()) this.root.remove(v.root);
         for (const d of this.dying) this.root.remove(d.v.root);
         this.towers.clear();
         this.enemies.clear();
+        this.units.clear();
         this.dying = [];
         this.projectiles.clear();
         this.projMesh.clear();
@@ -61,6 +65,13 @@ export class EntityView {
         return out.set(v.root.position.x, v.root.position.y + v.model.height, v.root.position.z);
     }
 
+    /** 유닛 머리 위 (체력바 위치) */
+    unitTop(u, out = new THREE.Vector3()) {
+        const v = this.units.get(u.id);
+        if (!v) return null;
+        return out.set(v.root.position.x, v.root.position.y + (u.kind === 'hero' ? 1.75 : 1.2), v.root.position.z);
+    }
+
     enemyCenter(e, out = new THREE.Vector3()) {
         const v = this.enemies.get(e.id);
         const h = (e.def.flying ? 0.9 : 0.45) * (e.def.boss ? 2.4 : 1) * e.scale * ENEMY_SCALE;
@@ -89,6 +100,7 @@ export class EntityView {
         this.handleEvents(events);
         this.syncTowers(state, t, dt);
         this.syncEnemies(state, t, dt);
+        this.syncUnits(state, t, dt);
         this.syncProjectiles(state);
         this.updateDying(dt);
     }
@@ -98,7 +110,7 @@ export class EntityView {
         for (const tower of state.towers) {
             alive.add(tower.id);
             let v = this.towers.get(tower.id);
-            const sig = tower.tier + (tower.branch || '');
+            const sig = tower.tier + (tower.branch || '') + (tower.mastery || 0);
             if (!v) {
                 v = { root: new THREE.Group(), model: null, sig: null, recoil: 0, pop: 0, built: 0 };
                 v.root.userData.towerId = tower.id;
@@ -108,7 +120,7 @@ export class EntityView {
             }
             if (v.sig !== sig) {
                 if (v.model) v.root.remove(v.model.group);
-                v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id);
+                v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id, tower.mastery);
                 if (v.model.turret) v.model.turret.rotation.y = -tower.aim;
                 v.root.add(v.model.group);
                 v.sig = sig;
@@ -145,7 +157,9 @@ export class EntityView {
             if (e.hp < v.lastHp - 0.01) v.hitT = 0.12;
             v.lastHp = e.hp;
             v.spawnT = Math.min(1, v.spawnT + dt * 2.5);
-            v.root.position.set(e.x, this.groundY(e.x, e.z), e.z);
+            // 땅굴: 숨은 동안 땅속으로 가라앉는다
+            v.sink = THREE.MathUtils.lerp(v.sink || 0, e.burrowT > 0 ? 1 : 0, Math.min(1, dt * 10));
+            v.root.position.set(e.x, this.groundY(e.x, e.z) - v.sink * 0.9, e.z);
             const want = -Math.atan2(e.dirZ, e.dirX);
             let diff = want - v.root.rotation.y;
             diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -154,6 +168,59 @@ export class EntityView {
             v.root.scale.setScalar(sk);
             animateEnemy(v, e, t, dt);
         }
+    }
+
+    /** 병사·영웅: 죽으면 쓰러졌다 사라지고, 부활하면 다시 솟아난다 */
+    syncUnits(state, t, dt) {
+        const alive = new Set();
+        for (const u of state.units || []) {
+            alive.add(u.id);
+            let v = this.units.get(u.id);
+            const variant = u.kind === 'hero' ? 'hero' : this.unitVariant(state, u);
+            if (v && v.variant !== variant) {
+                this.root.remove(v.root);
+                v = null;
+            }
+            if (!v) {
+                v = buildUnitModel(u.kind, variant);
+                v.variant = variant;
+                v.root.userData.unitId = u.id;
+                v.spawnT = 0;
+                v.root.scale.setScalar(1.3);
+                this.root.add(v.root);
+                this.units.set(u.id, v);
+            }
+            if (u.dead) {
+                v.spawnT = Math.max(0, v.spawnT - dt * 3);
+                v.group.rotation.x = (1 - v.spawnT) * 1.4;
+                v.root.visible = v.spawnT > 0.02;
+                continue;
+            }
+            if (!v.root.visible || v.wasDead) v.spawnT = 0;
+            v.wasDead = false;
+            v.root.visible = true;
+            v.group.rotation.x = 0;
+            v.spawnT = Math.min(1, v.spawnT + dt * 3);
+            v.root.position.set(u.x, this.groundY(u.x, u.z), u.z);
+            const want = -u.face;
+            let diff = want - v.root.rotation.y;
+            diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+            v.root.rotation.y += diff * Math.min(1, dt * 12);
+            v.root.scale.setScalar(1.3 * (0.4 + 0.6 * v.spawnT));
+            animateUnit(v, u, t, dt);
+        }
+        for (const [id, v] of this.units) {
+            if (!alive.has(id)) {
+                this.root.remove(v.root);
+                this.units.delete(id);
+            }
+        }
+        for (const u of state.units || []) if (u.dead) this.units.get(u.id).wasDead = true;
+    }
+
+    unitVariant(state, u) {
+        const t = state.towers.find((x) => x.id === u.ownerId);
+        return t && t.branch ? t.branch : 'base';
     }
 
     updateDying(dt) {

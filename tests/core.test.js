@@ -16,6 +16,9 @@ import {
     setTargeting,
     upgradeOptions,
     continueEndless,
+    resonanceInfo,
+    resonancePreview,
+    estimateDps,
     wavesSurvived,
     WAVE_GAP,
     TICK
@@ -102,6 +105,7 @@ test('타워 데이터: 모든 타워가 3티어와 두 분기를 가진다', ()
         assert.equal(def.tiers.length, 3);
         assert.ok(def.branches.a && def.branches.b);
         assert.ok(def.resonance.name);
+        assert.ok(def.hotkey);
     }
 });
 
@@ -325,4 +329,81 @@ test('끝없는 밤으로 시작하면 20웨이브를 넘겨도 승리하지 않
     s.waveIndex = 20;
     step(s, TICK);
     assert.equal(s.status, 'playing');
+});
+
+test('각성: 분기 이후 두 단계 더 강화된다', () => {
+    const s = createGame('dusk', { gold: 9999 });
+    const t = buildTower(s, 4, 'ranger').tower;
+    upgradeTower(s, t.id);
+    upgradeTower(s, t.id);
+    upgradeTower(s, t.id, 'b');
+    const before = towerStats(s, t).dmg;
+    assert.ok(upgradeTower(s, t.id).ok);
+    assert.ok(upgradeTower(s, t.id).ok);
+    assert.equal(t.mastery, 2);
+    assert.equal(upgradeTower(s, t.id).ok, false);
+    assert.ok(Math.abs(towerStats(s, t).dmg - before * 1.5) < 1e-9);
+    assert.equal(upgradeOptions(t).length, 0);
+});
+
+test('에테르 광산: 공격하지 않고 다음 웨이브부터 수입', () => {
+    const s = createGame('dusk', { gold: 1000 });
+    buildTower(s, 4, 'mine');
+    callWave(s);
+    const g0 = s.gold;
+    runUntil(s, (st) => st.nextWaveIn != null, 60);
+    const g1 = s.gold;
+    callWave(s);
+    assert.ok(drainEvents(s).some((e) => e.type === 'income'));
+    assert.ok(s.gold - g1 >= 20, '웨이브를 부르면 광산 수입');
+    void g0;
+});
+
+test('풍요: 광산과 연결된 타워의 처치 골드 +25%', () => {
+    const s = createGame('dusk', { gold: 1000 });
+    const t = buildTower(s, 4, 'ranger').tower;
+    buildTower(s, 5, 'mine');
+    const e = addEnemy(s, 'grunt');
+    const g0 = s.gold;
+    dealDamage(s, e, 9999, 'true', { tower: t });
+    assert.equal(s.gold - g0, Math.round(ENEMIES.grunt.bounty * 1.25));
+});
+
+test('마력 침투: 광선탑과 연결된 타워는 방어를 25% 무시', () => {
+    const s = createGame('dusk', { gold: 1000 });
+    const t = buildTower(s, 4, 'ranger').tower;
+    buildTower(s, 5, 'arcane');
+    const k = addEnemy(s, 'ironclad');
+    dealDamage(s, k, 100, 'physical', { tower: t });
+    assert.ok(Math.abs(k.maxHp - k.hp - 100 * (1 - 0.45 * 0.75)) < 1e-9);
+});
+
+test('비전 광선: 같은 적을 오래 비출수록 강해진다', () => {
+    const s = createGame('dusk', { gold: 1000 });
+    const t = buildTower(s, 4, 'arcane').tower;
+    const e = addEnemy(s, 'ironclad', 0, { hp: 1e6, maxHp: 1e6 });
+    e.x = t.x + 1;
+    e.z = t.z;
+    e.stunT = 999;
+    runUntil(s, () => false, 1);
+    const early = 1e6 - e.hp;
+    runUntil(s, () => false, 3);
+    const hp = e.hp;
+    runUntil(s, () => false, 1);
+    assert.ok(hp - e.hp > early * 2, '3초 후엔 첫 1초보다 훨씬 세다');
+    assert.ok(estimateDps(s, t) > 0);
+});
+
+test('공명 정보: 받는 것·주는 것·빈 연결', () => {
+    const s = createGame('dusk', { gold: 1000 });
+    const a = buildTower(s, 4, 'ember').tower;
+    const pv = resonancePreview(s, 5, 'ranger');
+    assert.equal(pv.received.length, 1);
+    assert.equal(pv.received[0].type, 'ember');
+    assert.equal(pv.given.length, 1);
+    buildTower(s, 5, 'ranger');
+    const info = resonanceInfo(s, a);
+    assert.equal(info.received[0].type, 'ranger');
+    assert.equal(info.given[0].type, 'ranger');
+    assert.ok(info.openLinks >= 1);
 });

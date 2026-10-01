@@ -411,10 +411,253 @@ function storm(M, tier, branch) {
     };
 }
 
-const BUILDERS = { ranger, ember, frost, storm };
+// ---------- 비전 광선탑 ----------
+let arcaneMats = null;
+function arcaneMaterials() {
+    if (!arcaneMats) {
+        arcaneMats = {
+            prism: new THREE.MeshStandardMaterial({
+                color: 0xffd6f4,
+                emissive: 0xff4fc8,
+                emissiveIntensity: 3.2,
+                roughness: 0.08,
+                flatShading: true,
+                transparent: true,
+                opacity: 0.95
+            }),
+            marble: new THREE.MeshStandardMaterial({ color: 0xe8dff0, roughness: 0.45, metalness: 0.05 })
+        };
+    }
+    return arcaneMats;
+}
+
+function arcane(M, tier, branch) {
+    const A = arcaneMaterials();
+    const g = new THREE.Group();
+    g.add(plinth(M, tier));
+    const H = 0.7 + tier * 0.12 + (branch ? 0.15 : 0);
+    // 세 갈래 대리석 기둥이 공중의 수정을 받친다
+    const legs = branch === 'b' ? 5 : 3;
+    for (let i = 0; i < legs; i++) {
+        const a = (i / legs) * Math.PI * 2;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.075, H, 6), A.marble);
+        leg.position.set(Math.cos(a) * 0.26, 0.16 + H / 2, Math.sin(a) * 0.26);
+        leg.rotation.z = Math.cos(a) * 0.12;
+        leg.rotation.x = -Math.sin(a) * 0.12;
+        g.add(leg);
+        const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), M.gold);
+        cap.position.set(Math.cos(a) * 0.2, 0.16 + H + 0.02, Math.sin(a) * 0.2);
+        g.add(cap);
+    }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.03, 6, 24), M.gold);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.16 + H;
+    g.add(ring);
+    const spin = new THREE.Group();
+    spin.position.y = 0.16 + H + 0.38;
+    g.add(spin);
+    const size = branch === 'a' ? 0.26 : 0.17 + tier * 0.02;
+    const prism = new THREE.Mesh(new THREE.OctahedronGeometry(size, 0), A.prism);
+    prism.scale.y = 1.9;
+    spin.add(prism);
+    const orbit = new THREE.Group();
+    spin.add(orbit);
+    const shards = branch === 'b' ? 3 : tier;
+    for (let i = 0; i < shards; i++) {
+        const a = (i / shards) * Math.PI * 2;
+        const s = new THREE.Mesh(new THREE.TetrahedronGeometry(0.07), A.prism);
+        s.position.set(Math.cos(a) * 0.36, Math.sin(a * 2) * 0.06, Math.sin(a) * 0.36);
+        orbit.add(s);
+    }
+    if (branch === 'a') {
+        for (const r of [0.42, 0.52]) {
+            const halo = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 40), A.prism);
+            halo.rotation.x = Math.PI / 2 + (r - 0.47) * 3;
+            orbit.add(halo);
+        }
+    }
+    const muzzle = new THREE.Object3D();
+    spin.add(muzzle);
+    return { group: g, turret: null, muzzle, spin, orbit, orbitSpeed: 2.2, height: H + 1.0 };
+}
+
+// ---------- 에테르 광산 ----------
+function mine(M, tier, branch) {
+    const g = new THREE.Group();
+    g.add(plinth(M, tier));
+    const A = arcaneMaterials();
+    const green = new THREE.MeshStandardMaterial({
+        color: 0xd8ffe6,
+        emissive: 0x3fe08a,
+        emissiveIntensity: 2.6,
+        roughness: 0.1,
+        flatShading: true
+    });
+    // 바위 둔덕과 갱도 입구
+    const mound = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), M.stoneDark);
+    mound.scale.set(1.05, 0.55, 0.9);
+    mound.position.y = 0.3;
+    g.add(mound);
+    const frame = new THREE.Group();
+    for (const x of [-0.13, 0.13]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.34, 0.06), M.wood);
+        post.position.set(x, 0.33, 0.33);
+        frame.add(post);
+    }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.08), M.woodDark);
+    beam.position.set(0, 0.52, 0.33);
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.3), M.iron);
+    hole.position.set(0, 0.32, 0.3);
+    frame.add(beam, hole);
+    g.add(frame);
+    // 수정 광맥: 레벨이 오를수록 많아지고 커진다
+    const crystals = 2 + tier + (branch ? 2 : 0);
+    for (let i = 0; i < crystals; i++) {
+        const a = -Math.PI / 2 + (i - (crystals - 1) / 2) * 0.55;
+        const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 + (i % 2) * 0.03), branch === 'b' ? A.prism : green);
+        c.scale.y = 2.2;
+        c.position.set(Math.cos(a) * 0.3, 0.5 + (i % 2) * 0.08, Math.sin(a) * 0.25);
+        c.rotation.set(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.4);
+        g.add(c);
+    }
+    // 크레인과 광석 수레
+    const crane = new THREE.Group();
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.9, 6), M.wood);
+    mast.position.set(-0.32, 0.6, -0.05);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.035, 0.035), M.woodDark);
+    arm.position.set(-0.12, 1.02, -0.05);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.32, 4), M.iron);
+    rope.position.set(0.08, 0.86, -0.05);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.08, 8), M.bronze);
+    bucket.position.set(0.08, 0.68, -0.05);
+    crane.add(mast, arm, rope, bucket);
+    g.add(crane);
+    if (tier >= 2 || branch) {
+        const cart = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.14), M.wood);
+        cart.position.set(0.32, 0.22, 0.3);
+        const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07), branch === 'a' ? M.goldCrystal : green);
+        ore.position.set(0.32, 0.3, 0.3);
+        g.add(cart, ore);
+    }
+    if (branch === 'a') {
+        const chest = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.15), M.wood);
+        chest.position.set(-0.3, 0.24, 0.32);
+        const lid = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.04, 0.16), M.gold);
+        lid.position.set(-0.3, 0.33, 0.32);
+        g.add(chest, lid);
+    }
+    const spin = new THREE.Group();
+    spin.position.y = 1.2;
+    g.add(spin);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), branch === 'b' ? A.prism : green);
+    gem.scale.y = 1.5;
+    spin.add(gem);
+    const muzzle = new THREE.Object3D();
+    spin.add(muzzle);
+    return { group: g, turret: null, muzzle, spin, height: 1.4 };
+}
+
+// ---------- 병영 ----------
+function barracks(M, tier, branch) {
+    const g = new THREE.Group();
+    g.add(plinth(M, tier));
+    const wall = branch === 'a' ? M.stone : branch === 'b' ? M.stoneStorm : M.stoneDark;
+    const h = 0.42 + tier * 0.06 + (branch ? 0.06 : 0);
+    // 네모난 아성: 몸체 + 모서리 망루
+    const keep = new THREE.Mesh(new THREE.BoxGeometry(0.62, h, 0.62), wall);
+    keep.position.y = 0.16 + h / 2;
+    g.add(keep);
+    const top = 0.16 + h;
+    for (const [x, z] of [
+        [-0.31, -0.31],
+        [0.31, -0.31],
+        [-0.31, 0.31],
+        [0.31, 0.31]
+    ]) {
+        const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, h + 0.18, 8), M.stone);
+        tw.position.set(x, 0.16 + (h + 0.18) / 2, z);
+        const cap = new THREE.Mesh(
+            new THREE.ConeGeometry(0.15, 0.22, 8),
+            branch === 'a' ? M.gold : branch === 'b' ? M.roofRed : M.roofBlue
+        );
+        cap.position.set(x, top + 0.18 + 0.11, z);
+        g.add(tw, cap);
+    }
+    g.add(merlons(M, 0.27, top, 8, M.stone, 0.09));
+    // 앞문
+    const gate = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.04), M.woodDark);
+    gate.position.set(0, 0.29, 0.315);
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 5, 10, Math.PI), M.stone);
+    arch.position.set(0, 0.42, 0.32);
+    g.add(gate, arch);
+    // 레벨이 오르면 방패 장식과 막사 천막
+    if (tier >= 2 || branch) {
+        for (const s of [-1, 1]) {
+            const sh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.08, 0.02, 6),
+                branch === 'b' ? M.roofRed : M.roofBlue
+            );
+            sh.rotation.x = Math.PI / 2;
+            sh.position.set(s * 0.17, top - 0.12, 0.315);
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.01, 4, 12), M.gold);
+            rim.position.copy(sh.position);
+            rim.position.z += 0.01;
+            g.add(sh, rim);
+        }
+    }
+    if (tier >= 3 || branch) {
+        const tent = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.26, 4), M.cloth);
+        tent.position.set(-0.52, 0.29, -0.2);
+        tent.rotation.y = Math.PI / 4;
+        g.add(tent);
+    }
+    const spin = new THREE.Group();
+    spin.position.y = top + 0.12;
+    g.add(spin);
+    if (branch === 'a') {
+        // 성기사단: 금빛 돔과 떠도는 성휘
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.gold);
+        dome.position.y = top;
+        g.add(dome);
+        const sigil = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), M.goldCrystal);
+        sigil.scale.y = 1.6;
+        spin.position.y = top + 0.42;
+        spin.add(sigil);
+    } else if (branch === 'b') {
+        // 검귀: 교차한 두 대검
+        for (const s of [-1, 1]) {
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.62, 0.07), M.iron);
+            blade.position.y = 0.2;
+            blade.rotation.z = s * 0.55;
+            const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.05), M.gold);
+            hilt.position.set(-s * 0.12, -0.04, 0);
+            hilt.rotation.z = s * 0.55;
+            spin.add(blade, hilt);
+        }
+    }
+    const cloths = [];
+    const b = banner(M, top + 0.1, branch === 'b' ? '#a3263a' : branch === 'a' ? '#e8e2d4' : '#2f4f9a');
+    b.position.set(0.31, 0.12, 0.31);
+    g.add(b);
+    cloths.push(b.userData.cloth);
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(0, top + 0.2, 0.3);
+    g.add(muzzle);
+    return { group: g, turret: null, muzzle, spin: branch ? spin : null, cloths, height: top + 0.4 };
+}
+
+const BUILDERS = { ranger, ember, frost, storm, arcane, mine, barracks };
 
 // 종류별 상징색: 룬 고리와 레벨 보석
-const TYPE_GLOW = { ranger: 0xffc45a, ember: 0xff6a2a, frost: 0x5cc8ff, storm: 0xa86cff };
+const TYPE_GLOW = {
+    ranger: 0xffc45a,
+    ember: 0xff6a2a,
+    frost: 0x5cc8ff,
+    storm: 0xa86cff,
+    arcane: 0xff5fd0,
+    mine: 0x4fe08e,
+    barracks: 0x7fa8ff
+};
 const glowCache = new Map();
 function typeGlow(type) {
     if (!glowCache.has(type)) {
@@ -477,10 +720,22 @@ function decorate(M, g, type, tier, branch, id) {
     return ring;
 }
 
-export function buildTowerModel(type, tier, branch, id = 1) {
+export function buildTowerModel(type, tier, branch, id = 1, mastery = 0) {
     const M = materials();
     const v = BUILDERS[type](M, tier, branch);
     v.rune = decorate(M, v.group, type, tier, branch, id);
+    // 각성: 받침 위로 떠서 도는 금빛 고리
+    if (mastery > 0) {
+        const halo = new THREE.Group();
+        for (let i = 0; i < mastery; i++) {
+            const r = new THREE.Mesh(new THREE.TorusGeometry(0.58 + i * 0.09, 0.016, 4, 48), M.goldCrystal);
+            r.rotation.x = Math.PI / 2 + (i ? 0.18 : -0.12);
+            halo.add(r);
+        }
+        halo.position.y = 0.32;
+        v.group.add(halo);
+        v.halo = halo;
+    }
     shadowAll(v.group);
     v.spinBase = v.spin ? v.spin.position.y : 0;
     v.cloths = v.cloths || [];
@@ -507,4 +762,8 @@ export function animateTower(v, tower, t, dt, recoilK) {
     if (v.orbit) v.orbit.rotation.y += dt * (v.orbitSpeed || 1.2);
     for (const c of v.cloths) c.rotation.y = Math.sin(t * 2.4 + tower.id) * 0.4;
     if (v.rune) v.rune.scale.setScalar(1 + recoilK * 0.05);
+    if (v.halo) {
+        v.halo.rotation.y += dt * 0.8;
+        v.halo.position.y = 0.32 + Math.sin(t * 1.5 + tower.id) * 0.04;
+    }
 }
