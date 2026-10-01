@@ -1,3 +1,5 @@
+import { ENEMIES } from './enemies.js';
+
 // 웨이브 정의. 그룹 = { enemy, count, gap(초), delay(웨이브 시작 기준 초), elite?, path?, hpMul? }
 
 const g = (enemy, count, gap, delay = 0, extra = {}) => ({ enemy, count, gap, delay, ...extra });
@@ -370,6 +372,94 @@ export function campaignWaves(pathCount = 1, flavor = null) {
 WAVES.cinder = campaignWaves(1, 'swarm');
 WAVES.bloom = campaignWaves(2, 'spectral');
 WAVES.stormreach = campaignWaves(2, 'armored');
+
+// ---------- 맵 컨셉: 전용 적과 보스 ----------
+// mix: [바꿀 적, 전용 적, 처음 섞이는 웨이브, 비율]. 전용 적 수는 체력 합이 비슷하도록 맞춘다.
+export const THEMES = {
+    cinder: {
+        boss: 'magmaLord',
+        mix: [
+            ['stalker', 'cinderling', 3, 0.5],
+            ['grunt', 'flameborn', 5, 0.35],
+            ['wraith', 'flameborn', 9, 0.3]
+        ]
+    },
+    frostvale: {
+        boss: 'glacier',
+        mix: [
+            ['ironclad', 'rimeguard', 4, 0.35],
+            ['grunt', 'yeti', 6, 0.3]
+        ]
+    },
+    voidspire: {
+        boss: 'riftlord',
+        mix: [
+            ['stalker', 'shade', 3, 0.5],
+            ['grunt', 'splitter', 5, 0.35]
+        ]
+    },
+    bloom: {
+        boss: 'thornwood',
+        mix: [
+            ['grunt', 'bloomer', 3, 0.35],
+            ['ironclad', 'burrower', 5, 0.5]
+        ]
+    },
+    stormreach: {
+        boss: 'tempest',
+        mix: [
+            ['wraith', 'harpy', 3, 0.5],
+            ['ironclad', 'stormeater', 4, 0.3]
+        ]
+    }
+};
+
+/** 분열·소환까지 친 실질 체력 */
+function effHp(id) {
+    const d = ENEMIES[id];
+    return d.hp + (d.split ? d.split.count * ENEMIES[d.split.into].hp : 0);
+}
+
+/** 웨이브에 맵 전용 적을 섞고, 거상을 맵 보스로 바꾼다 */
+export function applyTheme(wave, themeId, waveNo) {
+    const th = THEMES[themeId];
+    if (!th) return wave;
+    const groups = [];
+    let bossName = null;
+    const fresh = [];
+    for (const grp of wave.groups) {
+        // 거상이 여럿이면 첫 거상만 맵 보스로 바꾼다
+        if (grp.enemy === 'colossus' && th.boss && !bossName) {
+            groups.push({ ...grp, enemy: th.boss });
+            bossName = th.boss;
+            continue;
+        }
+        const rule = th.mix.find(([from, , at]) => from === grp.enemy && waveNo >= at);
+        if (!rule || grp.count < 2) {
+            groups.push(grp);
+            continue;
+        }
+        const [from, to, , share] = rule;
+        const take = Math.max(1, Math.round(grp.count * share));
+        const n = Math.max(1, Math.round((take * effHp(from)) / effHp(to)));
+        if (grp.count - take > 0) groups.push({ ...grp, count: grp.count - take });
+        groups.push({
+            ...grp,
+            enemy: to,
+            count: n,
+            gap: Math.min(4, (grp.gap * grp.count) / n),
+            delay: grp.delay + grp.gap * 0.5
+        });
+        fresh.push(to);
+    }
+    let hint = wave.hint || null;
+    if (bossName) hint = `${ENEMIES[bossName].name} 출현! ${ENEMIES[bossName].tip}`;
+    return { ...wave, groups, hint, themed: fresh };
+}
+
+for (const id of Object.keys(THEMES)) {
+    if (WAVES[id]) WAVES[id] = WAVES[id].map((w, i) => applyTheme(w, id, i + 1));
+}
 
 export function waveEnemyCount(wave) {
     return wave.groups.reduce((n, grp) => n + grp.count, 0);

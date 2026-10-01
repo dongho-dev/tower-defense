@@ -18,6 +18,10 @@ import {
     starsFor,
     continueEndless,
     wavesSurvived,
+    repairTower,
+    setRally,
+    commandHero,
+    heroSkill,
     TICK,
     SKILLS
 } from './core/game.js';
@@ -33,7 +37,7 @@ import { Overlay } from './ui/overlay.js';
 import { Hud } from './ui/hud.js';
 import { Radial } from './ui/radial.js';
 import { Inspector } from './ui/panel.js';
-import { Screens, Coach, recordOf } from './ui/screens.js';
+import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 
 const SAVE_KEY = 'lastlight.v2';
@@ -108,7 +112,9 @@ export class App {
             pause: () => this.pause(),
             toggleSound: () => this.setSetting('sound', !this.save.settings.sound),
             openSettings: () => this.openSettings(true),
-            openBestiary: () => this.openBestiary(false)
+            openBestiary: () => this.openBestiary(false),
+            selectHero: () => this.selectHero(),
+            heroSkill: () => this.useHeroSkill()
         });
         this.hud.setVisible(false);
         this.radial = new Radial(this.uiRoot, {
@@ -121,7 +127,10 @@ export class App {
             sell: (id) => this.sell(id),
             target: (id, mode) => setTargeting(this.state, id, mode),
             preview: (opt) => this.world.showRange(opt),
-            closed: () => this.closeMenus()
+            closed: () => this.closeMenus(),
+            repair: (id) => this.repair(id),
+            rally: (id) => this.armRally(id),
+            heroSkill: () => this.useHeroSkill()
         });
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
@@ -242,7 +251,7 @@ export class App {
     }
 
     startMap(mapId, opts = {}) {
-        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless };
+        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege: !!opts.siege };
         this.fade.classList.add('on');
         setTimeout(() => {
             this.state = createGame(mapId, this.runOpts);
@@ -275,9 +284,11 @@ export class App {
                 this.state.map.name,
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
-                    : this.state.difficulty === 'hero'
-                      ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
-                      : '마지막 빛을 지켜라'
+                    : this.state.siege
+                      ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
+                      : this.state.difficulty === 'hero'
+                        ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                        : '마지막 빛을 지켜라'
             );
             this.coach?.destroy();
             this.coach = this.save.tutorialDone
@@ -288,6 +299,17 @@ export class App {
                       this.coach = null;
                   });
             this.resultT = null;
+            if (this.state.siege) {
+                setTimeout(
+                    () =>
+                        this.mode === 'playing' &&
+                        this.hud.showHint(
+                            '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
+                            11000
+                        ),
+                    3800
+                );
+            }
         }, 450);
     }
 
@@ -341,13 +363,14 @@ export class App {
         const won = st.status === 'won';
         const stars = won ? starsFor(st) : 0;
         const survived = wavesSurvived(st);
-        const rec = { ...recordOf(this.save, st.mapId, st.difficulty) };
+        const mode = st.siege ? 'siege' : 'campaign';
+        const rec = { ...recordOf(this.save, st.mapId, st.difficulty, mode) };
         // 캠페인을 이기고 이어 간 끝없는 밤은 이미 별을 받았으므로 웨이브 기록만 갱신한다
         if (won) rec.stars = Math.max(rec.stars, stars);
         const newBest = st.endless && survived > (rec.best || 0);
         if (st.endless) rec.best = Math.max(rec.best || 0, survived);
         if (won || st.endless) {
-            (this.save.records[st.mapId] ??= {})[st.difficulty] = rec;
+            (this.save.records[st.mapId] ??= {})[recordKey(st.difficulty, mode)] = rec;
             this.persist();
         }
         this.mode = 'results';
@@ -387,6 +410,46 @@ export class App {
         if (r.ok) this.closeMenus();
     }
 
+    repair(id) {
+        if (this.mode !== 'playing') return;
+        const r = repairTower(this.state, id);
+        if (!r.ok) this.hud.toast(r.reason, true);
+    }
+
+    /** 집결지 지정 모드: 다음 땅 클릭이 집결지가 된다 */
+    armRally(id) {
+        this.rallyFor = this.rallyFor === id ? null : id;
+        this.inspector.rallyArmed = !!this.rallyFor;
+        this.inspector.render(this.state, true);
+        if (this.rallyFor) this.hud.toast('병영 사거리 안의 길을 누르세요 · 우클릭 취소');
+    }
+
+    selectHero() {
+        const h = this.state.hero;
+        if (!h || this.mode !== 'playing') return;
+        this.radial.close();
+        this.selected = null;
+        this.selectedEnemy = null;
+        this.rallyFor = null;
+        this.heroSelected = true;
+        this.hud.heroSelected = true;
+        this.world.showRange(null);
+        this.inspector.showHero(h, this.state);
+    }
+
+    useHeroSkill() {
+        if (this.mode !== 'playing' || !this.state.hero) return;
+        const r = heroSkill(this.state);
+        if (!r.ok) this.hud.toast(r.reason, true);
+    }
+
+    moveHero(x, y) {
+        const p = this.groundPoint(x, y);
+        if (!p) return;
+        const r = commandHero(this.state, p.x, p.z);
+        if (!r.ok) this.hud.toast(r.reason, true);
+    }
+
     callWave() {
         if (this.mode !== 'playing') return;
         const r = callWave(this.state);
@@ -414,8 +477,14 @@ export class App {
 
     selectTower(tower) {
         this.radial.close();
+        if (this.selected !== tower) {
+            this.rallyFor = null;
+            this.inspector.rallyArmed = false;
+        }
         this.selected = tower;
         this.selectedEnemy = null;
+        this.heroSelected = false;
+        this.hud.heroSelected = false;
         this.inspector.showTower(tower, this.state);
         this.world.showRange({
             x: tower.x,
@@ -427,6 +496,8 @@ export class App {
 
     selectEnemy(e) {
         this.radial.close();
+        this.heroSelected = false;
+        this.hud.heroSelected = false;
         this.selected = null;
         this.selectedEnemy = e;
         this.world.showRange(null);
@@ -487,6 +558,10 @@ export class App {
         this.buildHover = null;
         this.targeting = null;
         this.hud.armed = null;
+        this.heroSelected = false;
+        this.hud.heroSelected = false;
+        this.rallyFor = null;
+        this.inspector.rallyArmed = false;
         this.world.showRange(null);
     }
 
@@ -501,8 +576,17 @@ export class App {
         });
         dom.addEventListener('pointerleave', () => (this.pointer.inside = false));
         dom.addEventListener('click', (e) => this.onClick(e));
-        dom.addEventListener('contextmenu', () => {
-            if (this.mode === 'playing') this.closeMenus();
+        dom.addEventListener('contextmenu', (e) => {
+            if (this.mode !== 'playing') return;
+            e.preventDefault();
+            // 영웅을 고른 상태면 우클릭으로 이동 (RTS 방식)
+            if (this.heroSelected && !this.rig.dragging) return this.moveHero(e.clientX, e.clientY);
+            if (this.rallyFor) {
+                this.rallyFor = null;
+                this.inspector.rallyArmed = false;
+                return this.inspector.render(this.state, true);
+            }
+            this.closeMenus();
         });
         window.addEventListener('keydown', (e) => this.onKey(e));
     }
@@ -528,6 +612,14 @@ export class App {
                 }
                 o = o.parent;
             }
+        }
+        // 영웅·병사: 화면 거리 기준 (영웅 우선)
+        for (const u of this.state.units) {
+            if (u.dead) continue;
+            const top = this.entities.unitTop(u);
+            if (!top) continue;
+            const p = this.overlay.project(top.setY(top.y - (u.kind === 'hero' ? 0.8 : 0.55)));
+            if (Math.hypot(p.x - x, p.y - y) < (u.kind === 'hero' ? 34 : 18)) return { unit: u };
         }
         // 적: 화면 거리 기준
         let best = null;
@@ -563,7 +655,27 @@ export class App {
             this.hud.armed = null;
             return;
         }
+        if (this.rallyFor) {
+            const p = this.groundPoint(e.clientX, e.clientY);
+            const id = this.rallyFor;
+            this.rallyFor = null;
+            this.inspector.rallyArmed = false;
+            if (p) {
+                const r = setRally(this.state, id, p.x, p.z);
+                if (!r.ok) this.hud.toast(r.reason, true);
+            }
+            const t = findTower(this.state, id);
+            if (t) this.selectTower(t);
+            return;
+        }
         const hit = this.pick(e.clientX, e.clientY);
+        if (hit.unit) {
+            if (hit.unit.kind === 'hero') return this.heroSelected ? this.closeMenus() : this.selectHero();
+            const owner = findTower(this.state, hit.unit.ownerId);
+            if (owner) return this.selectTower(owner);
+        }
+        // 영웅을 고른 상태에서 땅(빈 곳·적 근처)을 누르면 이동
+        if (this.heroSelected && !hit.tower && !hit.socket) return this.moveHero(e.clientX, e.clientY);
         if (hit.tower) {
             if (this.selected === hit.tower) this.closeMenus();
             else this.selectTower(hit.tower);
@@ -594,7 +706,13 @@ export class App {
         } else if (k === 'q' || k === 'Q') this.useSkill('meteor');
         else if (k === 'w' || k === 'W') this.useSkill('freeze');
         else if (k === 'f' || k === 'F') this.toggleSpeed();
-        else if (/^[1-6]$/.test(k)) {
+        else if ((k === 'h' || k === 'H') && this.state.hero) {
+            if (this.heroSelected) this.closeMenus();
+            else this.selectHero();
+        } else if ((k === 'e' || k === 'E') && this.state.hero) this.useHeroSkill();
+        else if ((k === 'r' || k === 'R') && this.selected?.type === 'barracks') this.armRally(this.selected.id);
+        else if ((k === 'g' || k === 'G') && this.selected && this.selected.hp != null) this.repair(this.selected.id);
+        else if (/^[1-7]$/.test(k)) {
             const type = TOWER_ORDER[Number(k) - 1];
             const socket = this.radial.mode === 'build' ? this.radial.target : this.hover.socket;
             if (type && socket && socket.towerId == null) this.build(socket.id, type);
@@ -617,11 +735,14 @@ export class App {
         this.hover.tower = hit.tower || null;
         this.hover.enemy = hit.enemy || null;
         this.world.hoverSocket = hit.socket ? hit.socket.id : hit.tower ? hit.tower.socketId : null;
-        this.renderer.renderer.domElement.style.cursor = this.targeting
-            ? 'crosshair'
-            : hit.socket || hit.tower
-              ? 'pointer'
-              : 'default';
+        this.renderer.renderer.domElement.style.cursor =
+            this.targeting || this.rallyFor
+                ? 'crosshair'
+                : hit.socket || hit.tower || hit.unit
+                  ? 'pointer'
+                  : this.heroSelected
+                    ? 'crosshair'
+                    : 'default';
     }
 
     // ---------- 루프 ----------
@@ -685,6 +806,10 @@ export class App {
         }
         this.inspector.update(this.state);
         this.overlay.links = this.mode === 'playing' ? this.resonanceLinks() : null;
+        this.overlay.ui = {
+            heroSelected: this.heroSelected,
+            rally: this.selected?.type === 'barracks' && this.selected.rally ? this.selected.rally : null
+        };
         if (this.state.status !== 'playing' && this.mode === 'playing') {
             this.resultT = (this.resultT ?? 0) + dt;
             if (this.resultT > 1.8) this.showResults();

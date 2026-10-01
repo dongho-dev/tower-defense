@@ -1,7 +1,7 @@
 // 타워 정의. tiers[0..2] = 레벨 1~3, branches.a / .b = 레벨 3 이후 특화.
 // rate = 공격 간격(초), range/splash = 월드 단위, cost = 해당 단계로 가는 비용.
 
-export const TOWER_ORDER = ['ranger', 'ember', 'frost', 'storm', 'arcane', 'mine'];
+export const TOWER_ORDER = ['ranger', 'ember', 'frost', 'storm', 'arcane', 'mine', 'barracks'];
 
 export const TOWERS = {
     ranger: {
@@ -237,6 +237,55 @@ export const TOWERS = {
                 resonanceValue: 0.6
             }
         }
+    },
+    barracks: {
+        id: 'barracks',
+        name: '병영',
+        en: 'Garrison',
+        hotkey: '7',
+        dmgType: 'physical',
+        color: '#9fc0ff',
+        role: '병사를 길목에 보내 적을 막아 세운다',
+        attack: 'barracks',
+        resonance: {
+            stat: 'pinned',
+            value: 0.2,
+            name: '협공',
+            desc: '연결된 타워가 병사에게 붙잡힌 적에게 피해 +20%'
+        },
+        // range = 집결지를 둘 수 있는 거리. soldiers = 병사 수, hp/dmg/rate = 병사 한 명 기준, respawn = 부활 시간
+        tiers: [
+            { cost: 80, range: 3, soldiers: 2, hp: 130, dmg: 11, rate: 1, respawn: 9 },
+            { cost: 65, range: 3.2, soldiers: 3, hp: 190, dmg: 17, rate: 1, respawn: 8.5 },
+            { cost: 95, range: 3.4, soldiers: 3, hp: 270, dmg: 25, rate: 0.95, respawn: 8 }
+        ],
+        branches: {
+            a: {
+                name: '성기사단',
+                desc: '갑옷이 두꺼운 성기사 3명. 받는 피해 30% 감소, 싸우는 동안에도 체력이 차오른다',
+                cost: 165,
+                range: 3.5,
+                soldiers: 3,
+                hp: 520,
+                dmg: 32,
+                rate: 1,
+                respawn: 8,
+                armor: 0.3,
+                regen: 0.025
+            },
+            b: {
+                name: '검귀',
+                desc: '쌍검을 든 검사 3명. 빠르게 베고, 주변 적까지 절반 피해로 휩쓴다',
+                cost: 175,
+                range: 3.5,
+                soldiers: 3,
+                hp: 280,
+                dmg: 42,
+                rate: 0.6,
+                respawn: 7,
+                cleave: 0.5
+            }
+        }
     }
 };
 
@@ -249,7 +298,8 @@ export function resonanceLabel(stat, value) {
         vulnerable: `둔화된 적에게 피해 +${p}%`,
         rate: `공격 속도 +${p}%`,
         pen: `방어·저항 ${p}% 무시`,
-        bounty: `처치 골드 +${p}%`
+        bounty: `처치 골드 +${p}%`,
+        pinned: `붙잡힌 적에게 피해 +${p}%`
     }[stat];
 }
 
@@ -261,6 +311,12 @@ export function masteryCost(tower) {
 }
 
 export const MAX_TIER = 3;
+
+/** 공성전 타워 체력: 레벨·분기·각성마다 늘어난다 */
+export function towerMaxHp(tower) {
+    const base = 320 + 140 * (tower.tier - 1) + (tower.branch ? 200 : 0) + 100 * (tower.mastery || 0);
+    return tower.type === 'barracks' ? Math.round(base * 1.25) : base;
+}
 export const SELL_RATE = 0.7;
 export const CHAIN_JUMP = 1.9;
 

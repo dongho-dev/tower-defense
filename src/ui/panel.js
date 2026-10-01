@@ -10,8 +10,11 @@ import {
     resonanceInfo,
     resonancePreview,
     upgradeOptions,
-    previewStats
+    previewStats,
+    repairCost,
+    HERO
 } from '../core/game.js';
+import { enemyTraits } from '../core/data/enemies.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
 
@@ -27,6 +30,13 @@ function diff(a, b, better = 'up') {
 
 function statsRow(s, dps, prev) {
     const def = s.__def;
+    if (def.attack === 'barracks') {
+        return `<div class="ip-stats">
+            <div><b>${s.soldiers}${diff(s.soldiers, prev?.soldiers)}</b><span>병사</span></div>
+            <div><b>${Math.round(s.unitHp)}${diff(s.unitHp, prev?.unitHp)}</b><span>병사 체력</span></div>
+            <div><b>${fmt(dps)}${diff(dps, prev?.dps)}</b><span>합계 초당 피해</span></div>
+        </div>`;
+    }
     if (def.attack === 'none') {
         return `<div class="ip-stats">
             <div><b>${s.income}${diff(s.income, prev?.income)}</b><span>웨이브당 골드</span></div>
@@ -54,6 +64,14 @@ function tags(s, def) {
     if (s.stun) t.push(`<span class="tag">기절 ${s.stun}초</span>`);
     if (s.shatter > 1) t.push(`<span class="tag">파쇄 ×${s.shatter}</span>`);
     if (s.ramp) t.push(`<span class="tag">최대 ×${s.ramp.max}까지 증폭</span>`);
+    if (s.soldiers) {
+        t.push(`<span class="tag">적을 붙잡음</span>`);
+        if (s.unitArmor) t.push(`<span class="tag">받는 피해 -${Math.round(s.unitArmor * 100)}%</span>`);
+        if (s.regen) t.push(`<span class="tag">전투 중 회복</span>`);
+        if (s.cleave) t.push(`<span class="tag">휩쓸기 ${Math.round(s.cleave * 100)}%</span>`);
+        t.push(`<span class="tag">부활 ${s.respawn}초</span>`);
+        t.push('<span class="tag warn">비행 적은 못 막음</span>');
+    }
     return t.join('');
 }
 
@@ -162,7 +180,14 @@ export class Inspector {
             shown.__def = def;
             shown.__resValue = h.kind === 'branch' ? def.branches[h.key].resonanceValue : cur.__resValue;
             shownDps = p.dps;
-            prev = { dps: curDps, range: cur.range, rate: cur.rate, income: cur.income };
+            prev = {
+                dps: curDps,
+                range: cur.range,
+                rate: cur.rate,
+                income: cur.income,
+                soldiers: cur.soldiers,
+                unitHp: cur.unitHp
+            };
             desc =
                 h.kind === 'branch'
                     ? `<b>${def.branches[h.key].name}</b> · ${def.branches[h.key].desc}`
@@ -186,7 +211,13 @@ export class Inspector {
         const maxed = !opts.length;
         const info = resonanceInfo(state, tower);
         info.value = cur.__resValue || def.resonance.value;
-        const canTarget = def.attack !== 'none' && !cur.aura;
+        const canTarget = def.attack !== 'none' && def.attack !== 'barracks' && !cur.aura;
+        const rc = repairCost(tower);
+        const hpBlock =
+            tower.hp != null
+                ? `<div class="ip-thp ${tower.hp < tower.maxHp * 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${(tower.hp / tower.maxHp) * 100}%"></i></div><b>${Math.ceil(tower.hp)} / ${tower.maxHp}</b></div>`
+                : '';
+        const stun = tower.stunT > 0 ? '<span class="tag warn">기절</span>' : '';
         return `<div class="ip-head" style="--tint:${tint}">
                 <i class="ico">${ICONS[tower.type]}</i>
                 <div><div class="name">${title}</div><div class="sub">${def.en} ${pips(tower)}</div></div>
@@ -194,13 +225,16 @@ export class Inspector {
             <div class="ip-main">
                 <div class="ip-desc">${desc}</div>
                 ${statsRow(shown, shownDps, prev)}
-                <div class="tag-row">${tags(shown, def)}</div>
+                ${hpBlock}
+                <div class="tag-row">${stun}${tags(shown, def)}</div>
             </div>
             ${resonanceBlock(info, tower.type)}
             <div class="ip-actions">
                 ${maxed ? '<div class="maxed">최종 단계</div>' : opts.map(optBtn).join('')}
                 <div class="ip-row">
                     ${canTarget ? `<button class="ip-btn small" data-target title="조준 우선순위">${ICONS.target}<span>${TARGET_LABEL[tower.targeting]}</span></button>` : ''}
+                    ${def.attack === 'barracks' ? `<button class="ip-btn small ${this.rallyArmed ? 'armed' : ''}" data-rally title="집결지 옮기기 (R) · 사거리 안 길 위를 누르세요">${ICONS.rally}<span>집결지</span></button>` : ''}
+                    ${tower.hp != null ? `<button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="수리 (G)">${ICONS.repair}<span>${rc ? `수리 ${rc}` : '온전함'}</span></button>` : ''}
                     <button class="ip-btn small sell ${this.sellArm ? 'armed' : ''}" data-sell>${ICONS.sell}<span>${this.sellArm ? `확인 · +${sellValue(tower)}` : `판매 +${sellValue(tower)}`}</span></button>
                 </div>
                 <div class="ip-foot">처치 ${tower.kills} · 누적 피해 ${Math.round(tower.damage)}</div>
@@ -244,6 +278,10 @@ export class Inspector {
                 this.render(state, true);
             };
         this.el.querySelector('[data-sell]').onclick = () => this.trySell(tower, state);
+        const rb = this.el.querySelector('[data-rally]');
+        if (rb) rb.onclick = () => this.actions.rally(tower.id);
+        const rp = this.el.querySelector('[data-repair]');
+        if (rp) rp.onclick = () => this.actions.repair(tower.id);
     }
 
     /** 판매는 두 번: 첫 클릭은 확인 대기(2.5초) */
@@ -307,13 +345,15 @@ export class Inspector {
 
     enemyHtml(e) {
         const d = e.def;
-        const t = [];
-        if (d.armor) t.push(`<span class="tag phys">물리 방어 ${Math.round(d.armor * 100)}%</span>`);
-        if (d.resist) t.push(`<span class="tag">마법 저항 ${Math.round(d.resist * 100)}%</span>`);
-        if (e.elite) t.push(`<span class="tag warn">정예 · 체력 ×3</span>`);
-        if (d.flying) t.push('<span class="tag">부유</span>');
-        if (d.heal) t.push('<span class="tag warn">주변 치유</span>');
-        if (d.boss) t.push('<span class="tag warn">빙결·기절 30%만 받음</span>');
+        const t = enemyTraits(d).map(
+            (x) => `<span class="tag ${x.kind === 'magic' ? '' : x.kind}" title="${x.long}">${x.long}</span>`
+        );
+        if (e.elite) t.unshift(`<span class="tag warn">정예 · 체력 ×3</span>`);
+        if (e.shield > 0) t.push(`<span class="tag ice">보호막 ${Math.ceil(e.shield)}</span>`);
+        if (e.wardT > 0) t.push('<span class="tag ice">바람 장막</span>');
+        if (e.burrowT > 0) t.push('<span class="tag ice">땅속</span>');
+        if (e.enraged) t.push('<span class="tag warn">분노!</span>');
+        if (e.blockedBy != null) t.push('<span class="tag good">붙잡힘</span>');
         if (e.slowT > 0) t.push(`<span class="tag ice">둔화 ${Math.round(e.slow * 100)}%</span>`);
         if (e.stunT > 0) t.push('<span class="tag ice">기절/빙결</span>');
         const r = Math.max(0, e.hp / e.maxHp);
@@ -333,6 +373,40 @@ export class Inspector {
             <div class="ip-tip"><b>공략</b>${d.tip || d.desc}</div>`;
     }
 
+    // ---------- 영웅 ----------
+    showHero(u, state) {
+        this.mode = 'hero';
+        this.target = u;
+        this.key = '';
+        this.render(state);
+        this.show();
+    }
+
+    heroHtml(u) {
+        const r = Math.max(0, u.hp / u.maxHp);
+        const maxed = u.level >= HERO.maxLevel;
+        const into = u.xp - (u.level - 1) * HERO.xpPerLevel;
+        const sk = HERO.skill;
+        return `<div class="ip-head" style="--tint:#ffd98a">
+                <i class="ico">${ICONS.hero}</i>
+                <div><div class="name">${HERO.name}</div><div class="sub">레벨 ${u.level}${maxed ? ' · 최고' : ` · 다음 레벨까지 ${Math.ceil(HERO.xpPerLevel - into)}`}</div></div>
+            </div>
+            <div class="ip-main">
+                <div class="ip-hp"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${u.dead ? `부활까지 ${Math.ceil(u.respawnT)}초` : `${Math.ceil(u.hp)} / ${u.maxHp}`}</b></div>
+                <div class="ip-stats">
+                    <div><b>${HERO.dmg(u.level)}</b><span>공격력</span></div>
+                    <div><b>${fmt(HERO.dmg(u.level) / HERO.rate)}</b><span>초당 피해</span></div>
+                    <div><b>-${Math.round(HERO.armor * 100)}%</b><span>받는 피해</span></div>
+                </div>
+                <div class="tag-row"><span class="tag">적을 붙잡음</span><span class="tag">휩쓸기 35%</span><span class="tag">처치할수록 성장</span><span class="tag warn">비행 적은 못 막음</span></div>
+            </div>
+            <div class="ip-tip"><b>조작</b>영웅을 고른 상태에서 <b>땅을 누르면</b> 그곳으로 달려가 지킵니다. 오른쪽 클릭으로도 이동. 근처에서 적이 쓰러지면 경험치를 얻어요.</div>
+            <div class="ip-actions">
+                <button class="ip-btn up ${u.skillCd > 0 || u.dead ? 'poor' : ''}" data-hskill><span class="hk">E</span><span class="l">${sk.name}</span><span class="c">${u.skillCd > 0 ? Math.ceil(u.skillCd) + '초' : '준비'}</span></button>
+                <div class="ip-foot">${sk.desc} · 반경 ${sk.radius} · 피해 ${sk.dmg(u.level)} · 기절 ${sk.stun}초</div>
+            </div>`;
+    }
+
     // ---------- 공통 ----------
     render(state, force = false) {
         if (!this.mode) return;
@@ -349,11 +423,33 @@ export class Inspector {
                 state.statsVersion,
                 this.sellArm,
                 Math.floor(state.gold / 5),
-                JSON.stringify(this.hoverOpt)
+                JSON.stringify(this.hoverOpt),
+                t.hp != null && Math.ceil(t.hp / 5),
+                t.stunT > 0,
+                this.rallyArmed
             ].join('|');
         } else if (this.mode === 'enemy') {
             const e = this.target;
-            key = [e.id, Math.ceil(e.hp), e.slowT > 0, e.stunT > 0].join('|');
+            key = [
+                e.id,
+                Math.ceil(e.hp),
+                e.slowT > 0,
+                e.stunT > 0,
+                Math.ceil(e.shield || 0),
+                e.wardT > 0,
+                e.burrowT > 0,
+                e.enraged,
+                e.blockedBy
+            ].join('|');
+        } else if (this.mode === 'hero') {
+            const u = this.target;
+            key = [
+                u.level,
+                Math.ceil(u.hp),
+                u.dead && Math.ceil(u.respawnT),
+                Math.ceil(u.skillCd),
+                Math.floor(u.xp)
+            ].join('|');
         } else {
             key = [
                 this.target.socket.id,
@@ -369,13 +465,18 @@ export class Inspector {
             this.el.innerHTML = this.towerHtml(this.target, state);
             this.bindTower(this.target, state);
         } else if (this.mode === 'enemy') this.el.innerHTML = this.enemyHtml(this.target);
-        else this.el.innerHTML = this.buildHtml(this.target.socket, this.target.type, state);
+        else if (this.mode === 'hero') {
+            this.el.innerHTML = this.heroHtml(this.target);
+            const b = this.el.querySelector('[data-hskill]');
+            if (b) b.onclick = () => this.actions.heroSkill();
+        } else this.el.innerHTML = this.buildHtml(this.target.socket, this.target.type, state);
     }
 
     update(state) {
         if (!this.mode) return;
         if (this.mode === 'tower' && !state.towers.includes(this.target)) return this.actions.closed();
         if (this.mode === 'enemy' && !this.target.alive) return this.actions.closed();
+        if (this.mode === 'hero' && state.hero !== this.target) return this.actions.closed();
         this.render(state);
     }
 }

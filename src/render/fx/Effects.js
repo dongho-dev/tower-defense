@@ -4,6 +4,7 @@ import { ParticleSystem } from './Particles.js';
 import { Ribbons } from './Ribbons.js';
 import { glowSprite, puffSprite } from '../util/textures.js';
 import { TOWERS } from '../../core/data/towers.js';
+import { ENEMIES } from '../../core/data/enemies.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const HDR = (hex, k) => {
@@ -96,6 +97,7 @@ export class Effects {
 
     reset() {
         this.releaseBeams(true);
+        this.queue = [];
         this.add.count = 0;
         this.smoke.count = 0;
         for (const r of this.rings) r.mesh.visible = false;
@@ -491,7 +493,7 @@ export class Effects {
 
     on_death(ev, state) {
         const p = this.groundPoint(ev.x, ev.z, 0.5);
-        const boss = ev.enemy === 'colossus';
+        const boss = !!ENEMIES[ev.enemy]?.boss;
         const s = boss ? 3 : ev.elite ? 1.6 : 1;
         this.burst(this.add, p, 16 * s, { color: COL.void, size: 0.2 * s, speed: 2 * s, life: 0.6, grav: -0.5 });
         this.burst(this.smoke, p, 10 * s, {
@@ -664,8 +666,345 @@ export class Effects {
         }
     }
 
+    // ---------- 병영·영웅 ----------
+    on_unitSpawn(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.3);
+        const hero = ev.kind === 'hero';
+        this.burst(this.add, p, hero ? 30 : 10, {
+            color: hero ? COL.gold : COL.ice,
+            size: hero ? 0.16 : 0.1,
+            speed: 1.4,
+            upMin: 1,
+            upMax: 2.5,
+            life: 0.7,
+            spread: 0.4
+        });
+        if (hero) {
+            this.ring(p, 1.4, COL.gold, 0.6);
+            this.flash(p, 0xffd27a, 10, 0.4);
+        }
+    }
+
+    on_unitDeath(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.4);
+        this.burst(this.smoke, p, 8, {
+            color: [0.5, 0.5, 0.55],
+            size: 0.4,
+            size1: 0.8,
+            speed: 0.8,
+            life: 0.8,
+            alpha: 0.5
+        });
+        this.burst(this.add, p, ev.kind === 'hero' ? 24 : 8, { color: COL.goldSoft, size: 0.1, speed: 1.6, life: 0.5 });
+    }
+
+    on_unitHit(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.55);
+        const hero = ev.kind === 'hero';
+        this.burst(this.add, p, hero ? 8 : 4, {
+            color: hero ? COL.gold : COL.iceWhite,
+            size: hero ? 0.12 : 0.08,
+            speed: 2.2,
+            life: 0.22
+        });
+        if (ev.cleave) this.ring(this.groundPoint(ev.x, ev.z, 0), 0.9, hero ? COL.goldSoft : COL.blood, 0.25, 0.6);
+    }
+
+    on_heroLevel(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.2);
+        for (let i = 0; i < Math.round(50 * this.q); i++) {
+            const a = Math.random() * Math.PI * 2;
+            this.add.emit({
+                x: p.x + Math.cos(a) * 0.4,
+                y: p.y + rnd(0, 0.3),
+                z: p.z + Math.sin(a) * 0.4,
+                vy: rnd(2, 4.5),
+                life: rnd(0.7, 1.3),
+                size: rnd(0.08, 0.18),
+                color: COL.gold,
+                drag: 0.6
+            });
+        }
+        this.ring(p, 2, COL.gold, 0.8, 1.4);
+        this.flash(p, 0xffd27a, 18, 0.6, 7);
+    }
+
+    on_heroSlam(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.15);
+        this.ring(p, ev.r * 1.25, COL.gold, 0.5, 1.6);
+        this.ring(p, ev.r * 0.7, COL.goldSoft, 0.35, 1.2);
+        this.burst(this.add, p, 50, {
+            color: COL.fireHot,
+            size: 0.25,
+            size1: 0.05,
+            speed: 5,
+            upMin: 0.2,
+            upMax: 0.8,
+            life: 0.5
+        });
+        this.burst(this.smoke, p, 14, {
+            color: [0.55, 0.48, 0.4],
+            size: 0.6,
+            size1: 1.4,
+            speed: 2.4,
+            upMax: 0.4,
+            life: 1,
+            alpha: 0.5
+        });
+        this.decal(p, ev.r * 0.6, 'scorch', 4);
+        this.flash(p, 0xffd27a, 30, 0.5, 9);
+        this.rig.shake(0.25);
+    }
+
+    on_rally(ev) {
+        this.ring(this.groundPoint(ev.x, ev.z, 0), 0.9, COL.ice, 0.5);
+    }
+
+    // ---------- 공성전 ----------
+    /** 적이 타워에 던지는 공격: 날아가는 불씨와 도착 시 파편 */
+    on_enemyShot(ev) {
+        const from = this.groundPoint(ev.x, ev.z, ev.boss ? 1.6 : 0.7);
+        const to = this.entities.towerTop(ev.towerId, new THREE.Vector3()) || this.groundPoint(ev.tx, ev.tz, 1);
+        to.y -= 0.3;
+        const T = 0.32;
+        const col = ev.boss ? COL.void : COL.ember;
+        this.add.emit({
+            x: from.x,
+            y: from.y,
+            z: from.z,
+            vx: (to.x - from.x) / T,
+            vy: (to.y - from.y) / T + 2.5,
+            vz: (to.z - from.z) / T,
+            grav: 15.6,
+            life: T,
+            size: ev.boss ? 0.5 : 0.22,
+            color: col,
+            drag: 0
+        });
+        this.later(T, () => {
+            this.burst(this.add, to, ev.boss ? 20 : 7, { color: col, size: 0.12, speed: 2, life: 0.35, grav: 4 });
+            this.burst(this.smoke, to, ev.boss ? 6 : 2, {
+                color: [0.45, 0.4, 0.38],
+                size: 0.3,
+                size1: 0.7,
+                speed: 0.8,
+                life: 0.7,
+                alpha: 0.45
+            });
+            if (ev.boss) this.rig.shake(0.08);
+        });
+    }
+
+    on_towerDestroyed(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.5);
+        this.burst(this.smoke, p, 40, {
+            color: [0.42, 0.37, 0.33],
+            size: 1,
+            size1: 2.2,
+            speed: 2.4,
+            upMin: 0.4,
+            upMax: 1.6,
+            life: 2,
+            alpha: 0.7,
+            drag: 1.2
+        });
+        this.burst(this.add, p, 30, {
+            color: COL.ember,
+            size: 0.12,
+            speed: 5,
+            upMin: 1,
+            upMax: 2.5,
+            life: 1.2,
+            grav: 8
+        });
+        this.decal(p, 0.9, 'scorch', 12);
+        this.ring(p, 2.2, COL.blood, 0.6, 1.2);
+        this.flash(p, 0xff6a3a, 20, 0.5, 8);
+        this.rig.shake(0.35);
+    }
+
+    on_repair(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.3);
+        this.burst(this.add, p, 24, {
+            color: COL.ice,
+            size: 0.1,
+            speed: 1,
+            upMin: 2,
+            upMax: 3.5,
+            life: 0.9,
+            spread: 0.8
+        });
+        this.ring(p, 1.2, COL.ice, 0.5);
+    }
+
+    on_towerStun(ev) {
+        const p = this.entities.towerTop(ev.towerId, new THREE.Vector3()) || this.groundPoint(ev.x, ev.z, 1.2);
+        this.burst(this.add, p, 8, { color: COL.fireHot, size: 0.1, speed: 1.6, life: 0.4 });
+    }
+
+    // ---------- 특수 능력 ----------
+    on_deathBlast(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.3);
+        this.burst(this.add, p, 40, { color: COL.fireHot, size: 0.4, size1: 0.05, speed: 4, upMax: 1, life: 0.4 });
+        this.burst(this.add, p, 20, { color: COL.ember, size: 0.1, speed: 6, upMin: 1, upMax: 2, life: 0.9, grav: 6 });
+        this.ring(p, ev.r, COL.fire, 0.45, 1.3);
+        this.decal(p, 0.7, 'scorch', 5);
+        this.flash(p, 0xff7a2a, 16, 0.3, 6);
+        this.rig.shake(0.1);
+    }
+
+    on_pulse(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.1);
+        this.ring(p, ev.r, COL.fire, 0.7, 1.6);
+        this.ring(p, ev.r * 0.6, COL.fireHot, 0.5, 1.2);
+        this.burst(this.add, p, 40, {
+            color: COL.ember,
+            size: 0.14,
+            speed: 5,
+            upMin: 0.6,
+            upMax: 1.8,
+            life: 0.9,
+            grav: 6
+        });
+        this.decal(p, ev.r * 0.5, 'fire', 1.5);
+        this.flash(p, 0xff5a1a, 30, 0.5, 10);
+        this.rig.shake(0.3);
+    }
+
+    on_blink(ev) {
+        const a = this.groundPoint(ev.x0, ev.z0, 0.5);
+        const b = this.groundPoint(ev.x, ev.z, 0.5);
+        const s = ev.boss ? 2.4 : 1;
+        this.burst(this.add, a, 16 * s, { color: COL.void, size: 0.2 * s, speed: 1.5, life: 0.4, grav: -1 });
+        this.burst(this.add, b, 16 * s, { color: COL.void, size: 0.2 * s, speed: 2, life: 0.5 });
+        this.ring(b, 0.8 * s, COL.void, 0.35);
+        this.ribbons.bolt([a, b], '#d04aff', ev.boss ? 0.3 : 0.18, ev.boss ? 0.16 : 0.07);
+        if (ev.boss) this.rig.shake(0.15);
+    }
+
+    on_burrow(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.1);
+        this.burst(this.smoke, p, 10, {
+            color: [0.4, 0.3, 0.22],
+            size: 0.35,
+            size1: 0.7,
+            speed: 1.2,
+            upMax: 0.6,
+            life: 0.8,
+            alpha: 0.7
+        });
+    }
+
+    on_unburrow(ev) {
+        this.on_burrow(ev);
+        this.burst(this.add, this.groundPoint(ev.x, ev.z, 0.2), 6, {
+            color: COL.goldSoft,
+            size: 0.08,
+            speed: 2,
+            upMin: 1.5,
+            upMax: 2.5,
+            life: 0.5,
+            grav: 6
+        });
+    }
+
+    on_summon(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.2);
+        this.ring(p, 1.6, COL.heal, 0.6, 1);
+        this.burst(this.add, p, 20, { color: COL.heal, size: 0.14, speed: 1.6, upMin: 1, upMax: 2, life: 0.7 });
+    }
+
+    on_shield(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 1.6);
+        this.burst(this.add, p, 30, { color: COL.iceWhite, size: 0.16, speed: 2.4, life: 0.6 });
+        this.flash(p, 0x8fe3ff, 14, 0.4, 7);
+    }
+
+    on_shieldBreak(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 1.6);
+        this.burst(this.add, p, 50, {
+            color: COL.ice,
+            size: 0.18,
+            speed: 5,
+            upMin: 0.2,
+            upMax: 1.5,
+            life: 0.8,
+            grav: 6
+        });
+        this.ring(this.groundPoint(ev.x, ev.z, 0), 2.4, COL.iceWhite, 0.5, 1.3);
+        this.rig.shake(0.15);
+    }
+
+    on_ward(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 1.2);
+        this.burst(this.add, p, 24, { color: COL.storm, size: 0.16, speed: 3, life: 0.5 });
+        this.flash(p, 0xa47cff, 14, 0.4, 7);
+    }
+
+    on_enrage(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.8);
+        this.burst(this.add, p, 18, { color: COL.blood, size: 0.16, speed: 2.4, upMin: 0.8, upMax: 1.6, life: 0.6 });
+        this.ring(this.groundPoint(ev.x, ev.z, 0), 1.2, COL.blood, 0.4);
+    }
+
+    on_split(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.4);
+        this.burst(this.add, p, 26, { color: COL.arcane, size: 0.16, speed: 3, life: 0.5 });
+        this.ring(this.groundPoint(ev.x, ev.z, 0), 1, COL.void, 0.35);
+    }
+
+    on_pollen(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.6);
+        this.burst(this.add, p, 36, {
+            color: HDR('#ffe36a', 2.4),
+            size: 0.14,
+            speed: 1.6,
+            upMin: 0.3,
+            upMax: 1.2,
+            life: 1.4,
+            drag: 1.4,
+            spread: 0.6
+        });
+        this.ring(this.groundPoint(ev.x, ev.z, 0), ev.r, COL.heal, 0.6);
+    }
+
+    on_immune(ev) {
+        this.burst(this.add, this.groundPoint(ev.x, ev.z, 0.7), 5, {
+            color: [1.4, 1.4, 1.6],
+            size: 0.08,
+            speed: 1.2,
+            life: 0.3
+        });
+    }
+
+    on_stomp(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.05);
+        this.ring(p, ev.r * 1.2, COL.void, 0.4, 0.9);
+        this.burst(this.smoke, p, 8, {
+            color: [0.35, 0.3, 0.32],
+            size: 0.5,
+            size1: 1.1,
+            speed: 1.6,
+            upMax: 0.3,
+            life: 0.8,
+            alpha: 0.5
+        });
+    }
+
+    /** 잠깐 뒤에 실행 (날아가는 공격의 도착 연출) */
+    later(t, fn) {
+        (this.queue ||= []).push({ t, fn });
+    }
+
     // ---------- 매 프레임 ----------
     update(dt, t, state) {
+        if (this.queue && this.queue.length) {
+            for (const q of this.queue) {
+                q.t -= dt;
+                if (q.t <= 0) q.fn();
+            }
+            this.queue = this.queue.filter((q) => q.t > 0);
+        }
         this.ambient(dt, t, state);
         this.add.update(dt);
         this.smoke.update(dt);

@@ -9,10 +9,14 @@ import {
     CHAIN_JUMP,
     baseStats,
     masteryCost,
-    resonanceLabel
+    resonanceLabel,
+    towerMaxHp
 } from './data/towers.js';
-import { ENEMIES, ELITE, hpScale } from './data/enemies.js';
-import { WAVES, CAMPAIGN_WAVES, endlessWave } from './data/waves.js';
+import { ENEMIES, ELITE, hpScale, atkScale } from './data/enemies.js';
+import { WAVES, CAMPAIGN_WAVES, endlessWave, applyTheme } from './data/waves.js';
+import { updateUnits, syncSoldiers, removeUnitsOf, createHero, heroXp, hurtUnit } from './units.js';
+
+export { setRally, commandHero, heroSkill, HERO } from './units.js';
 import { DIFFICULTY } from './data/difficulty.js';
 
 export const WAVE_GAP = 16;
@@ -67,10 +71,15 @@ export function createGame(mapId = 'dusk', opts = {}) {
         projectiles: [],
         zones: [],
         meteors: [],
+        units: [],
+        hero: null,
+        spawnQueue: [],
+        siege: !!opts.siege,
         difficulty: diff.id,
-        hpMul: (map.hpMul || 1) * diff.hpMul,
+        // 공성전은 타워가 무너질 수 있는 대신 적이 조금 약하고 골드가 넉넉하다
+        hpMul: (map.hpMul || 1) * diff.hpMul * (opts.siege ? SIEGE_HP : 1),
         endless: !!opts.endless,
-        gold: opts.gold ?? Math.round(map.startGold * diff.goldMul),
+        gold: opts.gold ?? Math.round(map.startGold * diff.goldMul * (opts.siege ? 1.15 : 1)),
         lives,
         maxLives: lives,
         time: 0,
@@ -89,6 +98,7 @@ export function createGame(mapId = 'dusk', opts = {}) {
         auraTick: 0
     };
     if (state.endless) ensureWaves(state);
+    if (state.siege) createHero(state);
     return state;
 }
 
@@ -96,7 +106,7 @@ export function createGame(mapId = 'dusk', opts = {}) {
 function ensureWaves(state) {
     while (state.waves.length < state.waveIndex + 2) {
         const n = state.waves.length + 1;
-        state.waves.push(endlessWave(n, state.paths.length, state.map.id.length));
+        state.waves.push(applyTheme(endlessWave(n, state.paths.length, state.map.id.length), state.map.waves, n));
     }
 }
 
@@ -216,6 +226,13 @@ export function towerStats(state, tower) {
         stun: b.stun || 0,
         ramp: b.ramp || null,
         income: Math.round((b.income || 0) * (1 + 0.3 * m)),
+        soldiers: b.soldiers || 0,
+        unitHp: (b.hp || 0) * (1 + 0.2 * m),
+        unitArmor: b.armor || 0,
+        regen: b.regen || 0,
+        cleave: b.cleave || 0,
+        respawn: b.respawn || 0,
+        pinned: 0,
         dmgMult: 1,
         vulnerable: 0,
         pen: 0,
@@ -230,6 +247,7 @@ export function towerStats(state, tower) {
         else if (src.stat === 'vulnerable') s.vulnerable += src.value;
         else if (src.stat === 'pen') s.pen = Math.max(s.pen, src.value);
         else if (src.stat === 'bounty') s.bountyMult += src.value;
+        else if (src.stat === 'pinned') s.pinned += src.value;
     }
     state.statsCache.set(key, { v: state.statsVersion, s });
     return s;
@@ -237,10 +255,7 @@ export function towerStats(state, tower) {
 
 /** UI용 초당 피해 추정 (단일 표적 기준) */
 export function estimateDps(state, tower) {
-    const s = towerStats(state, tower);
-    if (s.aura) return s.aura.dps * s.dmgMult;
-    if (s.ramp) return ((s.dmg * s.dmgMult * s.multi) / s.rate) * ((1 + s.ramp.max) / 2);
-    return s.rate > 0 ? (s.dmg * s.dmgMult * s.multi) / s.rate : 0;
+    return estimateDpsOf(towerStats(state, tower));
 }
 
 export function findTower(state, id) {
@@ -285,6 +300,8 @@ export function buildTower(state, socketId, type) {
     socket.towerId = tower.id;
     state.statsVersion++;
     state.stats.built++;
+    if (state.siege) tower.hp = tower.maxHp = towerMaxHp(tower);
+    if (type === 'barracks') syncSoldiers(state, tower);
     emit(state, { type: 'build', towerId: tower.id, tower: type, x: tower.x, z: tower.z });
     return { ok: true, tower };
 }
@@ -307,6 +324,12 @@ export function upgradeTower(state, towerId, branch = null) {
     else if (tower.tier < MAX_TIER) tower.tier++;
     else tower.branch = branch;
     state.statsVersion++;
+    if (state.siege) {
+        const max = towerMaxHp(tower);
+        tower.hp += max - tower.maxHp;
+        tower.maxHp = max;
+    }
+    if (tower.type === 'barracks') syncSoldiers(state, tower);
     emit(state, {
         type: 'upgrade',
         towerId: tower.id,
@@ -329,12 +352,64 @@ export function sellTower(state, towerId) {
     if (!tower) return { ok: false, reason: '잘못된 명령입니다.' };
     const value = sellValue(tower);
     state.gold += value;
+    removeTower(state, tower);
+    emit(state, { type: 'sell', towerId: tower.id, tower: tower.type, x: tower.x, z: tower.z, value });
+    return { ok: true, value };
+}
+
+function removeTower(state, tower) {
     state.towers = state.towers.filter((t) => t !== tower);
     state.sockets[tower.socketId].towerId = null;
     state.statsCache.delete(tower.id);
     state.statsVersion++;
-    emit(state, { type: 'sell', towerId: tower.id, tower: tower.type, x: tower.x, z: tower.z, value });
-    return { ok: true, value };
+    removeUnitsOf(state, tower.id);
+}
+
+// ---------- 공성전: 타워 체력 ----------
+
+export const SIEGE_HP = 0.88;
+export const SIEGE_RANGE = 2.1;
+export const SIEGE_RATE = 1.8;
+export const SIEGE_DMG = 0.45;
+export const REPAIR_RATE = 0.35;
+export const WAVE_REPAIR = 0.25;
+
+export function repairCost(tower) {
+    if (tower.hp == null || tower.hp >= tower.maxHp) return 0;
+    return Math.ceil(((tower.maxHp - tower.hp) / tower.maxHp) * tower.spent * REPAIR_RATE);
+}
+
+export function repairTower(state, towerId) {
+    const tower = findTower(state, towerId);
+    if (!tower || !state.siege || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
+    const cost = repairCost(tower);
+    if (!cost) return { ok: false, reason: '수리할 곳이 없습니다.' };
+    if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
+    state.gold -= cost;
+    tower.hp = tower.maxHp;
+    emit(state, { type: 'repair', towerId, x: tower.x, z: tower.z, cost });
+    return { ok: true, cost };
+}
+
+/** 적의 공격이 타워에 맞는다. 체력이 다하면 무너진다 */
+export function damageTower(state, tower, amount) {
+    if (!state.siege || tower.hp == null) return;
+    tower.hp -= amount;
+    tower.hitT = state.time;
+    if (tower.hp > 0) return;
+    removeTower(state, tower);
+    state.stats.lost = (state.stats.lost || 0) + 1;
+    emit(state, { type: 'towerDestroyed', towerId: tower.id, tower: tower.type, x: tower.x, z: tower.z });
+}
+
+/** 타워 기절 (자폭병·용암 군주) */
+function stunTowers(state, x, z, r, time) {
+    const r2 = r * r;
+    for (const t of state.towers) {
+        if ((t.x - x) ** 2 + (t.z - z) ** 2 > r2) continue;
+        t.stunT = Math.max(t.stunT || 0, time);
+        emit(state, { type: 'towerStun', towerId: t.id, x: t.x, z: t.z, time });
+    }
 }
 
 export const TARGETING = ['first', 'strong', 'close'];
@@ -361,18 +436,21 @@ export function callWave(state) {
     }
     const waveNo = ++state.waveIndex;
     if (waveNo > 1) payIncome(state);
+    if (state.siege) for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
     if (state.endless) ensureWaves(state);
     const wave = state.waves[waveNo - 1];
     for (const grp of wave.groups) {
         state.spawners.push({ group: grp, waveNo, spawned: 0, nextAt: state.time + grp.delay });
     }
     state.nextWaveIn = null;
+    const bossGrp = wave.groups.find((g) => ENEMIES[g.enemy].boss);
     emit(state, {
         type: 'waveStart',
         wave: waveNo,
         bonus,
         hint: wave.hint || null,
-        boss: wave.groups.some((g) => ENEMIES[g.enemy].boss),
+        boss: !!bossGrp,
+        bossName: bossGrp ? ENEMIES[bossGrp.enemy].name : null,
         endless: !!wave.endless
     });
     return { ok: true, bonus };
@@ -400,6 +478,7 @@ export function castSkill(state, id, x = 0, z = 0) {
         emit(state, { type: 'meteorCast', x, z, delay: skill.delay, r: skill.radius });
     } else if (id === 'freeze') {
         for (const e of state.enemies) {
+            if (e.def.slowImmune) continue;
             const d = skill.duration * (1 - (e.def.ccResist || 0));
             e.stunT = Math.max(e.stunT, d);
             e.frozenT = Math.max(e.frozenT, d);
@@ -413,16 +492,17 @@ export function castSkill(state, id, x = 0, z = 0) {
 
 const _p = {};
 
-function spawnEnemy(state, grp, waveNo) {
+function spawnEnemy(state, grp, waveNo, at = null) {
     const def = ENEMIES[grp.enemy];
     const elite = !!grp.elite;
     const hp = def.hp * hpScale(waveNo) * (elite ? ELITE.hp : 1) * state.hpMul * (grp.hpMul || 1);
     // 끝없는 밤에선 현상금도 조금씩 오른다
     const bountyMul = waveNo > CAMPAIGN_WAVES ? 1 + (waveNo - CAMPAIGN_WAVES) * 0.04 : 1;
     const id = state.nextId++;
-    const pathIndex = grp.path || 0;
+    const pathIndex = at ? at.pathIndex : grp.path || 0;
     // 개체마다 좌우로 살짝 벌려서 줄 서 있는 느낌을 없앤다 (결정적)
     const offset = def.boss ? 0 : (((id * 0.618034) % 1) - 0.5) * 0.55;
+    const cd = (ab, k) => (ab ? ab.every * k : 0);
     const e = {
         id,
         type: def.id,
@@ -438,7 +518,7 @@ function spawnEnemy(state, grp, waveNo) {
         radius: def.radius * (elite ? ELITE.scale : 1),
         pathIndex,
         offset,
-        d: 0,
+        d: at ? Math.max(0, at.d) : 0,
         x: 0,
         z: 0,
         dirX: 1,
@@ -448,11 +528,40 @@ function spawnEnemy(state, grp, waveNo) {
         stunT: 0,
         frozenT: 0,
         healT: def.heal ? def.heal.every * 0.5 : 0,
+        atk: (def.atk || 0) * atkScale(waveNo) * (elite ? 2 : 1),
+        atkCd: 0.6 + ((id * 0.37) % 1),
+        blockedBy: null,
+        burrowT: 0,
+        burrowCd: cd(def.burrow, 0.6),
+        blinkCd: cd(def.blink, 0.7),
+        pulseCd: cd(def.pulse, 0.6),
+        summonCd: cd(def.summon, 0.5),
+        shieldCd: def.shield ? 2 : 0,
+        shield: 0,
+        shieldMax: 0,
+        wardCd: cd(def.ward, 0.5),
+        wardT: 0,
+        enraged: false,
+        immuneAt: -1,
         alive: true
     };
     placeEnemy(state, e);
     state.enemies.push(e);
-    emit(state, { type: 'spawn', id, enemy: e.type, elite, x: e.x, z: e.z });
+    emit(state, { type: 'spawn', id, enemy: e.type, elite, x: e.x, z: e.z, minion: !!at });
+}
+
+/** 테스트·개발용: 길 위 지점에 적을 바로 놓는다 */
+export function spawnEnemyAt(state, type, d = 0, opts = {}) {
+    spawnEnemy(state, { enemy: type, elite: !!opts.elite }, opts.waveNo || 1, { pathIndex: opts.path || 0, d });
+    return state.enemies[state.enemies.length - 1];
+}
+
+/** 분열·소환으로 생긴 적은 프레임 끝에 한꺼번에 넣는다 (순회 중 배열 변경 방지) */
+function flushSpawns(state) {
+    if (!state.spawnQueue.length) return;
+    const q = state.spawnQueue;
+    state.spawnQueue = [];
+    for (const it of q) spawnEnemy(state, { enemy: it.enemy }, it.waveNo, it);
 }
 
 function placeEnemy(state, e) {
@@ -481,21 +590,57 @@ function updateSpawners(state) {
 }
 
 function updateEnemies(state, dt) {
+    const units = state.units.length ? new Map(state.units.map((u) => [u.id, u])) : null;
     for (const e of state.enemies) {
         if (!e.alive) continue;
+        const def = e.def;
         if (e.slowT > 0) {
             e.slowT -= dt;
             if (e.slowT <= 0) e.slow = 0;
         }
         if (e.frozenT > 0) e.frozenT -= dt;
+        if (e.wardT > 0) e.wardT -= dt;
+        // 붙잡은 유닛이 사라졌거나 다른 적을 보고 있으면 풀려난다
+        let blocker = null;
+        if (e.blockedBy != null) {
+            blocker = units && units.get(e.blockedBy);
+            if (!blocker || blocker.dead || blocker.target !== e.id) {
+                e.blockedBy = null;
+                blocker = null;
+            }
+        }
         if (e.stunT > 0) {
             e.stunT -= dt;
             continue;
         }
-        e.d += e.speed * (1 - e.slow) * dt;
-        placeEnemy(state, e);
-        if (e.d >= state.paths[e.pathIndex].length) leak(state, e);
-        if (e.def.heal) {
+        abilities(state, e, dt);
+        if (!e.alive) continue;
+        if (e.burrowT > 0) {
+            e.burrowT -= dt;
+            if (e.burrowT <= 0) emit(state, { type: 'unburrow', id: e.id, x: e.x, z: e.z });
+        }
+        if (blocker && e.blockedBy != null) {
+            // 붙잡힌 적은 멈춰서 붙잡은 유닛과 싸운다
+            e.atkCd -= dt;
+            if (e.atkCd <= 0) {
+                e.atkCd = def.boss ? 1.5 : 1;
+                const dmg = Math.max(3, e.atk);
+                hurtUnit(state, blocker, dmg);
+            }
+        } else {
+            let sp = e.speed * (1 - e.slow);
+            if (e.enraged) sp *= def.enrage.speed;
+            if (e.burrowT > 0) sp *= def.burrow.speed;
+            e.d += sp * dt;
+            placeEnemy(state, e);
+            if (e.d >= state.paths[e.pathIndex].length) {
+                leak(state, e);
+                continue;
+            }
+            if (def.boss && units) stomp(state, e, dt);
+            if (state.siege && e.atk > 0 && e.burrowT <= 0) siegeAttack(state, e, dt);
+        }
+        if (def.heal) {
             e.healT -= dt;
             if (e.healT <= 0) {
                 e.healT = e.def.heal.every;
@@ -511,6 +656,124 @@ function updateEnemies(state, dt) {
             }
         }
     }
+}
+
+/** 특수 능력: 잠복·도약·분노·기절 파동·소환·보호막·장막 */
+function abilities(state, e, dt) {
+    const def = e.def;
+    if (def.enrage && !e.enraged && e.hp < e.maxHp * def.enrage.below) {
+        e.enraged = true;
+        emit(state, { type: 'enrage', id: e.id, x: e.x, z: e.z });
+    }
+    if (def.burrow && e.burrowT <= 0) {
+        e.burrowCd -= dt;
+        if (e.burrowCd <= 0) {
+            e.burrowCd = def.burrow.every;
+            e.burrowT = def.burrow.time;
+            e.blockedBy = null;
+            emit(state, { type: 'burrow', id: e.id, x: e.x, z: e.z });
+        }
+    }
+    if (def.blink) {
+        e.blinkCd -= dt;
+        if (e.blinkCd <= 0) {
+            e.blinkCd = def.blink.every;
+            const len = state.paths[e.pathIndex].length;
+            const x0 = e.x;
+            const z0 = e.z;
+            e.d = Math.min(len - 0.4, e.d + def.blink.dist);
+            placeEnemy(state, e);
+            e.blockedBy = null;
+            emit(state, { type: 'blink', id: e.id, boss: !!def.boss, x0, z0, x: e.x, z: e.z });
+        }
+    }
+    if (def.pulse) {
+        e.pulseCd -= dt;
+        if (e.pulseCd <= 0) {
+            e.pulseCd = def.pulse.every;
+            stunTowers(state, e.x, e.z, def.pulse.radius, def.pulse.stun);
+            emit(state, { type: 'pulse', id: e.id, x: e.x, z: e.z, r: def.pulse.radius });
+        }
+    }
+    if (def.summon) {
+        e.summonCd -= dt;
+        if (e.summonCd <= 0) {
+            e.summonCd = def.summon.every;
+            for (let i = 0; i < def.summon.count; i++) {
+                state.spawnQueue.push({
+                    enemy: def.summon.enemy,
+                    pathIndex: e.pathIndex,
+                    d: e.d - 0.5 - i * 0.35,
+                    waveNo: e.waveNo
+                });
+            }
+            emit(state, { type: 'summon', id: e.id, x: e.x, z: e.z });
+        }
+    }
+    if (def.shield) {
+        e.shieldCd -= dt;
+        if (e.shieldCd <= 0) {
+            e.shieldCd = def.shield.every;
+            e.shield = e.shieldMax = e.maxHp * def.shield.amount;
+            emit(state, { type: 'shield', id: e.id, x: e.x, z: e.z });
+        }
+    }
+    if (def.ward) {
+        e.wardCd -= dt;
+        if (e.wardCd <= 0) {
+            e.wardCd = def.ward.every;
+            e.wardT = def.ward.time;
+            emit(state, { type: 'ward', id: e.id, x: e.x, z: e.z, time: def.ward.time });
+        }
+    }
+}
+
+/** 보스는 붙잡히지 않고, 걸으면서 주변 유닛을 짓밟는다 */
+function stomp(state, e, dt) {
+    e.stompCd = (e.stompCd ?? 1.5) - dt;
+    if (e.stompCd > 0) return;
+    e.stompCd = 1.6;
+    const r2 = (e.radius + 0.9) ** 2;
+    let hit = false;
+    for (const u of state.units) {
+        if (u.dead || (u.x - e.x) ** 2 + (u.z - e.z) ** 2 > r2) continue;
+        hurtUnit(state, u, e.atk);
+        hit = true;
+    }
+    if (hit) emit(state, { type: 'stomp', id: e.id, x: e.x, z: e.z, r: e.radius + 0.9 });
+}
+
+/** 공성전: 걸어가면서 가까운 타워에 공격을 날린다 */
+function siegeAttack(state, e, dt) {
+    e.atkCd -= dt;
+    if (e.atkCd > 0) return;
+    const range = (e.def.boss ? 3 : SIEGE_RANGE) + e.radius;
+    let best = null;
+    let bd = range * range;
+    for (const t of state.towers) {
+        const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
+        if (d < bd) {
+            bd = d;
+            best = t;
+        }
+    }
+    if (!best) {
+        e.atkCd = 0.25;
+        return;
+    }
+    e.atkCd = e.def.boss ? 2.2 : SIEGE_RATE;
+    emit(state, {
+        type: 'enemyShot',
+        id: e.id,
+        enemy: e.type,
+        boss: !!e.def.boss,
+        x: e.x,
+        z: e.z,
+        tx: best.x,
+        tz: best.z,
+        towerId: best.id
+    });
+    damageTower(state, best, e.atk * SIEGE_DMG);
 }
 
 function leak(state, e) {
@@ -530,17 +793,37 @@ function isDisabled(e) {
 
 /** 피해 적용. type: 'physical' | 'magic' | 'true' */
 export function dealDamage(state, e, amount, type, opts = {}) {
-    if (!e.alive || amount <= 0) return 0;
+    if (!e.alive || amount <= 0 || e.burrowT > 0) return 0;
     let dmg = amount;
     const ts = opts.tower ? towerStats(state, opts.tower) : null;
     const pen = ts ? ts.pen : 0;
+    const takes = e.def.takes && e.def.takes[opts.cause];
+    if (takes != null) {
+        dmg *= takes;
+        if (takes === 0) {
+            if (state.time - e.immuneAt > 0.7) {
+                e.immuneAt = state.time;
+                emit(state, { type: 'immune', id: e.id, x: e.x, z: e.z });
+            }
+            return 0;
+        }
+    }
     if (opts.vulnerable && isDisabled(e)) dmg *= 1 + opts.vulnerable;
+    if (ts && ts.pinned && e.blockedBy != null) dmg *= 1 + ts.pinned;
     if (type === 'physical') dmg *= 1 - e.def.armor * (1 - (opts.pierce || 0)) * (1 - pen);
     else if (type === 'magic') dmg *= 1 - e.def.resist * (1 - pen);
-    e.hp -= dmg;
+    if (e.wardT > 0) dmg *= 1 - e.def.ward.reduce;
     if (opts.tower) opts.tower.damage += dmg;
+    if (e.shield > 0) {
+        const absorbed = Math.min(e.shield, dmg);
+        e.shield -= absorbed;
+        dmg -= absorbed;
+        if (e.shield <= 0) emit(state, { type: 'shieldBreak', id: e.id, x: e.x, z: e.z });
+    }
+    e.hp -= dmg;
     if (e.hp <= 0) {
         e.alive = false;
+        onDeath(state, e, opts);
         const bounty = Math.round(e.bounty * (ts ? ts.bountyMult : 1));
         state.gold += bounty;
         state.stats.goldEarned += bounty;
@@ -551,6 +834,7 @@ export function dealDamage(state, e, amount, type, opts = {}) {
             id: e.id,
             enemy: e.type,
             elite: e.elite,
+            boss: !!e.def.boss,
             x: e.x,
             z: e.z,
             bounty,
@@ -560,7 +844,42 @@ export function dealDamage(state, e, amount, type, opts = {}) {
     return dmg;
 }
 
+/** 죽을 때 능력: 자폭(타워 기절)·분열·꽃가루 치유, 영웅 경험치 */
+function onDeath(state, e, opts) {
+    const def = e.def;
+    if (def.deathBlast) {
+        stunTowers(state, e.x, e.z, def.deathBlast.radius, def.deathBlast.stun);
+        if (state.siege) {
+            const r2 = def.deathBlast.radius ** 2;
+            for (const t of state.towers.slice())
+                if ((t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= r2) damageTower(state, t, 20 * atkScale(e.waveNo));
+        }
+        emit(state, { type: 'deathBlast', id: e.id, x: e.x, z: e.z, r: def.deathBlast.radius });
+    }
+    if (def.split) {
+        for (let i = 0; i < def.split.count; i++) {
+            state.spawnQueue.push({
+                enemy: def.split.into,
+                pathIndex: e.pathIndex,
+                d: e.d - i * 0.3,
+                waveNo: e.waveNo
+            });
+        }
+        emit(state, { type: 'split', id: e.id, x: e.x, z: e.z });
+    }
+    if (def.pollen) {
+        const r2 = def.pollen.radius ** 2;
+        for (const o of state.enemies) {
+            if (!o.alive || o === e || (o.x - e.x) ** 2 + (o.z - e.z) ** 2 > r2) continue;
+            o.hp = Math.min(o.maxHp, o.hp + o.maxHp * def.pollen.amount);
+        }
+        emit(state, { type: 'pollen', id: e.id, x: e.x, z: e.z, r: def.pollen.radius });
+    }
+    if (state.hero) heroXp(state, e, opts.unit === state.hero);
+}
+
 function applySlow(e, amount, time) {
+    if (e.def.slowImmune) return;
     const k = 1 - (e.def.ccResist || 0) * 0.5;
     e.slow = Math.max(e.slow, amount * k);
     e.slowT = Math.max(e.slowT, time);
@@ -570,7 +889,7 @@ function acquireTargets(state, tower, range, count) {
     const r2 = range * range;
     const list = [];
     for (const e of state.enemies) {
-        if (!e.alive) continue;
+        if (!e.alive || e.burrowT > 0) continue;
         const d2 = (e.x - tower.x) ** 2 + (e.z - tower.z) ** 2;
         if (d2 <= r2) list.push({ e, d2 });
     }
@@ -587,7 +906,13 @@ function updateTowers(state, dt) {
     if (auraPulse) state.auraTick += 0.25;
     for (const tower of state.towers) {
         const def = TOWERS[tower.type];
-        if (def.attack === 'none') continue;
+        if (tower.stunT > 0) {
+            tower.stunT -= dt;
+            tower.targetId = null;
+            if (tower.beams?.length) tower.beams = [];
+            continue;
+        }
+        if (def.attack === 'none' || def.attack === 'barracks') continue;
         const s = towerStats(state, tower);
         tower.cooldown -= dt;
         if (def.attack === 'beam') {
@@ -909,16 +1234,19 @@ export function step(state, dt = TICK) {
     }
     updateSpawners(state);
     updateEnemies(state, dt);
+    updateUnits(state, dt);
     updateTowers(state, dt);
     updateProjectiles(state, dt);
     updateZones(state, dt);
     updateMeteors(state, dt);
+    flushSpawns(state);
     state.enemies = state.enemies.filter((e) => e.alive);
     if (
         state.status === 'playing' &&
         !state.endless &&
         state.waveIndex >= state.waves.length &&
         !state.spawners.length &&
+        !state.spawnQueue.length &&
         !state.enemies.length
     ) {
         state.status = 'won';
@@ -966,6 +1294,7 @@ export function previewStats(state, tower, change) {
 }
 
 function estimateDpsOf(s) {
+    if (s.soldiers) return (s.soldiers * s.dmg * s.dmgMult) / s.rate;
     if (s.aura) return s.aura.dps * s.dmgMult;
     if (s.ramp) return ((s.dmg * s.dmgMult * s.multi) / s.rate) * ((1 + s.ramp.max) / 2);
     return s.rate > 0 ? (s.dmg * s.dmgMult * s.multi) / s.rate : 0;

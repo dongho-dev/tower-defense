@@ -9,7 +9,12 @@ const THROTTLE = {
     chain: 0.06,
     hit: 0.04,
     death: 0.05,
-    explode: 0.06
+    explode: 0.06,
+    clash: 0.07,
+    siege_hit: 0.1,
+    blink: 0.1,
+    immune: 0.3,
+    stun: 0.2
 };
 
 export class Audio {
@@ -226,6 +231,49 @@ export class Audio {
             case 'ui':
                 this.tone('triangle', 880, 880, 0.06, 0.05, t);
                 break;
+            case 'clash':
+                this.noise('bandpass', 3800 * r(), 2600, 8, 0.06, 0.12, t);
+                this.tone('square', 1200 * r(), 900, 0.05, 0.03, t);
+                break;
+            case 'slam':
+                this.tone('sine', 90, 40, 0.6, 0.6, t);
+                this.noise('lowpass', 2400, 200, 0.8, 0.5, 0.4, t);
+                [523, 659, 784].forEach((f, i) => this.tone('triangle', f, f, 0.5, 0.06, t + i * 0.04));
+                break;
+            case 'level':
+                [659, 784, 988, 1319].forEach((f, i) => this.tone('triangle', f, f, 0.35, 0.09, t + i * 0.08));
+                break;
+            case 'siege_hit':
+                this.noise('lowpass', 900, 200, 1, 0.18, 0.2, t);
+                this.tone('sine', 140 * r(), 70, 0.15, 0.12, t);
+                break;
+            case 'collapse':
+                this.noise('lowpass', 1600, 120, 0.7, 1.4, 0.6, t);
+                this.tone('sine', 60, 30, 1.4, 0.5, t);
+                break;
+            case 'repair':
+                [880, 1175].forEach((f, i) => this.tone('triangle', f, f * 1.02, 0.12, 0.06, t + i * 0.09));
+                this.noise('bandpass', 4200, 3000, 6, 0.05, 0.1, t);
+                break;
+            case 'blink':
+                this.tone('sine', 300, 1400, 0.18, 0.08, t);
+                break;
+            case 'stun':
+                this.tone('sawtooth', 220, 110, 0.4, 0.08, t);
+                this.noise('lowpass', 1800, 200, 0.7, 0.4, 0.25, t);
+                break;
+            case 'shield':
+                this.tone('sine', 1200, 2000, 0.5, 0.08, t);
+                this.tone('triangle', 1800, 2600, 0.6, 0.05, t + 0.05);
+                break;
+            case 'shatter_big':
+                for (let i = 0; i < 6; i++)
+                    this.tone('triangle', 2000 + Math.random() * 2400, 900, 0.3, 0.06, t + i * 0.03);
+                break;
+            case 'immune':
+                this.tone('triangle', 400, 380, 0.08, 0.04, t);
+                break;
+
             case 'deny':
                 this.tone('square', 180, 150, 0.12, 0.05, t);
                 break;
@@ -316,7 +364,7 @@ export class Audio {
                     this.play('explode');
                     break;
                 case 'death':
-                    this.play(ev.enemy === 'colossus' || ev.elite ? 'death_big' : 'death');
+                    this.play(ev.boss || ev.elite ? 'death_big' : 'death');
                     break;
                 case 'build':
                     this.play('build');
@@ -346,6 +394,46 @@ export class Audio {
                     this.play('freeze');
                     break;
                 case 'heal':
+                case 'pollen':
+                    this.play('heal');
+                    break;
+                case 'unitHit':
+                    this.play('clash');
+                    break;
+                case 'heroSlam':
+                    this.play('slam');
+                    break;
+                case 'heroLevel':
+                    this.play('level');
+                    break;
+                case 'enemyShot':
+                    this.play('siege_hit');
+                    break;
+                case 'towerDestroyed':
+                    this.play('collapse');
+                    break;
+                case 'repair':
+                    this.play('repair');
+                    break;
+                case 'blink':
+                    this.play('blink');
+                    break;
+                case 'pulse':
+                case 'deathBlast':
+                    this.play('stun');
+                    break;
+                case 'shield':
+                case 'ward':
+                    this.play('shield');
+                    break;
+                case 'shieldBreak':
+                    this.play('shatter_big');
+                    break;
+                case 'immune':
+                    this.play('immune');
+                    break;
+                case 'summon':
+                case 'split':
                     this.play('heal');
                     break;
             }

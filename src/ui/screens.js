@@ -1,13 +1,27 @@
 // 전체 화면 UI: 타이틀, 맵 선택, 일시정지, 설정, 결과, 튜토리얼 안내.
 import { ICONS } from './icons.js';
 import { MAPS } from '../core/data/maps.js';
-import { ENEMIES } from '../core/data/enemies.js';
+import { ENEMIES, enemyTraits } from '../core/data/enemies.js';
 import { DIFFICULTY, DIFFICULTY_ORDER } from '../core/data/difficulty.js';
 
 /** 저장 데이터에서 맵·난이도 기록 */
-export function recordOf(save, mapId, diff) {
-    return save.records?.[mapId]?.[diff] || { stars: 0, best: 0 };
+/** 기록 키: 공성전은 난이도별로 따로 */
+export function recordKey(diff, mode) {
+    return mode === 'siege' ? 'siege-' + diff : diff;
 }
+
+export function recordOf(save, mapId, diff, mode = 'campaign') {
+    return save.records?.[mapId]?.[recordKey(diff, mode)] || { stars: 0, best: 0 };
+}
+
+const MODES = {
+    campaign: { label: '전투 · 20 웨이브', desc: '' },
+    endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
+    siege: {
+        label: '공성전',
+        desc: '<b>공성전</b> · 적이 타워를 공격해 무너뜨립니다. <b>영웅</b>을 움직이고 <b>병영</b>으로 길목을 막고, 무너지기 전에 수리하세요. 기록은 따로 남습니다'
+    }
+};
 
 const starRow = (n) => [1, 2, 3].map((i) => `<i class="${i <= n ? 'on' : ''}">${ICONS.star}</i>`).join('');
 
@@ -111,7 +125,7 @@ export class Screens {
 
     select(save, thumbs) {
         let diff = DIFFICULTY[save.lastDifficulty] ? save.lastDifficulty : 'normal';
-        let endless = !!save.lastEndless;
+        let mode = MODES[save.lastMode] ? save.lastMode : save.lastEndless ? 'endless' : 'campaign';
         const cards = Object.values(MAPS)
             .map((m) => {
                 const bg = thumbs[m.id] ? `url(${thumbs[m.id]})` : THUMB_FALLBACK[m.theme || 'dusk'];
@@ -127,7 +141,7 @@ export class Screens {
             <h2>전장 선택</h2>
             <div class="select-opts">
                 <div class="opt-group"><div class="opt-lbl">난이도</div><div class="seg big" data-diff>${DIFFICULTY_ORDER.map((d) => `<button data-v="${d}" class="d-${d}">${d === 'hero' ? ICONS.crown : ''}${DIFFICULTY[d].name}</button>`).join('')}</div></div>
-                <div class="opt-group"><div class="opt-lbl">모드</div><div class="seg big" data-mode><button data-v="campaign">전투 · 20 웨이브</button><button data-v="endless" class="m-endless">${ICONS.moon}끝없는 밤</button></div></div>
+                <div class="opt-group"><div class="opt-lbl">모드</div><div class="seg big" data-mode><button data-v="campaign">${MODES.campaign.label}</button><button data-v="endless" class="m-endless">${ICONS.moon}${MODES.endless.label}</button><button data-v="siege" class="m-siege">${ICONS.shield}${MODES.siege.label}</button></div></div>
             </div>
             <div class="opt-desc" data-opt-desc></div>
             <div class="maps">${cards}</div>
@@ -135,21 +149,21 @@ export class Screens {
         </div></div>`);
         const refresh = () => {
             el.querySelectorAll('[data-diff] button').forEach((b) => b.classList.toggle('on', b.dataset.v === diff));
-            el.querySelectorAll('[data-mode] button').forEach((b) =>
-                b.classList.toggle('on', (b.dataset.v === 'endless') === endless)
-            );
+            el.querySelectorAll('[data-mode] button').forEach((b) => b.classList.toggle('on', b.dataset.v === mode));
+            const endless = mode === 'endless';
             el.querySelector('[data-opt-desc]').innerHTML =
                 `<b>${DIFFICULTY[diff].name}</b> · ${DIFFICULTY[diff].desc}` +
-                (endless ? '<br><b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' : '');
+                (MODES[mode].desc ? '<br>' + MODES[mode].desc : '');
             for (const card of el.querySelectorAll('[data-map]')) {
                 const id = card.dataset.map;
-                const rec = recordOf(save, id, diff);
+                const rec = recordOf(save, id, diff, mode);
                 card.querySelector('[data-len]').textContent = endless ? '∞ 웨이브' : '20 웨이브';
                 card.querySelector('[data-rec]').innerHTML = endless
                     ? `<span class="best">${ICONS.moon}<b>${rec.best || '—'}</b>${rec.best ? ' 웨이브' : ''}</span>`
                     : `<span class="stars">${starRow(rec.stars)}</span>`;
                 card.classList.toggle('hero-cleared', recordOf(save, id, 'hero').stars > 0);
                 card.classList.toggle('endless', endless);
+                card.classList.toggle('siege', mode === 'siege');
             }
         };
         el.querySelectorAll('[data-diff] button').forEach(
@@ -163,14 +177,21 @@ export class Screens {
         el.querySelectorAll('[data-mode] button').forEach(
             (b) =>
                 (b.onclick = () => {
-                    endless = b.dataset.v === 'endless';
-                    this.actions.setPref('lastEndless', endless);
+                    mode = b.dataset.v;
+                    this.actions.setPref('lastMode', mode);
+                    this.actions.setPref('lastEndless', mode === 'endless');
                     refresh();
                 })
         );
         refresh();
         el.querySelectorAll('[data-map]').forEach(
-            (b) => (b.onclick = () => this.actions.startMap(b.dataset.map, { difficulty: diff, endless }))
+            (b) =>
+                (b.onclick = () =>
+                    this.actions.startMap(b.dataset.map, {
+                        difficulty: diff,
+                        endless: mode === 'endless',
+                        siege: mode === 'siege'
+                    }))
         );
         el.querySelector('[data-back]').onclick = () => this.actions.toTitle();
         this.mount(el);
@@ -198,28 +219,37 @@ export class Screens {
 
     /** 적 도감: 만난 적만 자세히, 아직 못 만난 적은 실루엣 */
     bestiary(seen, fromPause) {
-        const cards = Object.values(ENEMIES)
-            .map((d) => {
-                const known = seen.includes(d.id);
-                if (!known)
-                    return `<div class="beast unknown"><i class="ico">${ICONS[d.id]}</i><div class="nm">???</div><p>아직 마주치지 않은 적</p></div>`;
-                const row = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
-                return `<div class="beast ${d.boss ? 'boss' : ''}">
+        const card = (d) => {
+            const known = seen.includes(d.id);
+            if (!known)
+                return `<div class="beast unknown"><i class="ico">${ICONS[d.id]}</i><div class="nm">???</div><p>아직 마주치지 않은 적</p></div>`;
+            const row = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+            return `<div class="beast ${d.boss ? 'boss' : ''}">
                     <i class="ico">${ICONS[d.id]}</i>
                     <div class="nm">${d.name}</div>
                     <p>${d.desc}</p>
+                    <div class="btraits">${enemyTraits(d)
+                        .map((t) => `<span class="t ${t.kind}" title="${t.long}">${t.short}</span>`)
+                        .join('')}</div>
                     <div class="bstats">
                         ${row('기본 체력', d.hp)}${row('속도', d.speed)}${row('물리 방어', Math.round(d.armor * 100) + '%')}
                         ${row('마법 저항', Math.round(d.resist * 100) + '%')}${row('처치 골드', d.bounty)}${row('돌파 시 생명', '-' + d.lives)}
                     </div>
                     <div class="btip"><b>공략</b> ${d.tip || ''}</div>
                 </div>`;
-            })
-            .join('');
+        };
+        const groups = [{ id: null, name: '그림자 군세', en: '모든 전장' }, ...Object.values(MAPS)].map((m) => {
+            const list = Object.values(ENEMIES).filter((d) => (d.home || null) === m.id);
+            if (!list.length) return '';
+            const found = list.filter((d) => seen.includes(d.id)).length;
+            return `<div class="bgroup"><div class="bhead"><b>${m.name}</b><span>${m.id ? '전용 군세' : m.en}</span><em>${found} / ${list.length}</em></div>
+                <div class="beasts">${list.map(card).join('')}</div></div>`;
+        });
+        const cards = groups.join('');
         const el = h(`<div class="screen dim"><div class="bestiary-wrap">
             <h2>적 도감</h2>
             <div class="sub">${seen.length} / ${Object.keys(ENEMIES).length} 발견 · 체력은 웨이브마다 10.5%씩 늘어납니다 · 정예는 체력 3배</div>
-            <div class="beasts">${cards}</div>
+            ${cards}
             <div class="back-row"><button class="menu-btn ghost" data-back>돌아가기</button></div>
         </div></div>`);
         el.querySelector('[data-back]').onclick = () => this.actions.closeBestiary(fromPause);
@@ -275,7 +305,7 @@ export class Screens {
               : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
         const offerEndless = won && !endless;
         const el = h(`<div class="screen dim"><div class="modal panel ornate results" style="min-width:520px">
-            <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}</div>
+            <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}${state.siege ? ' · 공성전' : ''}</div>
             <h2 style="margin-bottom:6px;${won || endless ? '' : 'color:#ffb0b0'}">${title}</h2>
             <div style="color:var(--muted);font-size:14px">${sub}</div>
             ${
@@ -290,6 +320,11 @@ export class Screens {
                 <div class="stat"><b>${state.lives}/${state.maxLives}</b><span>남은 생명</span></div>
                 <div class="stat"><b>${state.stats.goldEarned + state.stats.earlyBonus}</b><span>획득 골드</span></div>
                 <div class="stat"><b>${time}</b><span>전투 시간</span></div>
+                ${
+                    state.siege
+                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div><div class="stat"><b>Lv ${state.hero ? state.hero.level : 1}</b><span>영웅 레벨</span></div>`
+                        : ''
+                }
             </div>
             ${offerEndless ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">${diff.name} 최고 기록 · 별 ${record.stars}개</div>` : ''}
             <div class="menu">
@@ -310,7 +345,7 @@ export class Screens {
 
 const COACH = [
     {
-        text: '빛나는 룬이 새겨진 <b>빈 소켓</b>을 눌러 첫 타워를 세우세요. 숫자키 1~6으로도 고를 수 있어요.',
+        text: '빛나는 룬이 새겨진 <b>빈 소켓</b>을 눌러 첫 타워를 세우세요. 숫자키 1~7로도 고를 수 있어요.',
         until: (s) => s.towers.length > 0
     },
     {
