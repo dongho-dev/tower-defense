@@ -85,7 +85,8 @@ test('맵 데이터: 소켓은 경로·서로와 떨어져 있고, 링크는 가
         const paths = map.paths.map(buildPath);
         map.sockets.forEach(([x, z], i) => {
             const d = Math.min(...paths.map((p) => distanceToPath(p, x, z)));
-            assert.ok(d >= 1.3, `${map.id} 소켓 ${i}가 경로와 ${d.toFixed(2)}`);
+            // 살아남기 맵의 paths는 동굴→본진 대표선일 뿐 적이 걷는 길이 아니다
+            if (!map.survival) assert.ok(d >= 1.3, `${map.id} 소켓 ${i}가 경로와 ${d.toFixed(2)}`);
             map.sockets.forEach(([x2, z2], j) => {
                 if (j > i) assert.ok(Math.hypot(x - x2, z - z2) >= 1.4, `${map.id} 소켓 ${i}-${j} 겹침`);
             });

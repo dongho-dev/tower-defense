@@ -494,138 +494,128 @@ WAVES.fortress = [
     }
 ];
 
-// 기나긴 밤(살아남기): at = 밤 시계(초)에 웨이브가 저절로 온다. 600초에 동이 튼다.
-// 그룹의 from = 몰려오는 방향(도, 0 동 · 90 남(카메라 쪽) · 180 서 · 270 북), spread = 좌우로 퍼지는 각도.
-// from이 없으면 사방에서. 방향을 바꾸고 한쪽으로 몰아서 긴장을 만든다.
-const D = (from, spread = 25) => ({ from, spread });
-const DN = D(270);
-const DNE = D(315);
-const DE = D(0);
-const DSE = D(45);
-const DS = D(90);
-const DSW = D(135);
-const DW = D(180);
-const DNW = D(225);
-const DALL = {};
-const wide = (dir, spread) => ({ ...dir, spread });
+// 눈마루 고개(살아남기): 판이 시작되면 밤 시계가 흐르고, at = 시계(초)에 웨이브가 저절로 온다.
+// 첫 습격까지 40초는 짓는 시간. 600초에 동이 튼다.
+// cave = 나올 동굴('caveW' 서 · 'caveS' 남 · 'caveE' 동). 없으면 세 동굴에서 번갈아 나온다.
+// 동굴을 바꾸고 한쪽으로 몰아서, 어느 쪽으로 넓힌 터가 위험한지 매번 달라지게 한다.
+const CW = { cave: 'caveW' };
+const CS = { cave: 'caveS' };
+const CE = { cave: 'caveE' };
+const CALL = {};
 
-WAVES.longnight = [
+WAVES.mountain = [
     {
-        at: 0,
-        groups: [g('grunt', 8, 1.2, 0, DS)],
-        hint: '정해진 길이 없다. 적이 섬 가장자리 사방에서 수정으로 곧장 온다. 수정 둘레에 타워를 세우세요.'
+        at: 40,
+        groups: [g('grunt', 6, 1.4, 0, CS)],
+        hint: '적은 산기슭 동굴에서 올라와 가장 가까운 건물부터 부순다. 본진 둘레에 타워를 세우고, 금빛 광맥에 광산을 지어 골드를 캐세요.'
     },
-    { at: 28, groups: [g('grunt', 8, 1.0, 0, DE), g('stalker', 5, 0.7, 4, DW)] },
+    { at: 68, groups: [g('grunt', 8, 1.1, 0, CW), g('stalker', 4, 0.8, 4, CW)] },
     {
-        at: 56,
-        groups: [g('grunt', 10, 0.9, 0, DN), g('grunt', 6, 0.9, 3, DSE), g('stalker', 6, 0.6, 6, DSW)],
-        hint: '적은 지나가며 가까운 타워를 공격합니다. 다친 타워는 G로 수리하세요.'
-    },
-    {
-        at: 84,
-        groups: [g('ironclad', 3, 2.4, 0, DNE), g('grunt', 10, 0.7, 2, DNE), g('stalker', 8, 0.5, 4, DS)],
-        hint: '흑철 기사가 북동쪽에서 온다. 물리 피해에 강하니 마법 타워를 섞으세요.'
+        at: 94,
+        groups: [g('grunt', 8, 1.0, 0, CE), g('stalker', 6, 0.7, 3, CS)],
+        hint: '적은 가는 길에 닿는 건물부터 부숩니다. 다친 건물은 G로 수리하세요. 본진(수정)도 눌러서 수리할 수 있어요.'
     },
     {
-        at: 112,
-        groups: [g('wraith', 6, 0.9, 0, DW), g('grunt', 12, 0.6, 2, DALL)],
-        hint: '망령이 서쪽 하늘로 날아온다. 마법에 강하니 궁수탑으로 맞서세요.'
+        at: 120,
+        groups: [g('ironclad', 3, 2.4, 0, CS), g('grunt', 10, 0.8, 2, CS), g('stalker', 6, 0.6, 4, CW)],
+        hint: '흑철 기사가 남쪽 동굴에서 온다. 물리 피해에 강하니 마법 타워를 섞으세요.'
     },
-    { at: 140, groups: [g('stalker', 14, 0.4, 0, DALL), g('ironclad', 4, 1.8, 4, DE)] },
     {
-        at: 168,
+        at: 146,
+        groups: [g('wraith', 6, 0.9, 0, CE), g('grunt', 10, 0.7, 2, CW)],
+        hint: '망령은 하늘을 날아 가장 가까운 건물로 곧장 온다. 외딴 광산을 조심하세요.'
+    },
+    { at: 172, groups: [g('stalker', 12, 0.45, 0, CALL), g('ironclad', 4, 1.8, 4, CE)] },
+    {
+        at: 198,
         groups: [
-            g('grunt', 12, 0.6, 0, DE),
-            g('grunt', 12, 0.6, 0, DW),
-            g('hexcaller', 2, 4, 4, DN),
-            g('wraith', 6, 0.8, 6, DS)
+            g('grunt', 12, 0.6, 0, CW),
+            g('grunt', 12, 0.6, 0, CE),
+            g('hexcaller', 2, 4, 4, CS),
+            g('wraith', 6, 0.8, 6, CS)
         ],
-        hint: '양쪽에서 협공한다. 한쪽에만 타워를 몰아 두지 마세요.'
+        hint: '서쪽과 동쪽 동굴에서 협공한다. 한쪽 고원만 지키지 마세요.'
     },
     {
-        at: 196,
+        at: 224,
         groups: [
-            g('ironclad', 1, 4, 0, { ...DN, elite: true }),
-            g('ironclad', 4, 1.8, 2, DN),
-            g('hexcaller', 3, 3, 4, DNW),
-            g('stalker', 10, 0.4, 5, DSE)
+            g('ironclad', 1, 4, 0, { ...CS, elite: true }),
+            g('ironclad', 4, 1.8, 2, CS),
+            g('hexcaller', 3, 3, 4, CW),
+            g('stalker', 10, 0.4, 5, CE)
         ],
-        hint: '정예 흑철 기사가 북쪽에서 온다. 서리로 묶고 번개로 녹이세요.'
+        hint: '정예 흑철 기사가 남쪽에서 올라온다. 서리로 묶고 번개로 녹이세요.'
     },
-    { at: 224, groups: [g('wraith', 10, 0.7, 0, DALL), g('grunt', 16, 0.45, 2, DSW), g('stalker', 10, 0.4, 5, DNE)] },
+    { at: 250, groups: [g('wraith', 10, 0.7, 0, CALL), g('grunt', 16, 0.45, 2, CW), g('stalker', 10, 0.4, 5, CE)] },
     {
-        at: 252,
+        at: 276,
         groups: [
-            g('grunt', 14, 0.5, 0, DALL),
-            g('ironclad', 6, 1.4, 3, DNE),
-            g('colossus', 1, 1, 6, { ...DN, hpMul: 0.3 }),
-            g('hexcaller', 3, 3, 8, DN)
-        ],
-        hint: '공허의 거상이 북쪽 어둠에서 걸어 나온다!'
-    },
-    {
-        at: 282,
-        groups: [g('stalker', 20, 0.35, 0, DALL), g('wraith', 8, 0.7, 5, DE)],
-        hint: '밤이 깊어진다. 적이 더 자주, 더 많이 몰려온다.'
-    },
-    {
-        at: 308,
-        groups: [g('grunt', 24, 0.4, 0, wide(DW, 45)), g('ironclad', 6, 1.4, 4, DE), g('hexcaller', 3, 3, 6, DW)]
-    },
-    { at: 334, groups: [g('wraith', 14, 0.6, 0, DN), g('hexcaller', 4, 2.5, 3, DS), g('stalker', 14, 0.35, 4, DS)] },
-    { at: 360, groups: [g('ironclad', 10, 1.0, 0, DSE), g('stalker', 16, 0.35, 6, DNW)] },
-    {
-        at: 386,
-        groups: [g('wraith', 3, 3, 0, { elite: true }), g('grunt', 20, 0.4, 2, DALL), g('wraith', 10, 0.6, 6, DNE)],
-        hint: '정예 망령이 사방에서 날아든다.'
-    },
-    {
-        at: 412,
-        groups: [
-            g('grunt', 20, 0.4, 0, DN),
-            g('stalker', 16, 0.3, 4, DS),
-            g('ironclad', 6, 1.2, 6, DE),
-            g('hexcaller', 4, 2.5, 8, DW)
-        ],
-        hint: '네 방향에서 한꺼번에 친다.'
-    },
-    {
-        at: 438,
-        groups: [g('ironclad', 14, 0.8, 0, wide(DNE, 35)), g('hexcaller', 6, 2, 4, DNE), g('grunt', 14, 0.5, 6, DSW)],
-        hint: '북동쪽에 대군이 모였다. 그쪽 보루를 서둘러 강화하세요.'
-    },
-    {
-        at: 464,
-        groups: [
-            g('wraith', 20, 0.45, 0, DALL),
-            g('ironclad', 3, 3.5, 6, { ...DS, elite: true }),
-            g('grunt', 16, 0.4, 4, DN)
+            g('grunt', 14, 0.5, 0, CALL),
+            g('ironclad', 6, 1.4, 3, CE),
+            g('colossus', 1, 1, 6, { ...CS, hpMul: 0.35 }),
+            g('hexcaller', 3, 3, 8, CS)
         ]
     },
     {
-        at: 492,
-        groups: [
-            g('stalker', 24, 0.3, 0, DALL),
-            g('colossus', 1, 1, 4, { ...DW, hpMul: 0.45 }),
-            g('grunt', 20, 0.35, 3, DALL),
-            g('colossus', 1, 1, 14, { ...DE, hpMul: 0.45 }),
-            g('ironclad', 10, 0.9, 6, DALL)
-        ],
-        hint: '거상 둘이 동서에서 다가온다. 동트기 전 가장 깊은 어둠이다.'
+        at: 304,
+        groups: [g('stalker', 20, 0.35, 0, CALL), g('wraith', 8, 0.7, 5, CW)],
+        hint: '밤이 깊어진다. 적이 더 자주, 더 많이 몰려온다.'
+    },
+    { at: 328, groups: [g('grunt', 24, 0.4, 0, CW), g('ironclad', 6, 1.4, 4, CE), g('hexcaller', 3, 3, 6, CW)] },
+    { at: 352, groups: [g('wraith', 14, 0.6, 0, CS), g('hexcaller', 4, 2.5, 3, CE), g('stalker', 14, 0.35, 4, CE)] },
+    { at: 377, groups: [g('ironclad', 10, 1.0, 0, CS), g('stalker', 16, 0.35, 6, CW)] },
+    {
+        at: 401,
+        groups: [g('wraith', 3, 3, 0, { elite: true }), g('grunt', 20, 0.4, 2, CALL), g('wraith', 10, 0.6, 6, CE)],
+        hint: '정예 망령이 하늘에서 내려온다.'
     },
     {
-        at: 530,
-        // 동이 틀 때까지 끊이지 않고 몰려온다 (70초)
+        at: 425,
         groups: [
-            g('grunt', 50, 1.3, 0, DALL),
-            g('stalker', 36, 1.8, 2, DALL),
-            g('ironclad', 14, 4.6, 4, DALL),
-            g('wraith', 22, 2.9, 6, DALL),
-            g('hexcaller', 7, 8, 8, DALL),
-            g('ironclad', 4, 12, 10, { ...DN, elite: true }),
-            g('wraith', 4, 12, 16, { ...DS, elite: true })
+            g('grunt', 20, 0.4, 0, CW),
+            g('stalker', 16, 0.3, 4, CS),
+            g('ironclad', 6, 1.2, 6, CE),
+            g('hexcaller', 4, 2.5, 8, CS)
         ],
-        hint: '마지막 대공세! 동이 틀 때까지 버티면 승리한다.'
+        hint: '세 동굴에서 한꺼번에 친다.'
+    },
+    {
+        at: 449,
+        groups: [g('ironclad', 14, 0.8, 0, CE), g('hexcaller', 6, 2, 4, CE), g('grunt', 14, 0.5, 6, CW)],
+        hint: '동쪽 동굴에 대군이 모였다. 동쪽 고원을 서둘러 강화하세요.'
+    },
+    {
+        at: 473,
+        groups: [
+            g('wraith', 20, 0.45, 0, CALL),
+            g('ironclad', 3, 3.5, 6, { ...CS, elite: true }),
+            g('grunt', 16, 0.4, 4, CW)
+        ]
+    },
+    {
+        at: 499,
+        groups: [
+            g('stalker', 24, 0.3, 0, CALL),
+            g('colossus', 1, 1, 4, { ...CW, hpMul: 0.5 }),
+            g('grunt', 20, 0.35, 3, CALL),
+            g('colossus', 1, 1, 14, { ...CE, hpMul: 0.5 }),
+            g('ironclad', 10, 0.9, 6, CALL)
+        ],
+        hint: '거인 둘이 서쪽과 동쪽 동굴에서 걸어 나온다. 동트기 전 가장 깊은 어둠이다.'
+    },
+    {
+        at: 535,
+        // 동이 틀 때까지 끊이지 않고 몰려온다 (68초)
+        groups: [
+            g('grunt', 50, 1.3, 0, CALL),
+            g('stalker', 36, 1.8, 2, CALL),
+            g('ironclad', 14, 4.6, 4, CALL),
+            g('wraith', 22, 2.9, 6, CALL),
+            g('hexcaller', 7, 8, 8, CALL),
+            g('ironclad', 4, 12, 10, { ...CS, elite: true }),
+            g('wraith', 4, 12, 16, { ...CW, elite: true })
+        ],
+        hint: '마지막 대공세! 동이 틀 때까지 본진을 지키면 승리한다.'
     }
 ];
 
@@ -668,11 +658,13 @@ export const THEMES = {
             ['ironclad', 'rimeguard', 7, 0.35]
         ]
     },
-    // 기나긴 밤: 어둠을 타고 도약하는 그림자와 하늘을 가르는 하피가 섞여 든다
-    longnight: {
+    // 눈마루 고개: 산의 주인 빙하 거신, 눈사태 거인·서리 갑주병, 바위산 하피
+    mountain: {
+        boss: 'glacier',
         mix: [
-            ['stalker', 'shade', 6, 0.35],
-            ['wraith', 'harpy', 9, 0.4]
+            ['wraith', 'harpy', 5, 0.45],
+            ['ironclad', 'rimeguard', 7, 0.35],
+            ['grunt', 'yeti', 9, 0.25]
         ]
     },
     stormreach: {

@@ -75,7 +75,8 @@ export function nearestPathPoint(state, x, z) {
 /** 병영 업그레이드·건설 뒤: 병사 수와 체력을 맞추고 집결 자리를 다시 잡는다 */
 export function syncSoldiers(state, tower) {
     if (!tower.rally) {
-        const p = nearestPathPoint(state, tower.x, tower.z);
+        // 살아남기는 길이 없다: 병영 앞마당(걸을 수 있는 곳)에 모인다
+        const p = state.survival ? survivalRally(state, tower) : nearestPathPoint(state, tower.x, tower.z);
         tower.rally = { x: p.x, z: p.z };
     }
     const s = towerStats(state, tower);
@@ -96,6 +97,19 @@ export function syncSoldiers(state, tower) {
     placeGuards(tower, mine);
 }
 
+/** 살아남기: 병영 둘레에서 걸을 수 있는 자리 하나 (본진 쪽에서 먼 쪽을 먼저 본다) */
+function survivalRally(state, tower) {
+    const b = state.survival.base;
+    const a0 = Math.atan2(tower.z - b.z, tower.x - b.x);
+    for (let k = 0; k < 12; k++) {
+        const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.52;
+        const x = tower.x + Math.cos(a) * 1.1;
+        const z = tower.z + Math.sin(a) * 1.1;
+        if (state.survival.nav.walkable(x, z)) return { x, z };
+    }
+    return { x: tower.x, z: tower.z };
+}
+
 function placeGuards(tower, mine) {
     const n = mine.length;
     mine.forEach((u, i) => {
@@ -111,8 +125,18 @@ export function setRally(state, towerId, x, z) {
     if (!tower || tower.type !== 'barracks') return { ok: false, reason: '잘못된 명령입니다.' };
     const s = towerStats(state, tower);
     if (Math.hypot(x - tower.x, z - tower.z) > s.range) return { ok: false, reason: '병영 사거리 밖입니다.' };
-    const p = nearestPathPoint(state, x, z);
-    if (!p || p.dist > 1.2) return { ok: false, reason: '길 가까이만 집결지로 정할 수 있습니다.' };
+    const p = state.survival
+        ? state.survival.nav.walkable(x, z)
+            ? { x, z, dist: 0 }
+            : null
+        : nearestPathPoint(state, x, z);
+    if (!p || p.dist > 1.2)
+        return {
+            ok: false,
+            reason: state.survival
+                ? '걸을 수 있는 땅에만 집결지를 정할 수 있습니다.'
+                : '길 가까이만 집결지로 정할 수 있습니다.'
+        };
     if (Math.hypot(p.x - tower.x, p.z - tower.z) > s.range + 0.3) return { ok: false, reason: '병영 사거리 밖입니다.' };
     tower.rally = { x: p.x, z: p.z };
     const mine = state.units.filter((u) => u.ownerId === tower.id);

@@ -20,6 +20,7 @@ import {
     wavesSurvived,
     repairTower,
     repairGate,
+    repairBase,
     reinforceGate,
     setRally,
     commandHero,
@@ -136,7 +137,8 @@ export class App {
             rally: (id) => this.armRally(id),
             heroSkill: () => this.useHeroSkill(),
             gateRepair: (id) => this.gateCommand(repairGate, id),
-            gateReinforce: (id) => this.gateCommand(reinforceGate, id)
+            gateReinforce: (id) => this.gateCommand(reinforceGate, id),
+            baseRepair: () => this.repairBase()
         });
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
@@ -279,10 +281,13 @@ export class App {
             this.rig.yaw = 0;
             this.rig.goalDistance = this.state.map.view?.distance ?? 34;
             this.rig.setPitch(52);
-            this.rig.goal.y = 0;
+            // 맵이 시작 시점을 정해 두었으면 그곳 (산처럼 높은 맵은 눈높이를 올린다)
+            const tg = this.state.map.view?.target;
+            const to = tg ? new THREE.Vector3(...tg) : new THREE.Vector3(0.5, 0, 0.6);
+            this.rig.goal.y = to.y;
             const s = this.state.paths[0];
-            const from = new THREE.Vector3(s.xs[0] + 3, 0, s.zs[0]);
-            this.rig.playIntro(from, new THREE.Vector3(0.5, 0, 0.6), 3.2);
+            const from = new THREE.Vector3(s.xs[0] + 3, to.y, s.zs[0]);
+            this.rig.playIntro(from, to, 3.2);
             this.fade.classList.remove('on');
             this.hud.reset(this.state);
             this.hud.showBanner(
@@ -290,7 +295,7 @@ export class App {
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
                     : this.state.survival
-                      ? '살아남기 · 동이 틀 때까지 버텨라'
+                      ? '살아남기 · 본진을 지키며 동이 틀 때까지 버텨라'
                       : this.state.gates.length
                         ? '공성전 · 성문이 무너지면 길이 열린다'
                         : this.state.siege
@@ -315,7 +320,7 @@ export class App {
                         this.mode === 'playing' &&
                         this.hud.showHint(
                             this.state.survival
-                                ? '정해진 길이 없습니다. 적은 섬 <b>가장자리 사방</b>에서 수정으로 곧장 옵니다. 가장자리 <b>보랏빛 장막</b>이 밝게 일렁이는 쪽에서 다음 무리가 옵니다. 지나가는 적은 타워를 공격하니 <b>G</b>로 수리하세요. <b>동이 틀 때까지</b> 버티면 승리합니다.'
+                                ? '정해진 길이 없습니다. 적은 산기슭 <b>동굴</b>(보랏빛으로 타오르는 곳)에서 나와 <b>가장 가까운 건물</b>부터 부숩니다. 금빛 <b>광맥</b>에 광산을 지으면 15초마다 골드를 캡니다 · 위험한 터일수록 많이. 부서진 건물은 <b>G</b>, 본진(수정)은 눌러서 수리하세요. <b>본진</b>이 무너지면 패배, <b>동이 틀 때까지</b> 버티면 승리.'
                                 : gates
                                   ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
                                   : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
@@ -436,6 +441,21 @@ export class App {
         const r = fn(this.state, id);
         if (!r.ok) this.hud.toast(r.reason, true);
         else if (this.selectedGate) this.inspector.render(this.state, true);
+    }
+
+    /** 살아남기: 본진(수정) 선택과 수리 */
+    selectBase() {
+        if (!this.state.survival || this.mode !== 'playing') return;
+        this.closeMenus();
+        this.selectedBase = true;
+        this.inspector.showBase(this.state);
+    }
+
+    repairBase() {
+        if (this.mode !== 'playing') return;
+        const r = repairBase(this.state);
+        if (!r.ok) this.hud.toast(r.reason, true);
+        else if (this.selectedBase) this.inspector.render(this.state, true);
     }
 
     selectGate(gate) {
@@ -585,6 +605,7 @@ export class App {
         this.selected = null;
         this.selectedEnemy = null;
         this.selectedGate = null;
+        this.selectedBase = false;
         this.buildHover = null;
         this.targeting = null;
         this.hud.armed = null;
@@ -628,7 +649,11 @@ export class App {
 
     pick(x, y) {
         this.raycaster.setFromCamera(this.ndc(x, y), this.rig.camera);
-        const targets = [...this.world.sockets.pickables, ...this.world.fortress.pickables];
+        const targets = [
+            ...this.world.sockets.pickables,
+            ...this.world.fortress.pickables,
+            ...this.world.core.pickables
+        ];
         for (const v of this.entities.towers.values()) targets.push(v.root);
         const hits = this.raycaster.intersectObjects(targets, true);
         for (const hit of hits) {
@@ -636,6 +661,7 @@ export class App {
             while (o) {
                 if (o.userData.towerId != null) return { tower: findTower(this.state, o.userData.towerId) };
                 if (o.userData.gateId != null) return { gate: this.state.gates[o.userData.gateId] };
+                if (o.userData.base) return { base: true };
                 if (o.userData.socketId != null) {
                     const s = this.state.sockets[o.userData.socketId];
                     if (s.towerId != null) return { tower: findTower(this.state, s.towerId) };
@@ -710,6 +736,9 @@ export class App {
         if (hit.gate) {
             if (this.selectedGate === hit.gate) this.closeMenus();
             else this.selectGate(hit.gate);
+        } else if (hit.base) {
+            if (this.selectedBase) this.closeMenus();
+            else this.selectBase();
         } else if (hit.tower) {
             if (this.selected === hit.tower) this.closeMenus();
             else this.selectTower(hit.tower);
@@ -746,6 +775,7 @@ export class App {
         } else if ((k === 'e' || k === 'E') && this.state.hero) this.useHeroSkill();
         else if ((k === 'r' || k === 'R') && this.selected?.type === 'barracks') this.armRally(this.selected.id);
         else if ((k === 'g' || k === 'G') && this.selectedGate) this.gateCommand(repairGate, this.selectedGate.id);
+        else if ((k === 'g' || k === 'G') && this.selectedBase) this.repairBase();
         else if ((k === 'u' || k === 'U') && this.selectedGate) this.gateCommand(reinforceGate, this.selectedGate.id);
         else if ((k === 'g' || k === 'G') && this.selected && this.selected.hp != null) this.repair(this.selected.id);
         else if (/^[1-7]$/.test(k)) {
@@ -774,7 +804,7 @@ export class App {
         this.renderer.renderer.domElement.style.cursor =
             this.targeting || this.rallyFor
                 ? 'crosshair'
-                : hit.socket || hit.tower || hit.unit || hit.gate
+                : hit.socket || hit.tower || hit.unit || hit.gate || hit.base
                   ? 'pointer'
                   : this.heroSelected
                     ? 'crosshair'

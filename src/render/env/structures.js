@@ -451,8 +451,19 @@ export function createCore(state, terrain) {
     g.add(light);
     g.position.set(x, terrain.heightAt(x, z), z);
     const baseY = crystal.position.y;
+    // 살아남기: 본진을 눌러 고를 수 있게 보이지 않는 집기 원통
+    const pickables = [];
+    if (state.survival) {
+        const pick = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.7, 3.2, 10), new THREE.MeshBasicMaterial());
+        pick.visible = false;
+        pick.position.y = 1.4;
+        pick.userData.base = true;
+        g.add(pick);
+        pickables.push(pick);
+    }
     return {
         group: g,
+        pickables,
         crystal,
         top: new THREE.Vector3(x, g.position.y + baseY, z),
         setHealth(ratio) {
@@ -493,7 +504,7 @@ export function createSockets(state, terrain) {
         rim.position.y = 0.21;
         const runeMat = new THREE.MeshBasicMaterial({
             map: runeTex,
-            color: new THREE.Color('#9fd8ff'),
+            color: new THREE.Color(s.vein ? '#ffcf6a' : '#9fd8ff'),
             transparent: true,
             opacity: 0.55,
             blending: THREE.AdditiveBlending,
@@ -508,7 +519,8 @@ export function createSockets(state, terrain) {
         g.userData.socketId = s.id;
         base.userData.socketId = s.id;
         group.add(g);
-        items.push({ group: g, rune, runeMat, pick: base });
+        // 광맥(살아남기)은 금빛 룬
+        items.push({ group: g, rune, runeMat, pick: base, tint: s.vein ? '#ffcf6a' : '#9fd8ff' });
     }
     return {
         group,
@@ -521,7 +533,7 @@ export function createSockets(state, terrain) {
                 const hover = hoverId === i;
                 it.rune.visible = !occupied || hover;
                 it.runeMat.opacity = hover ? 1 : 0.35 + 0.15 * Math.sin(t * 2 + i);
-                it.runeMat.color.set(hover ? '#ffe39a' : '#9fd8ff').multiplyScalar(hover ? 2 : 1);
+                it.runeMat.color.set(hover ? '#ffe39a' : it.tint).multiplyScalar(hover ? 2 : 1);
                 it.rune.rotation.z = t * (hover ? 0.8 : 0.15);
             });
         }

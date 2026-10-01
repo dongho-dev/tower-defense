@@ -5,6 +5,7 @@ import {
     TOWERS,
     MAX_TIER,
     MAX_MASTERY,
+    TOWER_ORDER,
     SELL_RATE,
     CHAIN_JUMP,
     baseStats,
@@ -16,9 +17,20 @@ import { ENEMIES, ELITE, hpScale, atkScale } from './data/enemies.js';
 import { WAVES, CAMPAIGN_WAVES, endlessWave, applyTheme } from './data/waves.js';
 import { updateUnits, syncSoldiers, removeUnitsOf, createHero, heroXp, hurtUnit } from './units.js';
 import { createGates, gateAhead, gateLimit, gateAttack, waveRepairGates, damageGate } from './gates.js';
-import { createSurvival, pickLane } from './survival.js';
+import {
+    createSurvival,
+    updateSurvivalEnemy,
+    separateEnemies,
+    blinkAlong,
+    spawnPoint,
+    payMines,
+    allowedHere,
+    baseRepairCost,
+    HEIGHT_RANGE
+} from './survival.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
+export { baseRepairCost } from './survival.js';
 export {
     repairGate,
     reinforceGate,
@@ -67,7 +79,8 @@ export function createGame(mapId = 'dusk', opts = {}) {
     const map = MAPS[mapId];
     if (!map) throw new Error('unknown map ' + mapId);
     const diff = DIFFICULTY[opts.difficulty] || DIFFICULTY.normal;
-    const lives = diff.lives ?? map.lives;
+    // 살아남기의 '생명'은 본진(수정) 체력이다. 난이도는 체력 배율로만 반영한다
+    const lives = map.survival ? Math.round(map.lives * (diff.baseMul ?? 1)) : (diff.lives ?? map.lives);
     // 공성전 전용 맵은 언제나 공성전
     const siege = !!opts.siege || !!map.siegeOnly;
     const sockets = map.sockets.map(([x, z], id) => ({ id, x, z, links: [], towerId: null }));
@@ -111,9 +124,10 @@ export function createGame(mapId = 'dusk', opts = {}) {
         nextId: 1,
         healTick: 0,
         auraTick: 0,
-        // 살아남기: 밤 시계와 동틀 시각 (그 밖의 맵은 null)
-        survival: map.survival ? createSurvival(map) : null
+        // 살아남기: 밤 시계·본진·동굴·길 찾기 격자 (그 밖의 맵은 null)
+        survival: null
     };
+    if (map.survival) state.survival = createSurvival(map, state);
     if (state.endless) ensureWaves(state);
     if (state.siege && !map.noHero) createHero(state);
     state.gates = createGates(state);
@@ -258,6 +272,8 @@ export function towerStats(state, tower) {
         bountyMult: 1,
         donors: []
     };
+    // 살아남기: 높은 곳의 타워는 멀리 본다
+    if (state.survival) s.range *= 1 + HEIGHT_RANGE * (state.sockets[tower.socketId].h || 0);
     for (const src of sourcesAt(state, tower.socketId, tower.type, tower.id)) {
         s.donors.push(src.type);
         if (src.stat === 'range') s.range *= 1 + src.value;
@@ -293,6 +309,11 @@ export function buildTower(state, socketId, type) {
     const def = TOWERS[type];
     if (!socket || !def) return { ok: false, reason: '잘못된 명령입니다.' };
     if (socket.towerId != null) return { ok: false, reason: '이미 타워가 있습니다.' };
+    if (!allowedHere(state, socket, type))
+        return {
+            ok: false,
+            reason: socket.vein ? '광맥에는 광산만 지을 수 있습니다.' : '광산은 광맥에만 지을 수 있습니다.'
+        };
     const cost = def.tiers[0].cost;
     if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
     state.gold -= cost;
@@ -319,7 +340,8 @@ export function buildTower(state, socketId, type) {
     socket.towerId = tower.id;
     state.statsVersion++;
     state.stats.built++;
-    if (state.siege) tower.hp = tower.maxHp = towerMaxHp(tower);
+    if (state.survival) state.survival.flowDirty = true;
+    if (state.siege) tower.hp = tower.maxHp = maxHpOf(state, tower);
     if (type === 'barracks') syncSoldiers(state, tower);
     emit(state, { type: 'build', towerId: tower.id, tower: type, x: tower.x, z: tower.z });
     return { ok: true, tower };
@@ -344,7 +366,7 @@ export function upgradeTower(state, towerId, branch = null) {
     else tower.branch = branch;
     state.statsVersion++;
     if (state.siege) {
-        const max = towerMaxHp(tower);
+        const max = maxHpOf(state, tower);
         tower.hp += max - tower.maxHp;
         tower.maxHp = max;
     }
@@ -362,6 +384,11 @@ export function upgradeTower(state, towerId, branch = null) {
     return { ok: true, tower, cost };
 }
 
+/** 공성전 타워 체력. 살아남기는 건물이 성벽 노릇을 하므로 더 튼튼하다 (map.survival.towerHp 배율) */
+function maxHpOf(state, tower) {
+    return Math.round(towerMaxHp(tower) * (state.map.survival?.towerHp ?? 1));
+}
+
 export function sellValue(tower) {
     return Math.floor(tower.spent * SELL_RATE);
 }
@@ -376,8 +403,14 @@ export function sellTower(state, towerId) {
     return { ok: true, value };
 }
 
+/** 이 소켓에 지을 수 있는 타워 종류 (살아남기: 광맥에는 광산만) */
+export function buildableTypes(state, socket) {
+    return TOWER_ORDER.filter((type) => allowedHere(state, socket, type));
+}
+
 function removeTower(state, tower) {
     state.towers = state.towers.filter((t) => t !== tower);
+    if (state.survival) state.survival.flowDirty = true;
     state.sockets[tower.socketId].towerId = null;
     state.statsCache.delete(tower.id);
     state.statsVersion++;
@@ -421,6 +454,30 @@ export function damageTower(state, tower, amount) {
     emit(state, { type: 'towerDestroyed', towerId: tower.id, tower: tower.type, x: tower.x, z: tower.z });
 }
 
+/** 살아남기: 본진(수정)이 맞는다. 체력(생명)이 다하면 패배 */
+export function damageBase(state, amount) {
+    if (!state.survival || state.status !== 'playing') return;
+    state.lives = Math.max(0, state.lives - amount);
+    state.survival.baseHitT = state.time;
+    if (state.lives > 0) return;
+    state.status = 'lost';
+    emit(state, { type: 'baseDestroyed', x: state.survival.base.x, z: state.survival.base.z });
+    emit(state, { type: 'defeat' });
+}
+
+/** 살아남기: 본진 수리 (잃은 체력에 비례한 골드) */
+export function repairBase(state) {
+    if (!state.survival || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
+    const cost = baseRepairCost(state);
+    if (!cost) return { ok: false, reason: '수리할 곳이 없습니다.' };
+    if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
+    state.gold -= cost;
+    state.lives = state.maxLives;
+    const b = state.survival.base;
+    emit(state, { type: 'repair', base: true, x: b.x, z: b.z, cost });
+    return { ok: true, cost };
+}
+
 /** 타워 기절 (자폭병·용암 군주) */
 function stunTowers(state, x, z, r, time) {
     const r2 = r * r;
@@ -458,8 +515,10 @@ export function callWave(state, force = false) {
     const waveNo = ++state.waveIndex;
     // 살아남기: 일찍 부르면 밤 시계가 그 웨이브 시각까지 앞당겨진다
     if (state.survival) state.survival.clock = Math.max(state.survival.clock, state.waves[waveNo - 1].at || 0);
-    if (waveNo > 1) payIncome(state);
-    if (state.siege) for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
+    // 살아남기는 광산이 시간마다 캐고(payMines), 저절로 고쳐지지 않는다 (수리는 골드로)
+    if (waveNo > 1 && !state.survival) payIncome(state);
+    if (state.siege && !state.survival)
+        for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
     waveRepairGates(state);
     if (state.endless) ensureWaves(state);
     const wave = state.waves[waveNo - 1];
@@ -523,8 +582,7 @@ function spawnEnemy(state, grp, waveNo, at = null) {
     // 끝없는 밤에선 현상금도 조금씩 오른다
     const bountyMul = waveNo > CAMPAIGN_WAVES ? 1 + (waveNo - CAMPAIGN_WAVES) * 0.04 : 1;
     const id = state.nextId++;
-    // 살아남기: 그룹이 정한 방향의 가장자리 레인 하나에서 나온다
-    const pathIndex = at ? at.pathIndex : state.survival ? pickLane(state, grp, id) : grp.path || 0;
+    const pathIndex = at?.pathIndex ?? grp.path ?? 0;
     // 개체마다 좌우로 살짝 벌려서 줄 서 있는 느낌을 없앤다 (결정적)
     const offset = def.boss ? 0 : (((id * 0.618034) % 1) - 0.5) * 0.55;
     const cd = (ab, k) => (ab ? ab.every * k : 0);
@@ -538,7 +596,8 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         hp,
         maxHp: hp,
         speed: def.speed * (state.map.speedMul || 1),
-        bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul),
+        // 살아남기는 광산이 주 수입이라 현상금이 적다 (map.bountyMul)
+        bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul * (state.map.bountyMul ?? 1)),
         lives: def.lives * (elite ? ELITE.lives : 1),
         radius: def.radius * (elite ? ELITE.scale : 1),
         pathIndex,
@@ -571,14 +630,25 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         immuneAt: -1,
         alive: true
     };
-    placeEnemy(state, e);
+    if (state.survival) {
+        // 살아남기: 동굴에서 나오거나 (분열·소환이면) 부모 곁에서 생긴다
+        const p = at && at.x != null ? at : spawnPoint(state, grp, id);
+        e.x = p.x;
+        e.z = p.z;
+        e.dirX = 0;
+        e.dirZ = -1;
+        e.cave = p.cave ?? null;
+    } else placeEnemy(state, e);
     state.enemies.push(e);
     emit(state, { type: 'spawn', id, enemy: e.type, elite, x: e.x, z: e.z, minion: !!at });
 }
 
 /** 테스트·개발용: 길 위 지점에 적을 바로 놓는다 */
 export function spawnEnemyAt(state, type, d = 0, opts = {}) {
-    spawnEnemy(state, { enemy: type, elite: !!opts.elite }, opts.waveNo || 1, { pathIndex: opts.path || 0, d });
+    // 살아남기: opts.x·z가 있으면 그 자리, 없으면 opts.cave 동굴에서
+    let at = { pathIndex: opts.path || 0, d };
+    if (state.survival) at = opts.x != null ? { x: opts.x, z: opts.z } : null;
+    spawnEnemy(state, { enemy: type, elite: !!opts.elite, cave: opts.cave }, opts.waveNo || 1, at);
     return state.enemies[state.enemies.length - 1];
 }
 
@@ -653,6 +723,12 @@ function updateEnemies(state, dt) {
                 const dmg = Math.max(3, e.atk);
                 hurtUnit(state, blocker, dmg);
             }
+        } else if (state.survival) {
+            let sp = e.speed * (1 - e.slow);
+            if (e.enraged) sp *= def.enrage.speed;
+            if (e.burrowT > 0) sp *= def.burrow.speed;
+            updateSurvivalEnemy(state, e, sp, dt, survivalHooks(state));
+            if (def.boss && units) stomp(state, e, dt);
         } else {
             let sp = e.speed * (1 - e.slow);
             if (e.enraged) sp *= def.enrage.speed;
@@ -693,6 +769,20 @@ function updateEnemies(state, dt) {
     }
 }
 
+const _hooks = new WeakMap();
+/** 살아남기 모듈이 건물에 피해를 줄 때 쓰는 함수들 (state마다 한 번 만든다) */
+function survivalHooks(state) {
+    let h = _hooks.get(state);
+    if (!h) {
+        h = {
+            damageTower: (t, amount) => damageTower(state, t, amount),
+            damageBase: (amount) => damageBase(state, amount)
+        };
+        _hooks.set(state, h);
+    }
+    return h;
+}
+
 /** 특수 능력: 잠복·도약·분노·기절 파동·소환·보호막·장막 */
 function abilities(state, e, dt) {
     const def = e.def;
@@ -713,12 +803,15 @@ function abilities(state, e, dt) {
         e.blinkCd -= dt;
         if (e.blinkCd <= 0) {
             e.blinkCd = def.blink.every;
-            const len = state.paths[e.pathIndex].length;
             const x0 = e.x;
             const z0 = e.z;
-            // 서 있는 성문은 넘지 못한다
-            e.d = Math.min(len - 0.4, gateLimit(state, e), e.d + def.blink.dist);
-            placeEnemy(state, e);
+            if (state.survival) blinkAlong(state, e, def.blink.dist);
+            else {
+                const len = state.paths[e.pathIndex].length;
+                // 서 있는 성문은 넘지 못한다
+                e.d = Math.min(len - 0.4, gateLimit(state, e), e.d + def.blink.dist);
+                placeEnemy(state, e);
+            }
             e.blockedBy = null;
             emit(state, { type: 'blink', id: e.id, boss: !!def.boss, x0, z0, x: e.x, z: e.z });
         }
@@ -740,6 +833,7 @@ function abilities(state, e, dt) {
                     enemy: def.summon.enemy,
                     pathIndex: e.pathIndex,
                     d: e.d - 0.5 - i * 0.35,
+                    ...nearby(state, e, i),
                     waveNo: e.waveNo
                 });
             }
@@ -762,6 +856,15 @@ function abilities(state, e, dt) {
             emit(state, { type: 'ward', id: e.id, x: e.x, z: e.z, time: def.ward.time });
         }
     }
+}
+
+/** 살아남기: 분열·소환된 적이 생길 자리 (부모 둘레, 걸을 수 있는 곳) */
+function nearby(state, e, i) {
+    if (!state.survival) return {};
+    const a = e.id * 1.7 + i * 2.1;
+    const x = e.x + Math.cos(a) * 0.35;
+    const z = e.z + Math.sin(a) * 0.35;
+    return state.survival.nav.walkable(x, z) ? { x, z } : { x: e.x, z: e.z };
 }
 
 /** 보스는 붙잡히지 않고, 걸으면서 주변 유닛을 짓밟는다 */
@@ -889,6 +992,10 @@ function onDeath(state, e, opts) {
             const r2 = def.deathBlast.radius ** 2;
             for (const t of state.towers.slice())
                 if ((t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= r2) damageTower(state, t, 20 * atkScale(e.waveNo));
+            // 본진 곁에서 터지면 본진도 상한다
+            const b = state.survival?.base;
+            if (b && Math.hypot(b.x - e.x, b.z - e.z) <= def.deathBlast.radius + b.r)
+                damageBase(state, 20 * atkScale(e.waveNo));
             // 성문 곁에서 터지면 문도 크게 상한다
             for (const g of state.gates)
                 if ((g.x - e.x) ** 2 + (g.z - e.z) ** 2 <= r2 * 1.5) damageGate(state, g, 60 * atkScale(e.waveNo));
@@ -901,6 +1008,7 @@ function onDeath(state, e, opts) {
                 enemy: def.split.into,
                 pathIndex: e.pathIndex,
                 d: e.d - i * 0.3,
+                ...nearby(state, e, i),
                 waveNo: e.waveNo
             });
         }
@@ -1025,9 +1133,16 @@ function updateTowers(state, dt) {
                 p.T = Math.max(0.55, dist / def.projectileSpeed + 0.35);
                 const halted = target.stunT > 0 || target.gateId != null || target.blockedBy != null;
                 const lead = halted ? 0 : target.speed * (1 - target.slow) * p.T;
-                samplePath(state.paths[target.pathIndex], target.d + lead, _p);
-                p.tx = _p.x;
-                p.tz = _p.z;
+                if (state.survival) {
+                    // 길이 없으니 지금 걷는 방향으로 앞을 겨눈다 (건물을 치는 중이면 제자리)
+                    const k = target.atkTargetId != null ? 0 : lead;
+                    p.tx = target.x + target.dirX * k;
+                    p.tz = target.z + target.dirZ * k;
+                } else {
+                    samplePath(state.paths[target.pathIndex], target.d + lead, _p);
+                    p.tx = _p.x;
+                    p.tz = _p.z;
+                }
                 p.targetId = null;
             } else {
                 p.T = Math.hypot(target.x - tower.x, target.z - tower.z) / p.speed;
@@ -1268,13 +1383,16 @@ export function step(state, dt = TICK) {
     if (state.status !== 'playing') return;
     state.time += dt;
     for (const k in state.skills) state.skills[k].cd = Math.max(0, state.skills[k].cd - dt);
-    if (state.survival) updateNight(state, dt);
-    else if (state.nextWaveIn != null) {
+    if (state.survival) {
+        updateNight(state, dt);
+        if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+    } else if (state.nextWaveIn != null) {
         state.nextWaveIn -= dt;
         if (state.nextWaveIn <= 0) callWave(state);
     }
     updateSpawners(state);
     updateEnemies(state, dt);
+    if (state.survival) separateEnemies(state, dt);
     updateUnits(state, dt);
     updateTowers(state, dt);
     updateProjectiles(state, dt);
@@ -1298,10 +1416,9 @@ export function step(state, dt = TICK) {
 
 // ---------- 살아남기: 밤 시계 ----------
 
-/** 첫 웨이브를 부르면 밤 시계가 간다. 웨이브는 시각(at)에 저절로 오고, 시계가 동틀 시각에 닿으면 승리 */
+/** 판이 시작되면 밤 시계가 간다. 웨이브는 시각(at)에 저절로 오고, 시계가 동틀 시각에 닿으면 승리 */
 function updateNight(state, dt) {
     const sv = state.survival;
-    if (state.waveIndex === 0) return;
     sv.clock += dt;
     const next = state.waves[state.waveIndex];
     if (next && sv.clock >= next.at) callWave(state, true);

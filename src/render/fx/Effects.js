@@ -793,6 +793,24 @@ export class Effects {
     // ---------- 공성전 ----------
     /** 적이 타워에 던지는 공격: 날아가는 불씨와 도착 시 파편 */
     on_enemyShot(ev) {
+        // 살아남기: 붙어서 치는 근접 공격은 던지지 않고 맞닿은 자리에서 불똥·돌가루가 튄다
+        if (ev.melee) {
+            const dx = ev.tx - ev.x;
+            const dz = ev.tz - ev.z;
+            const l = Math.hypot(dx, dz) || 1;
+            const k = Math.min(0.45, l);
+            const at = this.groundPoint(ev.x + (dx / l) * k, ev.z + (dz / l) * k, ev.boss ? 1.1 : 0.55);
+            this.burst(this.add, at, ev.boss ? 16 : 5, { color: COL.ember, size: 0.1, speed: 2.2, life: 0.3, grav: 6 });
+            this.burst(this.smoke, at, ev.boss ? 5 : 1, {
+                color: [0.45, 0.4, 0.38],
+                size: 0.25,
+                size1: 0.6,
+                speed: 0.7,
+                life: 0.6,
+                alpha: 0.5
+            });
+            return;
+        }
         const from = this.groundPoint(ev.x, ev.z, ev.boss ? 1.6 : 0.7);
         const to = this.entities.towerTop(ev.towerId, new THREE.Vector3()) || this.groundPoint(ev.tx, ev.tz, 1);
         to.y -= 0.3;
@@ -823,6 +841,12 @@ export class Effects {
             });
             if (ev.boss) this.rig.shake(0.08);
         });
+    }
+
+    /** 살아남기: 본진 붕괴 */
+    on_baseDestroyed(ev) {
+        this.on_towerDestroyed(ev);
+        this.flash(this.groundPoint(ev.x, ev.z, 1.5), 0xffb45a, 60, 3, 18);
     }
 
     on_towerDestroyed(ev) {

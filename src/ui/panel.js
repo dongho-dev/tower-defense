@@ -14,11 +14,18 @@ import {
     repairCost,
     gateRepairCost,
     gateReinforceOption,
+    baseRepairCost,
     HERO
 } from '../core/game.js';
 import { enemyTraits } from '../core/data/enemies.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
+
+/** 살아남기: 소켓이 광맥이면 수입 배율과 캐는 간격 */
+function veinInfo(state, socketId) {
+    const v = state.survival && state.sockets[socketId].vein;
+    return v ? { __vein: v, __pay: state.survival.payEvery } : {};
+}
 
 const fmt = (v) => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
 
@@ -40,8 +47,12 @@ function statsRow(s, dps, prev) {
         </div>`;
     }
     if (def.attack === 'none') {
+        // 살아남기: 광맥 수입 배율을 곱해 몇 초마다 캐는지 보여 준다
+        const k = s.__vein ? (s.__vein.yield ?? 1) : 1;
+        const inc = Math.round(s.income * k);
+        const was = prev?.income != null ? Math.round(prev.income * k) : null;
         return `<div class="ip-stats">
-            <div><b>${s.income}${diff(s.income, prev?.income)}</b><span>웨이브당 골드</span></div>
+            <div><b>${inc}${diff(inc, was)}</b><span>${s.__pay ? `${s.__pay}초마다 골드` : '웨이브당 골드'}</span></div>
             <div><b>+${Math.round((s.__resValue || def.resonance.value) * 100)}%</b><span>풍요 공명</span></div>
         </div>`;
     }
@@ -164,6 +175,7 @@ export class Inspector {
         const cur = towerStats(state, tower);
         cur.__def = def;
         cur.__resValue = tower.branch ? def.branches[tower.branch].resonanceValue : null;
+        Object.assign(cur, veinInfo(state, tower.socketId));
         const curDps = estimateDps(state, tower);
         let shown = cur;
         let shownDps = curDps;
@@ -181,6 +193,7 @@ export class Inspector {
             shown = p.stats;
             shown.__def = def;
             shown.__resValue = h.kind === 'branch' ? def.branches[h.key].resonanceValue : cur.__resValue;
+            Object.assign(shown, veinInfo(state, tower.socketId));
             shownDps = p.dps;
             prev = {
                 dps: curDps,
@@ -316,7 +329,7 @@ export class Inspector {
     buildHtml(socket, type, state) {
         const def = TOWERS[type];
         const p = previewStats(state, { type, tier: 1, branch: null, mastery: 0, socketId: socket.id }, {});
-        const s = { ...p.stats, __def: def };
+        const s = { ...p.stats, __def: def, ...veinInfo(state, socket.id) };
         const dps = p.dps;
         const info = resonancePreview(state, socket.id, type);
         const cost = def.tiers[0].cost;
@@ -413,6 +426,42 @@ export class Inspector {
             </div>`;
     }
 
+    // ---------- 본진 (살아남기) ----------
+    showBase(state) {
+        this.mode = 'base';
+        this.target = state.survival.base;
+        this.key = '';
+        this.render(state);
+        this.show();
+    }
+
+    baseHtml(state) {
+        const r = Math.max(0, state.lives / state.maxLives);
+        const rc = baseRepairCost(state);
+        const at = state.enemies.filter((e) => e.atkTargetId === 'base').length;
+        const mines = state.towers.filter((t) => t.type === 'mine').length;
+        const veins = state.sockets.filter((s) => s.vein).length;
+        const tags = [];
+        if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
+        tags.push(`<span class="tag good">광산 ${mines}/${veins}</span>`);
+        tags.push('<span class="tag">무너지면 패배</span>');
+        return `<div class="ip-head" style="--tint:#ffd27a">
+                <i class="ico">${ICONS.shield}</i>
+                <div><div class="name">본진 · 마지막 빛</div><div class="sub">산 중턱 수정 성소</div></div>
+            </div>
+            <div class="ip-main">
+                <div class="ip-desc">적은 가는 길에 닿는 건물부터 부수고 마지막에 이 수정을 노린다. 저절로 고쳐지지 않는다.</div>
+                <div class="ip-thp ${r < 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${Math.ceil(state.lives)} / ${state.maxLives}</b></div>
+                <div class="tag-row">${tags.join('')}</div>
+            </div>
+            <div class="ip-actions">
+                <div class="ip-row">
+                    <button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="수리 (G)">${ICONS.repair}<span>${rc ? `수리 ${rc}` : '온전함'}</span></button>
+                </div>
+                <div class="ip-foot">수리비는 잃은 체력에 비례 (체력 1당 0.4 골드)</div>
+            </div>`;
+    }
+
     // ---------- 영웅 ----------
     showHero(u, state) {
         this.mode = 'hero';
@@ -491,6 +540,13 @@ export class Inspector {
                 Math.floor(state.gold / 5),
                 state.enemies.filter((e) => e.gateId === g.id).length
             ].join('|');
+        } else if (this.mode === 'base') {
+            key = [
+                Math.ceil(state.lives / 5),
+                Math.floor(state.gold / 5),
+                state.enemies.filter((e) => e.atkTargetId === 'base').length,
+                state.towers.length
+            ].join('|');
         } else if (this.mode === 'hero') {
             const u = this.target;
             key = [
@@ -521,6 +577,10 @@ export class Inspector {
             if (rp) rp.onclick = () => this.actions.gateRepair(g.id);
             const rf = this.el.querySelector('[data-reinforce]');
             if (rf) rf.onclick = () => this.actions.gateReinforce(g.id);
+        } else if (this.mode === 'base') {
+            this.el.innerHTML = this.baseHtml(state);
+            const rp = this.el.querySelector('[data-repair]');
+            if (rp) rp.onclick = () => this.actions.baseRepair();
         } else if (this.mode === 'enemy') this.el.innerHTML = this.enemyHtml(this.target);
         else if (this.mode === 'hero') {
             this.el.innerHTML = this.heroHtml(this.target);
@@ -535,6 +595,7 @@ export class Inspector {
         if (this.mode === 'enemy' && !this.target.alive) return this.actions.closed();
         if (this.mode === 'hero' && state.hero !== this.target) return this.actions.closed();
         if (this.mode === 'gate' && !state.gates.includes(this.target)) return this.actions.closed();
+        if (this.mode === 'base' && state.survival?.base !== this.target) return this.actions.closed();
         this.render(state);
     }
 }

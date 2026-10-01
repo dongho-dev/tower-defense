@@ -1,6 +1,7 @@
 // 건설 메뉴: 빈 소켓 둘레에 타워 종류 버튼을 펼친다. 정보와 조작은 하단 패널(panel.js)이 맡는다.
 import { ICONS, TOWER_TINT } from './icons.js';
-import { TOWERS, TOWER_ORDER } from '../core/data/towers.js';
+import { TOWERS } from '../core/data/towers.js';
+import { buildableTypes } from '../core/game.js';
 
 const RADIUS = 84;
 
@@ -36,8 +37,10 @@ export class Radial {
         this.mode = 'build';
         this.target = socket;
         this.el.innerHTML = '<div class="hub"></div>';
-        const n = TOWER_ORDER.length;
-        TOWER_ORDER.forEach((type, i) => {
+        // 살아남기: 광맥에는 광산만, 그 밖에는 광산을 뺀 나머지
+        const types = buildableTypes(state, socket);
+        const n = types.length;
+        types.forEach((type, i) => {
             const def = TOWERS[type];
             const cost = def.tiers[0].cost;
             const [x, y] = polar(-90 + (360 / n) * i);
@@ -59,7 +62,7 @@ export class Radial {
         });
         this.refreshAfford = () => {
             [...this.el.querySelectorAll('.radial-btn')].forEach((b, i) => {
-                b.classList.toggle('disabled', state.gold < TOWERS[TOWER_ORDER[i]].tiers[0].cost);
+                b.classList.toggle('disabled', state.gold < TOWERS[types[i]].tiers[0].cost);
             });
         };
         requestAnimationFrame(() => this.el.classList.add('open'));

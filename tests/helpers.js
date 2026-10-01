@@ -11,6 +11,8 @@ import {
     repairCost,
     repairGate,
     gateRepairCost,
+    repairBase,
+    baseRepairCost,
     TICK
 } from '../src/core/game.js';
 import { TOWERS, MAX_TIER } from '../src/core/data/towers.js';
@@ -31,7 +33,8 @@ export function playWithPlan(mapId, plan, opts = {}) {
     const branchOf = new Map(plan.map(([sid, , br]) => [sid, br || 'a']));
     let think = 0;
     const log = [];
-    callWave(state);
+    // 살아남기는 밤 시계가 저절로 흐른다 (첫 습격 전 짓는 시간을 그대로 쓴다)
+    if (!state.survival) callWave(state);
     while (state.status === 'playing' && state.time < (opts.maxTime ?? 3000)) {
         step(state, TICK);
         const evs = drainEvents(state);
@@ -46,11 +49,22 @@ export function playWithPlan(mapId, plan, opts = {}) {
             // 성문: 절반 아래면 수리, 무너졌으면 재건
             const gate = state.gates.find((g) => (g.broken || g.hp < g.maxHp * 0.5) && gateRepairCost(g) <= state.gold);
             if (gate && !opts.noGateRepair) repairGate(state, gate.id);
+            // 살아남기: 본진이 절반 아래면 수리
+            if (state.survival && !opts.noBaseRepair && state.lives < state.maxLives * 0.5) {
+                if (baseRepairCost(state) <= state.gold) repairBase(state);
+            }
         }
         // 1) 계획상 다음 소켓에 건설
         const next = plan.find(([sid]) => state.sockets[sid].towerId == null);
         const builtCount = state.towers.length;
-        if (next && (builtCount < (opts.minTowers ?? 4) || !opts.upgradeFirst)) {
+        // tierGate: 지은 타워(광산 제외)가 모두 이 레벨에 닿아야 다음 것을 짓는다 (넓게만 짓지 않는 플레이)
+        const gated =
+            opts.tierGate && state.towers.some((t) => t.type !== 'mine' && !t.branch && t.tier < opts.tierGate);
+        if (
+            next &&
+            !(gated && TOWERS[next[1]].attack !== 'none') &&
+            (builtCount < (opts.minTowers ?? 4) || !opts.upgradeFirst)
+        ) {
             const cost = TOWERS[next[1]].tiers[0].cost;
             if (state.gold >= cost) {
                 buildTower(state, next[0], next[1]);
@@ -87,7 +101,10 @@ export function playWithPlan(mapId, plan, opts = {}) {
                 }
                 if (bestN >= 5 || lead.def.boss) castSkill(state, 'meteor', (bestE || lead).x, (bestE || lead).z);
             }
-            if (state.skills.freeze.cd <= 0 && lead.d > state.paths[0].length * 0.8) castSkill(state, 'freeze');
+            const deep = state.survival
+                ? state.enemies.some((e) => e.atkTargetId != null)
+                : lead.d > state.paths[0].length * 0.8;
+            if (state.skills.freeze.cd <= 0 && deep) castSkill(state, 'freeze');
         }
         if (opts.callEarly && state.nextWaveIn != null && state.nextWaveIn < WAVE_EARLY) callWave(state);
         if (state.waveIndex !== log.length)
@@ -116,22 +133,27 @@ export const STANDARD_PLAN = [
 ];
 
 /**
- * 기나긴 밤(살아남기): 골목 사이 보루마다 소켓 5개 [안쪽, 가운데 둘, 바깥 둘], 보루 g의 첫 소켓 = g * 5.
- * 안쪽 고리 6곳으로 수정 둘레를 먼저 막고, 가운데 고리로 넓힌다.
+ * 눈마루 고개(살아남기): 소켓 0~6 본진 고원, 7~10 서쪽 고원, 11~14 동쪽 고원, 15 정상 샘터,
+ * 16~19 남쪽 기슭, 20~22 서남 기슭, 23~25 동남 기슭, 26~32 광맥(본진·서·동·정상·남·서남·동남).
+ * 본진 광맥을 먼저 캐고, 남쪽 협곡 어귀를 막은 뒤 좌우 고원으로 넓히며 광맥을 차지한다.
  */
-export const SURVIVAL_PLAN = [
-    [0, 'ranger', 'b'],
-    [10, 'ember', 'a'],
-    [20, 'storm', 'a'],
-    [5, 'frost', 'a'],
-    [15, 'ranger', 'a'],
-    [25, 'ember', 'a'],
-    [2, 'storm', 'b'],
-    [12, 'ranger', 'b'],
-    [22, 'ember', 'b'],
-    [7, 'frost', 'b'],
-    [17, 'storm', 'a'],
-    [27, 'ranger', 'a']
+export const MOUNTAIN_PLAN = [
+    [26, 'mine', 'a'],
+    [4, 'ranger', 'b'],
+    [5, 'ember', 'a'],
+    [0, 'frost', 'a'],
+    [7, 'storm', 'a'],
+    [27, 'mine', 'a'],
+    [8, 'ranger', 'a'],
+    [11, 'storm', 'a'],
+    [28, 'mine', 'a'],
+    [12, 'ember', 'a'],
+    [1, 'storm', 'b'],
+    [29, 'mine', 'a'],
+    [2, 'ranger', 'b'],
+    [3, 'ember', 'b'],
+    [9, 'frost', 'b'],
+    [13, 'frost', 'b']
 ];
 
 /** 맵에 상관없이: 경로 커버리지가 높은 소켓부터 종류를 섞어 배치하는 계획 */

@@ -198,33 +198,34 @@ export const THEMES = {
         banner: '#a82a2c',
         road: '#f2dfc4'
     },
-    // 기나긴 밤(살아남기): 해가 막 진 푸른 황혼에서 시작해 밤이 깊어진다 (NIGHT_CYCLE이 시간에 따라 바꾼다)
-    nightfall: {
-        sky: { zenith: '#10132e', upper: '#2e2c62', horizon: '#c8706a', below: '#4c3a66', sunGlow: '#ff9a6a' },
-        cloud: { lit: '#e8b8b0', mid: '#a87a96', shadow: '#5a4a78', deep: '#2c2a52', horizon: '#b06a78' },
-        fog: '#6a5a8a',
-        sun: { color: '#ffa070', intensity: 2.5 },
-        hemi: { sky: '#8c8ce8', ground: '#4a3a3a', intensity: 0.85 },
-        rim: { color: '#7c8cff', intensity: 0.95 },
-        env: 0.5,
-        ground: { grassA: '#4a6c36', grassB: '#6a8442', dry: '#8a7c50', dirt: '#7c5e42', rim: '#857c70' },
-        cliff: { soil: '#3a2e2a', bands: ['#8a7e74', '#6c625c', '#968a7e', '#5a524e', '#7e7468'], deep: '#221e22' },
+    // 눈마루 고개(살아남기): 해 질 녘 높은 산. 회갈색 바위 지층, 눈 덮인 봉우리, 침엽수
+    alpine: {
+        sky: { zenith: '#121a3a', upper: '#36457e', horizon: '#e9967a', below: '#5a4a72', sunGlow: '#ffb27a' },
+        cloud: { lit: '#ffe0c8', mid: '#c49aa8', shadow: '#6a6a92', deep: '#33385e', horizon: '#c88a88' },
+        fog: '#7e7a9e',
+        sun: { color: '#ffb488', intensity: 2.7 },
+        hemi: { sky: '#a0b0f0', ground: '#4a4040', intensity: 0.85 },
+        rim: { color: '#9ab0ff', intensity: 0.95 },
+        env: 0.55,
+        ground: { grassA: '#4c6e34', grassB: '#71864a', dry: '#8e8456', dirt: '#7e6248', rim: '#7c746c' },
+        cliff: { soil: '#3e3430', bands: ['#8c8278', '#6e665e', '#9a9084', '#5e5852', '#80776c'], deep: '#26222a' },
+        snow: '#eef2fa',
         veg: {
-            broad: ['#3f6a3a', '#4a7040', '#6a7a3a', '#8a5a3a', '#5a6a8a'],
-            pine: ['#2a4a3a', '#30503e', '#28403a'],
-            broadRatio: 0.45,
-            trees: 110,
-            grass: ['#3e6030', '#4a6a34', '#56703a', '#46623a'],
-            grassDensity: 0.85,
-            flowers: ['#c8d8ff', '#a890ff', '#fff0c0'],
+            broad: ['#4a6e3a', '#5a7a3e', '#8a7a3a', '#9a5a32'],
+            pine: ['#2a4a38', '#30563e', '#264436', '#365c40'],
+            broadRatio: 0.22,
+            trees: 170,
+            grass: ['#46663a', '#557040', '#62783e', '#4a6438'],
+            grassDensity: 0.8,
+            flowers: ['#f4f0ff', '#b8a8ff', '#ffe08a'],
             snow: false,
             dead: false,
-            crystals: { color: '#a8c4ff', emissive: '#4a6aff', count: 14, intensity: 1.3 },
-            rock: '#8a8a92'
+            crystals: null,
+            rock: '#8e8a88'
         },
         wall: '#a89c8c',
-        roof: '#2a3a6a',
-        banner: '#5a3a8a',
+        roof: '#2e3e66',
+        banner: '#6a3a2a',
         road: '#d8d0c8'
     }
 };

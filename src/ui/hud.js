@@ -4,7 +4,7 @@ import { SKILLS, canCallWave, EARLY_BONUS_PER_SEC, WAVE_GAP, HERO } from '../cor
 import { ENEMIES, ELITE, hpScale, enemyTraits } from '../core/data/enemies.js';
 import { waveSummary } from '../core/data/waves.js';
 import { DIFFICULTY } from '../core/data/difficulty.js';
-import { nightPhase, formatClock, directionLabel } from '../core/survival.js';
+import { nightPhase, formatClock, caveLabel } from '../core/survival.js';
 
 const h = (html) => {
     const t = document.createElement('template');
@@ -19,7 +19,7 @@ export class Hud {
         root.appendChild(this.el);
         this.el.innerHTML = `
         <div class="resources">
-            <div class="res life panel ornate" title="마지막 빛의 내구도"><i class="ico">${ICONS.life}</i><div><div class="val num" data-life>20</div><div class="lbl">생명</div></div><span class="delta" data-life-delta></span></div>
+            <div class="res life panel ornate" title="마지막 빛의 내구도"><i class="ico">${ICONS.life}</i><div><div class="val num" data-life>20</div><div class="lbl" data-life-lbl>생명</div></div><span class="delta" data-life-delta></span></div>
             <div class="res gold panel" title="골드"><i class="ico">${ICONS.gold}</i><div><div class="val num" data-gold>0</div><div class="lbl">골드</div></div><span class="delta" data-gold-delta></span></div>
             <div class="res wave panel" title="웨이브"><i class="ico">${ICONS.wave}</i><div><div class="val num" data-wave>0/20</div><div class="lbl" data-wave-lbl>웨이브</div></div><div class="wave-prog"><i data-wave-prog></i></div></div>
             <div class="res dawn panel" data-dawn-box title="동이 틀 때까지 남은 시간 · 버티면 승리"><i class="ico">${ICONS.moon}</i><div><div class="val num" data-dawn>10:00</div><div class="lbl" data-dawn-lbl>동틀 때까지</div></div><div class="dawn-prog"><i data-dawn-prog></i></div></div>
@@ -157,6 +157,8 @@ export class Hud {
         if (state.siege) tags.push(`<span class="t siege">${ICONS.shield}공성전</span>`);
         if (state.survival) tags.push(`<span class="t survival">${ICONS.moon}살아남기</span>`);
         this.$.dawnBox.style.display = state.survival ? '' : 'none';
+        // 살아남기의 생명은 본진(수정) 체력
+        this.$.lifeBox.querySelector('[data-life-lbl]').textContent = state.survival ? '본진' : '생명';
         this.$.modeTag.innerHTML = tags.join('');
         this.$.hero.style.display = state.hero ? '' : 'none';
         this.el.classList.toggle('siege', !!state.siege);
@@ -184,11 +186,7 @@ export class Hud {
             this.$.dawn.textContent = formatClock(ph.remain);
             this.$.dawnBox.classList.toggle('near', sec <= 60 && !state.survival.dawned);
             this.$.dawnBox.classList.toggle('done', state.survival.dawned);
-            this.$.dawnLbl.textContent = state.survival.dawned
-                ? '동이 텄다'
-                : state.waveIndex === 0
-                  ? '밤 시계 대기'
-                  : '동틀 때까지';
+            this.$.dawnLbl.textContent = state.survival.dawned ? '동이 텄다' : '동틀 때까지';
         });
         this.set('dawnProg', Math.round(ph.f * 200), () => (this.$.dawnProg.style.width = ph.f * 100 + '%'));
     }
@@ -245,9 +243,10 @@ export class Hud {
             if (Math.abs(state.gold - this.goldShown) < 1) this.goldShown = state.gold;
             this.$.gold.textContent = this.goldShown;
         }
-        this.set('life', state.lives, (v) => {
+        // 살아남기의 생명은 본진(수정) 체력: 정수로 보이고, 4분의 1 아래면 경고
+        this.set('life', Math.ceil(state.lives), (v) => {
             this.$.life.textContent = v;
-            this.$.lifeBox.classList.toggle('low', v <= 5);
+            this.$.lifeBox.classList.toggle('low', state.survival ? v <= state.maxLives * 0.25 : v <= 5);
         });
         this.set('wave', state.waveIndex + (state.endless ? 'e' : ''), () => {
             const v = state.waveIndex;
@@ -299,9 +298,9 @@ export class Hud {
         const wc = this.$.waveCall;
         wc.disabled = !can;
         let p = 1;
-        // 살아남기: 몰려오는 방향을 함께 알린다
-        const dirOf = (w) => (state.survival && w ? directionLabel(w) : null);
-        if (state.waveIndex === 0) {
+        // 살아남기: 적이 나올 동굴을 함께 알린다
+        const dirOf = (w) => (state.survival && w ? caveLabel(state, w) : null);
+        if (state.waveIndex === 0 && !state.survival) {
             this.set(
                 'wcTitle',
                 'first',
@@ -327,7 +326,9 @@ export class Hud {
             this.set(
                 'wcTitle',
                 'next' + state.waveIndex,
-                () => (this.$.wcTitle.textContent = `웨이브 ${state.waveIndex + 1}`)
+                () =>
+                    (this.$.wcTitle.textContent =
+                        state.survival && state.waveIndex === 0 ? '첫 습격' : `웨이브 ${state.waveIndex + 1}`)
             );
             this.set('wcSub', 'cd' + Math.ceil(state.nextWaveIn) + '|' + bonus, () => {
                 this.$.wcSub.innerHTML = dir
@@ -446,7 +447,7 @@ export class Hud {
                     ev.boss
                         ? '전장의 주인이 깨어났다'
                         : state.survival
-                          ? `${directionLabel(state.waves[ev.wave - 1])}에서 몰려온다` +
+                          ? `${caveLabel(state, state.waves[ev.wave - 1])}에서 몰려온다` +
                             (ev.wave === state.waves.length ? ' · 마지막 대공세' : '')
                           : ev.wave === state.waves.length && !state.endless
                             ? '최후의 웨이브'
@@ -455,9 +456,23 @@ export class Hud {
                 );
                 if (ev.hint) this.showHint(ev.hint);
             } else if (ev.type === 'dawn') {
-                this.showBanner('동이 텄다', '기나긴 밤을 버텨 냈다 · 남은 적이 햇빛에 타 사라진다');
+                this.showBanner('동이 텄다', '산의 밤을 버텨 냈다 · 남은 적이 햇빛에 타 사라진다');
             } else if (ev.type === 'towerDestroyed') {
-                this.toast('타워가 무너졌습니다!', true);
+                this.toast(ev.tower === 'mine' ? '광산이 무너졌습니다!' : '타워가 무너졌습니다!', true);
+            } else if (ev.type === 'enemyShot' && ev.base) {
+                // 본진이 맞으면 생명 칸이 흔들린다 (자주 오니 1초에 한 번만)
+                if (state.time - (this.baseHitShown || -9) > 1) {
+                    this.baseHitShown = state.time;
+                    this.$.lifeBox.classList.remove('hit');
+                    void this.$.lifeBox.offsetWidth;
+                    this.$.lifeBox.classList.add('hit');
+                    if (state.time - (this.baseToast || -99) > 12) {
+                        this.baseToast = state.time;
+                        this.toast('본진이 공격받고 있습니다!', true);
+                    }
+                }
+            } else if (ev.type === 'repair' && ev.base) {
+                this.toast('본진을 수리했습니다');
             } else if (ev.type === 'gateBroken') {
                 this.showBanner(`${ev.name} 붕괴`, '길이 열렸다 · 적이 수정으로 몰려온다', true);
                 this.$.vig.classList.add('on');

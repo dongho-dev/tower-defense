@@ -2,7 +2,7 @@
 // node tests/balance-probe.mjs 로 시나리오별 결과를 보고 의도한 변화인지 판단한다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { playWithPlan, STANDARD_PLAN, autoPlan, SURVIVAL_PLAN } from './helpers.js';
+import { playWithPlan, STANDARD_PLAN, autoPlan, MOUNTAIN_PLAN } from './helpers.js';
 
 test('아무것도 짓지 않으면 초반에 패배한다', () => {
     const { state } = playWithPlan('dusk', [], { noUpgrades: true, skills: false });
@@ -61,16 +61,33 @@ test('성채 방어: 무대응은 초반 패배, 성문 곁 8타워는 승리', 
     assert.equal(state.status, 'won');
 });
 
-test('기나긴 밤(살아남기): 무대응은 1분 안에 패배, 보루 12타워는 동틀 때까지 버티고 6타워는 무너진다', () => {
-    const none = playWithPlan('longnight', [], { noUpgrades: true, skills: false }).state;
+// 눈마루 고개(살아남기): 광맥 소켓 26~32 (helpers.js MOUNTAIN_PLAN 참고)
+const MOUNTAIN_TURTLE = [
+    [26, 'mine', 'a'],
+    [4, 'ranger', 'b'],
+    [5, 'ember', 'a'],
+    [0, 'frost', 'a'],
+    [1, 'storm', 'a'],
+    [2, 'ranger', 'b'],
+    [3, 'storm', 'b'],
+    [6, 'ember', 'b']
+];
+
+test('눈마루 고개(살아남기): 무대응은 2분 안에 패배, 넓혀 가며 키우면 승리, 약한 구성은 무너진다', () => {
+    const none = playWithPlan('mountain', [], { noUpgrades: true, skills: false }).state;
     assert.equal(none.status, 'lost');
-    assert.ok(none.survival.clock < 90, `${Math.round(none.survival.clock)}초 버팀`);
-    const good = playWithPlan('longnight', SURVIVAL_PLAN).state;
+    assert.ok(none.survival.clock < 150, `${Math.round(none.survival.clock)}초 버팀`);
+    // 적당한 플레이: 광맥을 차지하며 넓히고, 지은 타워를 2레벨로 키운 뒤 다음 것을 짓는다
+    const good = playWithPlan('mountain', MOUNTAIN_PLAN, { tierGate: 2 }).state;
     assert.equal(good.status, 'won');
-    assert.ok(good.lives >= 10, `생명 ${good.lives}`);
-    const weak = playWithPlan('longnight', SURVIVAL_PLAN.slice(0, 6)).state;
+    assert.ok(good.lives >= good.maxLives * 0.5, `본진 ${Math.round(good.lives)}`);
+    assert.ok(good.stats.mined > 3000, `캔 골드 ${good.stats.mined}`);
+    // 광산 없이 6타워(업그레이드 없음)는 중반을 못 넘긴다
+    const weak = playWithPlan('mountain', MOUNTAIN_PLAN.filter(([, t]) => t !== 'mine').slice(0, 6), {
+        noUpgrades: true
+    }).state;
     assert.equal(weak.status, 'lost');
-    // 업그레이드 없이 넓게만 지으면 중반을 못 넘긴다
-    const flat = playWithPlan('longnight', SURVIVAL_PLAN, { noUpgrades: true }).state;
-    assert.equal(flat.status, 'lost');
+    // 광맥을 넓히지 않고 본진에서만 버티면 수입이 모자라 무너진다
+    const turtle = playWithPlan('mountain', MOUNTAIN_TURTLE, { tierGate: 2 }).state;
+    assert.equal(turtle.status, 'lost');
 });

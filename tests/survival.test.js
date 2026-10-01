@@ -1,20 +1,33 @@
-// 살아남기(기나긴 밤): 사방에서 오는 적, 밤 시계, 동틀 녘 승리, 레인·소켓 배치
+// 살아남기(눈마루 고개): 산 지형 길 찾기, 동굴 출현, 가장 가까운 건물 공격, 본진·광산·수리, 밤 시계
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     createGame,
     step,
     callWave,
-    canCallWave,
     continueEndless,
     drainEvents,
     spawnEnemyAt,
+    buildTower,
+    sellTower,
+    repairBase,
+    baseRepairCost,
+    buildableTypes,
+    towerStats,
     TICK
 } from '../src/core/game.js';
-import { buildPath } from '../src/core/path.js';
 import { MAPS } from '../src/core/data/maps.js';
 import { WAVES } from '../src/core/data/waves.js';
-import { pickLane, laneAngle, nightPhase, directionLabel, formatClock } from '../src/core/survival.js';
+import {
+    computeFlow,
+    flowDistance,
+    nightPhase,
+    caveLabel,
+    waveCaves,
+    formatClock,
+    TOWER_R
+} from '../src/core/survival.js';
+import { createLayout } from '../src/core/mountain.js';
 
 const run = (st, sec, onEvents) => {
     for (let t = 0; t < sec && st.status === 'playing'; t += TICK) {
@@ -24,180 +37,225 @@ const run = (st, sec, onEvents) => {
     }
 };
 
-/** 적을 모두 지워서 시간만 흐르게 한다 (승리 조건 확인용) */
+/** 웨이브 적은 지우고 시간만 흐르게 한다 (시계·수입·승리 조건 확인용) */
 function runClean(st, sec, onEvents) {
     for (let t = 0; t < sec && st.status === 'playing'; t += TICK) {
         step(st, TICK);
-        for (const e of st.enemies) e.alive = false;
         st.enemies = [];
+        st.spawners = [];
         const evs = drainEvents(st);
         if (onEvents) onEvents(evs);
     }
 }
 
-test('기나긴 밤: 공성전 전용 살아남기 맵, 영웅 없이 타워만', () => {
-    const m = MAPS.longnight;
+const fresh = () => {
+    const st = createGame('mountain');
+    st.waves = [];
+    return st;
+};
+
+test('눈마루 고개: 공성전 전용 살아남기 맵, 영웅 없음, 본진 체력이 생명', () => {
+    const m = MAPS.mountain;
     assert.equal(m.siegeOnly, true);
     assert.equal(m.genre, 'survival');
     assert.equal(MAPS.fortress.genre, 'defense');
-    const st = createGame('longnight');
+    assert.equal(MAPS.longnight, undefined);
+    const st = createGame('mountain');
     assert.equal(st.siege, true);
     assert.equal(st.hero, null);
     assert.ok(st.survival);
+    assert.equal(st.lives, m.lives);
     assert.equal(st.survival.dawn, 600);
-    // 성채 방어에는 그대로 영웅이 있다
-    assert.ok(createGame('fortress').hero);
+    // 난이도는 본진 체력 배율로만
+    assert.ok(createGame('mountain', { difficulty: 'hero' }).lives > 100);
+    assert.ok(createGame('mountain', { difficulty: 'easy' }).lives > st.lives);
+    // 다른 맵에는 살아남기 상태가 없다
     assert.equal(createGame('fortress').survival, null);
+    assert.equal(createGame('dusk').survival, null);
 });
 
-test('레인: 모든 레인이 섬 가장자리에서 출발해 수정에서 끝나고, 소켓을 밟지 않는다', () => {
-    const st = createGame('longnight');
-    assert.ok(st.paths.length >= 48);
-    for (const p of st.paths) {
-        const r = Math.hypot(p.xs[0] / st.map.island.rx, p.zs[0] / st.map.island.rz);
-        assert.ok(r > 0.85 && r < 0.98, `출발점이 가장자리가 아님: ${r.toFixed(2)}`);
-        assert.ok(Math.hypot(p.xs[p.count - 1], p.zs[p.count - 1]) < 0.01);
+test('산 배치: 소켓·동굴·본진은 걸을 수 있는 땅 위, 고원마다 높이가 다르다', () => {
+    const st = createGame('mountain');
+    const sv = st.survival;
+    for (const s of st.sockets) assert.ok(sv.nav.walkable(s.x, s.z), `소켓 ${s.id}`);
+    for (const c of sv.caves) assert.ok(sv.nav.walkable(c.x, c.z), c.id);
+    assert.ok(sv.nav.walkable(sv.base.x, sv.base.z));
+    const layout = createLayout(m());
+    const h = (id) => layout.byId[id].h;
+    assert.ok(h('base') > h('west') && h('west') > h('south') && h('south') > h('caveS'));
+    assert.ok(h('summit') > h('base'));
+    // 바위(고원 사이)는 걸을 수 없다
+    assert.equal(sv.nav.walkable(-5, 2), false);
+    function m() {
+        return MAPS.mountain.survival;
     }
-    for (const s of st.sockets) {
-        let best = Infinity;
-        for (const p of st.paths)
-            for (let i = 0; i < p.count - 10; i++) best = Math.min(best, Math.hypot(p.xs[i] - s.x, p.zs[i] - s.z));
-        assert.ok(best > 1.0, `소켓 ${s.id}이 레인과 너무 가깝다: ${best.toFixed(2)}`);
-    }
-    // 모든 소켓이 공명 연결을 하나 이상 갖는다
-    assert.ok(st.sockets.every((s) => s.links.length > 0));
 });
 
-test('적이 사방 가장자리에서 나온다 (전 방위 웨이브는 8방위를 고루 채운다)', () => {
-    const st = createGame('longnight');
-    const sectors = new Set();
-    for (let id = 1; id < 400; id++) {
-        const lane = pickLane(st, {}, id);
-        sectors.add(Math.floor(laneAngle(st, lane) / 45));
+test('길 찾기: 세 동굴 모두 본진까지 이어지고, 거리장은 건물이 바뀔 때만 다시 구한다', () => {
+    const st = fresh();
+    const sv = st.survival;
+    for (const c of sv.caves) {
+        const d = flowDistance(st, c.x, c.z);
+        assert.ok(Number.isFinite(d) && d < 60, `${c.id} → 본진 ${d}`);
     }
-    assert.equal(sectors.size, 8);
+    const builds = sv.flowBuilds;
+    step(st, TICK);
+    step(st, TICK);
+    assert.equal(sv.flowBuilds, builds, '건물 변화 없으면 다시 구하지 않음');
+    st.gold = 9999;
+    const r = buildTower(st, 20, 'ranger');
+    assert.ok(r.ok);
+    assert.equal(sv.flowDirty, true);
+    computeFlow(st);
+    // 서남 기슭에 타워가 생기면 서쪽 동굴에서 가장 가까운 건물은 그 타워
+    const cw = sv.caves.find((c) => c.id === 'caveW');
+    assert.ok(flowDistance(st, cw.x, cw.z) < 8);
+    sellTower(st, r.tower.id);
+    assert.equal(sv.flowDirty, true);
+});
 
-    // 실제 게임: 첫 다섯 웨이브의 스폰 위치가 가장자리이고 여러 방향에 걸친다
-    const spawns = [];
-    callWave(st);
-    runClean(st, 150, (evs) => {
-        for (const e of evs) if (e.type === 'spawn' && !e.minion) spawns.push(e);
+test('적은 동굴에서 나와 걸어서 가장 가까운 건물로 가서 부순다', () => {
+    const st = fresh();
+    st.gold = 9999;
+    const { tower } = buildTower(st, 20, 'ranger');
+    tower.stunT = 999; // 타워가 쏘지 못하게
+    const e = spawnEnemyAt(st, 'ironclad', 0, { cave: 'caveW', waveNo: 10 });
+    spawnEnemyAt(st, 'ironclad', 0, { cave: 'caveW', waveNo: 10 });
+    const cw = st.survival.caves.find((c) => c.id === 'caveW');
+    assert.ok(Math.hypot(e.x - cw.x, e.z - cw.z) < 1);
+    let shots = 0;
+    let destroyed = false;
+    run(st, 90, (evs) => {
+        for (const ev of evs) {
+            if (ev.type === 'enemyShot' && ev.towerId === tower.id) shots++;
+            if (ev.type === 'towerDestroyed' && ev.towerId === tower.id) destroyed = true;
+        }
+        // 이동 중에도 늘 걸을 수 있는 땅 위
+        if (e.alive) assert.ok(st.survival.nav.walkable(e.x, e.z), `${e.x},${e.z}`);
     });
-    assert.ok(spawns.length > 40);
-    const dirs = new Set();
-    for (const s of spawns) {
-        const r = Math.hypot(s.x / st.map.island.rx, s.z / st.map.island.rz);
-        assert.ok(r > 0.8, '가장자리가 아닌 곳에서 나왔다');
-        dirs.add(Math.floor(((Math.atan2(s.z, s.x) * 180) / Math.PI + 360) / 45) % 8);
-    }
-    assert.ok(dirs.size >= 6, `방향 ${dirs.size}곳`);
+    assert.ok(shots > 0, '타워를 공격');
+    assert.ok(destroyed, '타워가 무너짐');
+    assert.equal(st.towers.length, 0);
+    assert.equal(st.sockets[20].towerId, null);
 });
 
-test('그룹 방향: 북쪽(270도)에서 오는 무리는 섬 북쪽 가장자리에서 나온다', () => {
-    const st = createGame('longnight');
-    for (let id = 1; id < 200; id++) {
-        const lane = pickLane(st, { from: 270, spread: 25 }, id);
-        const p = st.paths[lane];
-        assert.ok(p.zs[0] < -8, `북쪽이 아님: z=${p.zs[0]}`);
-    }
-    assert.equal(directionLabel({ groups: [{ from: 270 }, { from: 0 }] }), '북·동');
-    assert.equal(directionLabel({ groups: [{}] }), '사방');
+test('건물이 없으면 본진을 친다. 본진이 무너지면 패배', () => {
+    const st = fresh();
+    for (let i = 0; i < 12; i++) spawnEnemyAt(st, 'ironclad', 0, { cave: 'caveS', waveNo: 15 });
+    let baseHits = 0;
+    run(st, 400, (evs) => (baseHits += evs.filter((e) => e.type === 'enemyShot' && e.base).length));
+    assert.ok(baseHits > 0);
+    assert.equal(st.status, 'lost');
+    assert.equal(st.lives, 0);
 });
 
-test('수정에 닿으면 생명이 줄고, 수정 가까이 온 적은 곧 닿는다', () => {
-    const st = createGame('longnight');
+test('하늘의 적은 지형을 무시하고 가장 가까운 건물로 곧장 난다', () => {
+    const st = fresh();
+    st.gold = 9999;
+    const { tower } = buildTower(st, 12, 'ranger'); // 동쪽 고원
+    tower.stunT = 999;
+    const e = spawnEnemyAt(st, 'wraith', 0, { cave: 'caveE' });
+    let over = false;
+    run(st, 12, () => {
+        if (e.alive && !st.survival.nav.walkable(e.x, e.z)) over = true;
+    });
+    assert.equal(e.atkTargetId, tower.id);
+    assert.ok(over, '바위 위를 날아 넘어감');
+});
+
+test('광맥에는 광산만, 그 밖에는 광산을 지을 수 없다. 광산은 시간마다 수입 배율만큼 캔다', () => {
+    const st = fresh();
+    st.gold = 9999;
+    const vein = st.sockets.find((s) => s.vein && s.vein.yield > 1);
+    const pad = st.sockets.find((s) => !s.vein);
+    assert.deepEqual(buildableTypes(st, vein), ['mine']);
+    assert.ok(!buildableTypes(st, pad).includes('mine'));
+    assert.equal(buildTower(st, vein.id, 'ranger').ok, false);
+    assert.equal(buildTower(st, pad.id, 'mine').ok, false);
+    const { tower } = buildTower(st, vein.id, 'mine');
+    const gold0 = st.gold;
+    const pays = [];
+    runClean(st, st.survival.payEvery * 2 + 0.5, (evs) => pays.push(...evs.filter((e) => e.type === 'income')));
+    assert.equal(pays.length, 2);
+    const each = Math.round(towerStats(st, tower).income * vein.vein.yield);
+    assert.equal(pays[0].amount, each);
+    assert.ok(st.gold >= gold0 + each * 2);
+});
+
+test('타워는 저절로 고쳐지지 않고, 본진은 골드로 수리한다', () => {
+    const st = createGame('mountain');
+    st.gold = 9999;
+    const { tower } = buildTower(st, 0, 'ranger');
+    tower.hp = 10;
     callWave(st);
-    st.spawners = [];
-    const lane = 17;
-    const len = st.paths[lane].length;
-    const e = spawnEnemyAt(st, 'grunt', len - 0.5, { path: lane });
-    e.hp = e.maxHp = 1e9;
-    const lives = st.lives;
-    let leaked = 0;
-    run(st, 3, (evs) => (leaked += evs.filter((v) => v.type === 'leak').length));
-    assert.equal(leaked, 1);
-    assert.equal(st.lives, lives - 1);
+    assert.equal(tower.hp, 10, '웨이브 시작 회복 없음');
+    st.lives = st.maxLives - 100;
+    const cost = baseRepairCost(st);
+    assert.ok(cost > 0);
+    const g0 = st.gold;
+    assert.ok(repairBase(st).ok);
+    assert.equal(st.lives, st.maxLives);
+    assert.equal(st.gold, g0 - cost);
+    assert.equal(repairBase(st).ok, false);
 });
 
-test('밤 시계: 웨이브는 정해진 시각에 저절로 오고, 앞 웨이브가 나오는 중이어도 온다', () => {
-    const st = createGame('longnight');
+test('높은 곳의 타워는 사거리가 길다', () => {
+    const st = fresh();
+    st.gold = 9999;
+    const hi = buildTower(st, 0, 'ranger').tower; // 본진 고원
+    const lo = buildTower(st, 21, 'ranger').tower; // 서남 기슭
+    assert.ok(towerStats(st, hi).range > towerStats(st, lo).range);
+});
+
+test('밤 시계는 판이 시작되면 흐르고, 웨이브는 정해진 시각에 저절로 온다', () => {
+    const st = createGame('mountain');
     const waves = st.waves;
-    assert.ok(waves.length >= 15);
-    assert.ok(waves.every((w, i) => i === 0 || w.at > waves[i - 1].at));
-    assert.ok(waves[waves.length - 1].at < 600);
-    // 첫 웨이브를 부르기 전에는 시계가 멈춰 있다
-    run(st, 5);
-    assert.equal(st.survival.clock, 0);
     assert.equal(st.waveIndex, 0);
-    callWave(st);
-    runClean(st, waves[1].at + 0.5);
-    assert.equal(st.waveIndex, 2);
-    // 스폰 중에는 일찍 부를 수 없다
-    st.spawners.push({ group: { enemy: 'grunt', count: 99, gap: 5, delay: 0 }, waveNo: 2, spawned: 0, nextAt: 1e9 });
-    runClean(st, 0.1);
-    assert.equal(canCallWave(st), false);
-    // 그래도 시각이 되면 다음 웨이브가 온다
+    runClean(st, waves[0].at - 1);
+    assert.equal(st.waveIndex, 0, '준비 시간');
+    assert.ok(st.nextWaveIn > 0 && st.nextWaveIn < 2);
+    runClean(st, 1.5);
+    assert.equal(st.waveIndex, 1);
     runClean(st, waves[2].at - st.survival.clock + 0.2);
     assert.equal(st.waveIndex, 3);
 });
 
-test('일찍 부르면 밤 시계가 그 웨이브 시각까지 앞당겨지고 보너스를 받는다', () => {
-    const st = createGame('longnight');
-    callWave(st);
-    runClean(st, 20);
-    assert.ok(canCallWave(st));
-    const gold = st.gold;
+test('일찍 부르면 시계가 그 웨이브 시각으로 앞당겨지고 보너스를 받는다', () => {
+    const st = createGame('mountain');
+    runClean(st, 5);
+    const g0 = st.gold;
     const r = callWave(st);
     assert.ok(r.ok && r.bonus > 0);
-    assert.ok(st.gold >= gold + r.bonus);
-    assert.equal(Math.round(st.survival.clock), st.waves[1].at);
+    assert.equal(st.gold, g0 + r.bonus);
+    assert.equal(Math.round(st.survival.clock), st.waves[0].at);
 });
 
-test('동이 틀 때까지 버티면 승리, 남은 적은 햇빛에 타 사라진다', () => {
-    const st = createGame('longnight');
-    callWave(st);
-    const seen = [];
-    // 막판 대공세 직전까지는 적을 지우며 시간만 보낸다
-    runClean(st, 575, (evs) => seen.push(...evs.map((e) => e.type)));
-    assert.equal(st.status, 'playing');
-    assert.ok(nightPhase(st).night > 0.9, '밤이 깊어져야 한다');
-    // 마지막 공세는 무적 수정으로 버틴다
-    st.lives = 1e6;
-    let burned = 0;
-    run(st, 60, (evs) => {
-        seen.push(...evs.map((e) => e.type));
-        burned += evs.filter((e) => e.type === 'dawnBurn').length;
-    });
+test('동이 트면 남은 적이 사라지고 승리, 끝없는 밤으로 잇지 않는다', () => {
+    const st = createGame('mountain');
+    st.survival.clock = 599;
+    st.waveIndex = st.waves.length;
+    spawnEnemyAt(st, 'grunt', 0, { cave: 'caveS' });
+    const evs = [];
+    run(st, 2, (e) => evs.push(...e));
     assert.equal(st.status, 'won');
+    assert.ok(evs.some((e) => e.type === 'dawnBurn'));
+    assert.ok(evs.some((e) => e.type === 'dawn'));
     assert.equal(st.survival.clock, 600);
-    assert.ok(seen.includes('dawn') && seen.includes('victory'));
-    assert.ok(burned > 0, '동틀 녘에 남아 있던 적이 타 사라져야 한다');
-    assert.equal(st.enemies.length, 0);
-    assert.equal(nightPhase(st).dawn, 1);
     assert.equal(continueEndless(st).ok, false);
+    assert.equal(nightPhase(st).dawn, 1);
 });
 
-test('생명이 다하면 동트기 전에 패배한다', () => {
-    const st = createGame('longnight');
-    callWave(st);
-    run(st, 200);
-    assert.equal(st.status, 'lost');
-    assert.ok(st.survival.clock < 120);
-});
-
-test('formatClock: 남은 시간을 m:ss로', () => {
-    assert.equal(formatClock(600), '10:00');
-    assert.equal(formatClock(61.2), '1:02');
-    assert.equal(formatClock(0), '0:00');
-});
-
-test('웨이브 데이터: 정예와 보스 웨이브가 섞여 있고 방향이 바뀐다', () => {
-    const w = WAVES.longnight;
-    assert.ok(w.some((x) => x.groups.some((g) => g.elite)));
-    assert.ok(w.filter((x) => x.groups.some((g) => g.enemy === 'colossus')).length >= 2);
-    const labels = new Set(w.map(directionLabel));
-    assert.ok(labels.size >= 8, `방향 조합 ${labels.size}가지`);
-    // 다른 맵의 경로 데이터는 그대로
-    for (const id of ['dusk', 'frostvale', 'voidspire', 'cinder', 'bloom', 'stormreach', 'fortress'])
-        assert.ok(MAPS[id].paths.every((p) => buildPath(p).length > 5));
+test('웨이브 정의: 시각 순서, 동굴 이름, 막판 대공세', () => {
+    const w = WAVES.mountain;
+    assert.equal(w.length, 20);
+    for (let i = 1; i < w.length; i++) assert.ok(w[i].at > w[i - 1].at);
+    assert.ok(w[w.length - 1].at < 600);
+    const st = createGame('mountain');
+    const ids = st.survival.caves.map((c) => c.id);
+    for (const wave of w) for (const g of wave.groups) if (g.cave) assert.ok(ids.includes(g.cave), g.cave);
+    assert.equal(caveLabel(st, w[0]), '남쪽 동굴');
+    assert.deepEqual(waveCaves(st, w[1]), ['caveW']);
+    assert.equal(caveLabel(st, w[w.length - 1]), '모든 동굴');
+    assert.equal(formatClock(61), '1:01');
+    assert.ok(TOWER_R > 0);
 });
