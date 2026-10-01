@@ -32,6 +32,16 @@ import { Renderer, QUALITY } from './render/Renderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { World } from './render/World.js';
 import { disposeScene } from './render/dispose.js';
+import { precompile } from './render/warmup.js';
+import { frameDt, planSteps, ErrorGate } from './core/loop.js';
+import { DiagLog, errorInfo, mountDiagPanel } from './diag.js';
+
+/** 이보다 긴 프레임 정지는 진단 기록에 남긴다 (ms) */
+const STALL_MS = 1000;
+/** 정지 직전 이만큼 안에 처음 나온 적·타워를 함께 적는다 (ms) */
+const RECENT_FIRST_MS = 5000;
+/** 컨텍스트를 잃고 이만큼 안에 돌아오지 않으면 새로고침한다 (ms) */
+const CONTEXT_RELOAD_MS = 3000;
 import { EntityView } from './render/EntityView.js';
 import { Effects } from './render/fx/Effects.js';
 import { Overlay } from './ui/overlay.js';
@@ -79,7 +89,14 @@ function loadSave() {
 export class App {
     constructor() {
         this.save = loadSave();
+        // 진단 기록 (localStorage 'll_diag', ?diag면 화면 구석에 표시)
+        this.diag = new DiagLog();
+        // 루프 안 예외 기록 (같은 오류는 한 번만 경고, 처음 본 오류는 진단 기록에도)
+        this.errors = new ErrorGate(console, 50, (where, err) => this.diag.add('error', { where, ...errorInfo(err) }));
+        this.firstSeen = new Set();
+        this.recentFirsts = [];
         const params = new URLSearchParams(location.search);
+        if (params.has('diag')) mountDiagPanel(this.diag);
         const q = params.get('q') || this.save.settings.quality;
         this.stageEl = document.getElementById('stage');
         this.uiRoot = document.getElementById('ui');
@@ -158,6 +175,17 @@ export class App {
 
         this.bindInput();
         window.addEventListener('resize', () => this.onResize());
+        // 그래픽 드라이버가 재설정되면 컨텍스트를 잃는다: 멈춘 채 두지 말고 일시정지 후 장면을 다시 짓는다
+        const canvas = this.renderer.renderer.domElement;
+        canvas.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault(); // 복구(restored)를 받으려면 기본 동작을 막아야 한다
+            this.onContextLost();
+        });
+        // 탭을 숨겼다 돌아온 첫 프레임의 긴 간격은 정지가 아니다
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.wasHidden = true;
+        });
+        canvas.addEventListener('webglcontextrestored', () => this.onContextRestored());
         this.onResize();
         this.last = performance.now();
         this.t = 0;
@@ -195,6 +223,92 @@ export class App {
         this.overlay = new Overlay(this.overlayCanvas, this.rig.camera, this.entities);
         this.worldMap = this.state.mapId;
         if (this.overlay && this.effects && this.hud) this.onResize();
+    }
+
+    /**
+     * 지금 장면과 나올 수 있는 모델의 셰이더를 병렬로 굽는다. 그동안 frame()은 WebGL 렌더를 건너뛴다
+     * (렌더하면 그 자리에서 컴파일을 기다리느라 몇 초씩 멈춘다).
+     */
+    warmWorld() {
+        const token = (this.warmToken = (this.warmToken || 0) + 1);
+        this.warming = true;
+        this.warmPromise = precompile(
+            this.renderer.renderer,
+            this.world.scene,
+            this.rig.camera,
+            this.renderer.composer.readBuffer
+        )
+            .catch((e) => this.errors.report('셰이더 미리 굽기', e))
+            .finally(() => {
+                if (this.warmToken === token) this.warming = false;
+            });
+        return this.warmPromise;
+    }
+
+    onContextLost() {
+        if (this.glLost) return;
+        this.glLost = true;
+        console.warn('[렌더] WebGL 컨텍스트를 잃었습니다. 복구를 기다립니다.');
+        this.diag.add('contextlost', { map: this.state.map?.name, mode: this.mode, wave: this.state.waveIndex });
+        if (this.mode === 'playing') this.pause();
+        this.showNotice('화면 복구 중…');
+        clearTimeout(this.reloadTimer);
+        this.reloadTimer = setTimeout(() => this.reloadAfterLoss(), CONTEXT_RELOAD_MS);
+    }
+
+    /** 컨텍스트가 돌아오지 않으면 기록을 저장한 채 새로고침 (연달아 반복되면 멈추고 안내만) */
+    reloadAfterLoss() {
+        if (!this.glLost) return;
+        this.persist();
+        let last = 0;
+        try {
+            last = Number(sessionStorage.getItem('ll_reload_at')) || 0;
+        } catch {
+            /* 무시 */
+        }
+        if (Date.now() - last < 30000) {
+            this.showNotice('그래픽 장치를 복구하지 못했습니다. 페이지를 새로고침해 주세요.');
+            return;
+        }
+        this.diag.add('reload');
+        try {
+            sessionStorage.setItem('ll_reload_at', String(Date.now()));
+        } catch {
+            /* 무시 */
+        }
+        location.reload();
+    }
+
+    showNotice(text) {
+        if (!this.noticeEl) {
+            this.noticeEl = document.createElement('div');
+            this.noticeEl.className = 'gl-notice';
+            this.noticeEl.style.cssText =
+                'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9000;' +
+                'background:rgba(6,4,12,.72);color:#f3ead8;font:600 18px/1.5 system-ui,sans-serif;text-align:center;padding:16px';
+            document.body.appendChild(this.noticeEl);
+        }
+        this.noticeEl.textContent = text;
+        this.noticeEl.hidden = false;
+    }
+
+    hideNotice() {
+        if (this.noticeEl) this.noticeEl.hidden = true;
+    }
+
+    onContextRestored() {
+        clearTimeout(this.reloadTimer);
+        this.hideNotice();
+        this.diag.add('contextrestored');
+        // 환경맵 같은 렌더 타깃 내용은 사라졌으므로 장면을 새로 짓는다. 타워·적은 게임 상태에서 다시 만들어진다.
+        try {
+            this.worldMap = null;
+            this.buildWorld();
+            this.warmWorld();
+        } catch (e) {
+            this.errors.report('컨텍스트 복구', e);
+        }
+        this.glLost = false;
     }
 
     persist() {
@@ -251,64 +365,83 @@ export class App {
     startMap(mapId, opts = {}) {
         this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege: !!opts.siege };
         this.fade.classList.add('on');
+        const token = (this.startToken = (this.startToken || 0) + 1);
         setTimeout(() => {
+            // 페이드 중에 다른 맵을 또 누르면 마지막 것만 연다
+            if (token !== this.startToken) return;
             this.state = createGame(mapId, this.runOpts);
-            if (this.worldMap !== mapId) this.buildWorld();
+            const rebuilt = this.worldMap !== mapId;
+            if (rebuilt) this.buildWorld();
             else {
                 this.world.state = this.state;
                 this.entities.reset();
                 this.effects.reset();
             }
-            this.mode = 'playing';
-            this.loop.paused = false;
-            this.loop.speed = 1;
-            this.closeMenus();
-            this.screens.clear();
-            this.hud.setVisible(true);
-            this.rig.orbit = false;
-            this.rig.shift = 0;
-            this.rig.shiftCur = 0;
-            this.rig.goalYaw = 0;
-            this.rig.yaw = 0;
-            this.rig.goalDistance = 34;
-            this.rig.setPitch(52);
-            this.rig.goal.y = 0;
-            const s = this.state.paths[0];
-            const from = new THREE.Vector3(s.xs[0] + 3, 0, s.zs[0]);
-            this.rig.playIntro(from, new THREE.Vector3(0.5, 0, 0.6), 3.2);
-            this.fade.classList.remove('on');
-            this.hud.reset(this.state);
-            this.hud.showBanner(
-                this.state.map.name,
-                this.state.endless
-                    ? '끝없는 밤 · 얼마나 버틸 수 있는가'
-                    : this.state.siege
-                      ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
-                      : this.state.difficulty === 'hero'
-                        ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
-                        : '마지막 빛을 지켜라'
-            );
-            this.coach?.destroy();
-            this.coach = this.save.tutorialDone
-                ? null
-                : new Coach(this.uiRoot, () => {
-                      this.save.tutorialDone = true;
-                      this.persist();
-                      this.coach = null;
-                  });
-            this.resultT = null;
-            if (this.state.siege) {
-                setTimeout(
-                    () =>
-                        this.mode === 'playing' &&
-                        this.hud.showHint(
-                            '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
-                            11000
-                        ),
-                    3800
-                );
+            // 새 장면이거나 아직 한 번도 안 구웠으면 검은 화면 뒤에서 셰이더를 굽는다
+            // (안 구우면 첫 적·첫 타워가 나올 때마다 플레이 중에 0.4~1.2초씩 멈춘다)
+            if (rebuilt || !this.warmedOnce) {
+                this.warmedOnce = true;
+                this.warmWorld();
             }
+            this.mode = 'loading';
+            // 셰이더를 다 구울 때까지 검은 화면 (굽는 중이 아니면 바로)
+            Promise.resolve(this.warming ? this.warmPromise : null)
+                .then(() => token === this.startToken && this.enterMap())
+                .catch((e) => this.errors.report('맵 시작', e));
         }, 450);
+    }
+
+    /** 맵 준비가 끝난 뒤: 카메라 연출, HUD, 안내 */
+    enterMap() {
+        this.mode = 'playing';
+        this.loop.paused = false;
+        this.loop.speed = 1;
+        this.closeMenus();
+        this.screens.clear();
+        this.hud.setVisible(true);
+        this.rig.orbit = false;
+        this.rig.shift = 0;
+        this.rig.shiftCur = 0;
+        this.rig.goalYaw = 0;
+        this.rig.yaw = 0;
+        this.rig.goalDistance = 34;
+        this.rig.setPitch(52);
+        this.rig.goal.y = 0;
+        const s = this.state.paths[0];
+        const from = new THREE.Vector3(s.xs[0] + 3, 0, s.zs[0]);
+        this.rig.playIntro(from, new THREE.Vector3(0.5, 0, 0.6), 3.2);
+        this.fade.classList.remove('on');
+        this.hud.reset(this.state);
+        this.hud.showBanner(
+            this.state.map.name,
+            this.state.endless
+                ? '끝없는 밤 · 얼마나 버틸 수 있는가'
+                : this.state.siege
+                  ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
+                  : this.state.difficulty === 'hero'
+                    ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                    : '마지막 빛을 지켜라'
+        );
+        this.coach?.destroy();
+        this.coach = this.save.tutorialDone
+            ? null
+            : new Coach(this.uiRoot, () => {
+                  this.save.tutorialDone = true;
+                  this.persist();
+                  this.coach = null;
+              });
+        this.resultT = null;
+        if (this.state.siege) {
+            setTimeout(
+                () =>
+                    this.mode === 'playing' &&
+                    this.hud.showHint(
+                        '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
+                        11000
+                    ),
+                3800
+            );
+        }
     }
 
     pause() {
@@ -751,21 +884,79 @@ export class App {
     }
 
     frame(now) {
-        const dt = Math.min(0.05, (now - this.last) / 1000);
+        // 다음 프레임을 먼저 예약한다: 아래에서 예외가 나도 루프는 끊기지 않는다
+        requestAnimationFrame((n) => this.frame(n));
+        // 1초 넘게 다음 프레임이 오지 않았으면 (탭 숨김 제외) 정지로 기록
+        if (now - this.last > STALL_MS && !this.wasHidden)
+            this.guard('진단', () => this.noteStall(now - this.last, now));
+        this.wasHidden = false;
+        // 탭 복귀처럼 rAF가 오래 멈췄다 돌아와도 한 프레임은 최대 0.05초만 진행한다
+        const dt = frameDt(now, this.last);
         this.last = now;
         this.t += dt;
-        const playing = this.mode === 'playing' && !this.loop.paused;
-        const simDt = playing ? dt * this.loop.speed : 0;
-        if (playing) {
-            this.acc += simDt;
-            let n = 0;
-            while (this.acc >= TICK && n++ < 12) {
-                step(this.state, TICK);
-                this.acc -= TICK;
+        const events = this.guard('시뮬레이션', () => this.simulate(dt)) || [];
+        this.guard('진단', () => this.noteFirsts(events, now));
+        this.guard('장면 갱신', () => this.updateView(events, dt));
+        if (this.mode === 'playing' || this.mode === 'paused') this.guard('HUD', () => this.updateHud(events));
+        this.guard('오버레이', () => this.updateOverlay(dt));
+        // 셰이더를 굽는 중이거나 컨텍스트를 잃었으면 WebGL 렌더를 건너뛴다
+        if (!this.warming && !this.glLost) this.guard('렌더', () => this.draw());
+    }
+
+    /** 이번 세션에서 처음 나온 적·타워 종류 (정지 원인을 좁히는 단서) */
+    noteFirsts(events, now) {
+        for (const ev of events) {
+            let key = null;
+            if (ev.type === 'spawn') key = `적:${ev.enemy}`;
+            else if (ev.type === 'build' || ev.type === 'upgrade') {
+                const t = findTower(this.state, ev.towerId);
+                if (t) key = `타워:${t.type}${t.tier}${t.branch || ''}`;
             }
+            if (!key || this.firstSeen.has(key)) continue;
+            this.firstSeen.add(key);
+            this.recentFirsts.push({ key, at: now });
+        }
+        while (this.recentFirsts.length && now - this.recentFirsts[0].at > RECENT_FIRST_MS) this.recentFirsts.shift();
+    }
+
+    noteStall(ms, now) {
+        const st = this.state;
+        this.diag.add('stall', {
+            ms: Math.round(ms),
+            map: st.map?.name ?? st.mapId,
+            mode: this.mode,
+            wave: st.waveIndex,
+            enemies: st.enemies.length,
+            recent: this.recentFirsts.filter((r) => now - r.at <= RECENT_FIRST_MS + ms).map((r) => r.key)
+        });
+    }
+
+    /** 예외를 기록하고 삼킨다 (같은 오류는 한 번만 경고) */
+    guard(where, fn) {
+        try {
+            return fn();
+        } catch (e) {
+            this.errors.report(where, e);
+            return undefined;
+        }
+    }
+
+    /** 고정 스텝 시뮬레이션. 한 프레임 스텝 수에 상한을 두고, 넘친 시간은 버린다. */
+    simulate(dt) {
+        const playing = this.mode === 'playing' && !this.loop.paused && !this.glLost;
+        this.simDt = playing ? dt * this.loop.speed : 0;
+        if (playing) {
+            const plan = planSteps(this.acc, this.simDt, TICK);
+            this.acc = plan.acc;
+            for (let i = 0; i < plan.steps; i++) step(this.state, TICK);
         }
         const events = this.pending.concat(drainEvents(this.state));
         this.pending = [];
+        return events;
+    }
+
+    updateView(events, dt) {
+        const simDt = this.simDt;
         this.updateHover();
         this.entities.update(this.state, events, this.t, simDt || (this.mode === 'playing' ? 0 : dt * 0.3));
         this.effects.handle(events, this.state);
@@ -773,23 +964,27 @@ export class App {
         this.audio.handle(events, this.state);
         this.rig.update(dt);
         this.world.update(this.t, dt);
-        if (this.mode === 'playing' || this.mode === 'paused') {
-            this.hud.handle(events, this.state);
-            this.noteSpawns(events);
-            this.hud.update(
-                this.state,
-                this.loop,
-                {
-                    portal: () =>
-                        this.overlay.project(this.world.portal.group.position.clone().add(new THREE.Vector3(0, 3.4, 0)))
-                },
-                this.audio.enabled
-            );
-            this.overlay.handle(events, this.state);
-            this.coach?.update(this.state);
-        }
+    }
+
+    updateHud(events) {
+        this.hud.handle(events, this.state);
+        this.noteSpawns(events);
+        this.hud.update(
+            this.state,
+            this.loop,
+            {
+                portal: () =>
+                    this.overlay.project(this.world.portal.group.position.clone().add(new THREE.Vector3(0, 3.4, 0)))
+            },
+            this.audio.enabled
+        );
+        this.overlay.handle(events, this.state);
+        this.coach?.update(this.state);
+    }
+
+    updateOverlay(dt) {
         this.overlay.draw(
-            this.mode === 'title' || this.mode === 'select' ? { enemies: [] } : this.state,
+            this.mode === 'title' || this.mode === 'select' || this.mode === 'loading' ? { enemies: [] } : this.state,
             dt,
             this.hover.enemy?.id,
             this.selectedEnemy?.id
@@ -812,6 +1007,9 @@ export class App {
             this.resultT = (this.resultT ?? 0) + dt;
             if (this.resultT > 1.8) this.showResults();
         }
+    }
+
+    draw() {
         this.renderer.render(this.t);
         if (this.wantThumb) {
             this.wantThumb = false;
@@ -824,7 +1022,6 @@ export class App {
                 /* 캡처 불가 시 무시 */
             }
         }
-        requestAnimationFrame((n) => this.frame(n));
     }
 
     // ---------- 개발용 ----------

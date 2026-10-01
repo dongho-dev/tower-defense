@@ -18,7 +18,11 @@ export function disposeObject(root) {
     });
 }
 
-/** 장면 전체를 버릴 때: 공유 재질·텍스처·그림자 맵까지 모두 해제 (다시 쓰이면 three가 새로 올린다) */
+/**
+ * 장면 전체를 버릴 때: 맵 전용 재질·텍스처·그림자 맵까지 모두 해제한다.
+ * 모델 캐시의 공유 재질(markShared)은 개수가 정해져 있고 다음 맵에서도 그대로 쓰므로 남긴다.
+ * 해제하면 맵을 바꿀 때마다 그 셰이더를 처음부터 다시 컴파일하느라 몇 초씩 멈춘다.
+ */
 export function disposeScene(scene) {
     const seen = new Set();
     const tex = (v) => {
@@ -32,7 +36,7 @@ export function disposeScene(scene) {
     scene.traverse((o) => {
         o.geometry?.dispose();
         for (const m of materialsOf(o)) {
-            if (seen.has(m)) continue;
+            if (seen.has(m) || m.userData.shared) continue;
             seen.add(m);
             for (const v of Object.values(m)) tex(v);
             if (m.uniforms) for (const u of Object.values(m.uniforms)) tex(u?.value);
