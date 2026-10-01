@@ -22,3 +22,6 @@ Thumbs.db
 # Local runtime logs
 logs/
 .claude/worktrees/
+
+.vercel
+.env*
