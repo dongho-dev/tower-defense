@@ -373,6 +373,127 @@ WAVES.cinder = campaignWaves(1, 'swarm');
 WAVES.bloom = campaignWaves(2, 'spectral');
 WAVES.stormreach = campaignWaves(2, 'armored');
 
+// 성채 방어(공성전 전용): path 0 = 북문, 1 = 동문, 2 = 남문, 3 = 서문.
+// 매 웨이브 주공 방향이 바뀌어서 어느 성문을 보강할지 고르게 만든다.
+const GN = { path: 0 };
+const GE = { path: 1 };
+const GS = { path: 2 };
+const GW = { path: 3 };
+WAVES.fortress = [
+    {
+        groups: [g('grunt', 8, 1.1, 0, GW)],
+        hint: '적은 성문 앞에서 멈춰 문을 부순다. 문이 버티는 동안 성벽 위 타워로 쓰러뜨리세요.'
+    },
+    { groups: [g('grunt', 8, 1.0, 0, GN), g('stalker', 5, 0.7, 4, GW)] },
+    { groups: [g('grunt', 10, 0.9, 0, GE), g('grunt', 6, 0.9, 3, GS), g('stalker', 6, 0.6, 6, GW)] },
+    {
+        groups: [g('ironclad', 3, 2.4, 0, GN), g('grunt', 10, 0.7, 2, GN), g('stalker', 8, 0.5, 4, GS)],
+        hint: '흑철 기사가 북문을 두드린다. 성문을 눌러 보강하거나 수리할 수 있어요.'
+    },
+    {
+        groups: [g('wraith', 6, 0.9, 0, GE), g('grunt', 12, 0.6, 2, GW)],
+        hint: '망령은 날아서 성벽을 넘습니다. 성 안쪽에도 궁수탑이 필요해요.'
+    },
+    { groups: [g('stalker', 14, 0.4, 0, GS), g('ironclad', 4, 1.8, 4, GE), g('grunt', 8, 0.7, 6, GN)] },
+    {
+        groups: [
+            g('grunt', 14, 0.55, 0, GW),
+            g('hexcaller', 2, 4, 4, GW),
+            g('wraith', 6, 0.8, 6, GN),
+            g('ironclad', 3, 2, 3, GS)
+        ]
+    },
+    {
+        groups: [
+            g('ironclad', 6, 1.4, 0, GE),
+            g('hexcaller', 2, 4, 3, GE),
+            g('stalker', 10, 0.4, 5, GN),
+            g('grunt', 10, 0.6, 7, GS)
+        ]
+    },
+    { groups: [g('wraith', 10, 0.7, 0, GS), g('grunt', 16, 0.45, 2, GN), g('stalker', 10, 0.4, 5, GW)] },
+    {
+        groups: [
+            g('ironclad', 2, 4, 0, { ...GW, elite: true }),
+            g('ironclad', 5, 1.6, 2, GW),
+            g('hexcaller', 3, 3, 4, GN),
+            g('grunt', 12, 0.6, 5, GE)
+        ],
+        hint: '정예 흑철 기사가 서문으로 온다. 서문을 보강해 두세요.'
+    },
+    { groups: [g('stalker', 18, 0.3, 0, GE), g('wraith', 8, 0.7, 4, GN), g('grunt', 14, 0.5, 6, GS)] },
+    {
+        groups: [
+            g('grunt', 20, 0.35, 0, GN),
+            g('ironclad', 6, 1.4, 4, GS),
+            g('hexcaller', 3, 3, 6, GW),
+            g('stalker', 12, 0.35, 8, GE)
+        ]
+    },
+    { groups: [g('wraith', 14, 0.5, 0, GW), g('hexcaller', 4, 2.5, 3, GE), g('ironclad', 8, 1.1, 5, GE)] },
+    {
+        groups: [
+            g('ironclad', 10, 0.9, 0, GN),
+            g('stalker', 14, 0.35, 4, GS),
+            g('grunt', 14, 0.45, 6, GW),
+            g('ironclad', 4, 1.8, 8, GE)
+        ],
+        hint: '네 성문을 한꺼번에 친다. 가장 약한 문부터 수리하세요.'
+    },
+    {
+        groups: [
+            g('wraith', 3, 3, 0, { ...GS, elite: true }),
+            g('grunt', 20, 0.4, 2, GE),
+            g('wraith', 10, 0.6, 6, GN),
+            g('stalker', 12, 0.35, 8, GW)
+        ]
+    },
+    {
+        groups: [
+            g('grunt', 16, 0.4, 0, GN),
+            g('stalker', 14, 0.3, 3, GE),
+            g('ironclad', 8, 1.1, 5, GS),
+            g('hexcaller', 4, 2.5, 7, GW),
+            g('grunt', 12, 0.45, 9, GW)
+        ]
+    },
+    {
+        groups: [
+            g('ironclad', 12, 0.8, 0, GW),
+            g('hexcaller', 5, 2, 3, GW),
+            g('ironclad', 6, 1.4, 6, GN),
+            g('stalker', 16, 0.3, 6, GS)
+        ]
+    },
+    {
+        groups: [
+            g('wraith', 18, 0.42, 0, GE),
+            g('ironclad', 3, 3.5, 6, { ...GN, elite: true }),
+            g('grunt', 16, 0.4, 4, GS)
+        ]
+    },
+    {
+        groups: [
+            g('stalker', 18, 0.3, 0, GN),
+            g('grunt', 18, 0.35, 3, GS),
+            g('ironclad', 10, 0.9, 6, GE),
+            g('wraith', 12, 0.5, 9, GW),
+            g('hexcaller', 5, 2, 10, GE)
+        ]
+    },
+    {
+        groups: [
+            g('grunt', 14, 0.5, 0, GN),
+            g('ironclad', 6, 1.4, 3, GE),
+            g('colossus', 1, 1, 9, GW),
+            g('hexcaller', 4, 3, 10, GW),
+            g('wraith', 10, 0.6, 14, GS),
+            g('ironclad', 6, 1.4, 16, GS)
+        ],
+        hint: '공허의 거상이 서문으로 온다. 거상은 성문을 두 배 가까이 세게 친다!'
+    }
+];
+
 // ---------- 맵 컨셉: 전용 적과 보스 ----------
 // mix: [바꿀 적, 전용 적, 처음 섞이는 웨이브, 비율]. 전용 적 수는 체력 합이 비슷하도록 맞춘다.
 export const THEMES = {
@@ -403,6 +524,13 @@ export const THEMES = {
         mix: [
             ['grunt', 'bloomer', 3, 0.35],
             ['ironclad', 'burrower', 5, 0.5]
+        ]
+    },
+    // 성채 방어: 성문을 터뜨리는 자폭병과 빙결에 버티는 서리 갑주병이 공성 부대를 이룬다
+    fortress: {
+        mix: [
+            ['stalker', 'cinderling', 4, 0.4],
+            ['ironclad', 'rimeguard', 7, 0.35]
         ]
     },
     stormreach: {

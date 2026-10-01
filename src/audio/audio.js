@@ -410,6 +410,7 @@ export class Audio {
                     this.play('siege_hit');
                     break;
                 case 'towerDestroyed':
+                case 'gateBroken':
                     this.play('collapse');
                     break;
                 case 'repair':

@@ -14,6 +14,7 @@ import {
     createSockets,
     createLeyLines
 } from './env/structures.js';
+import { createFortress } from './env/fortress.js';
 
 export class World {
     constructor(renderer, state, quality) {
@@ -60,7 +61,11 @@ export class World {
         this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass, theme: th });
         scene.add(this.vegetation.group);
         this.lanterns = createLanterns(state, terrain);
-        this.ramparts = createRamparts(state, terrain, th);
+        // 성채 맵은 섬 가장자리 성벽 대신 수정을 둘러싼 성벽과 성문을 세운다
+        this.ramparts = state.map.fortress
+            ? { group: new THREE.Group(), update() {} }
+            : createRamparts(state, terrain, th);
+        this.fortress = createFortress(state, terrain, th);
         // 시작점이 같은 갈래(갈라지는 길)는 포털 하나를 같이 쓴다
         const starts = [];
         state.paths.forEach((p, i) => {
@@ -72,7 +77,15 @@ export class World {
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);
         this.ley = createLeyLines(state, terrain);
-        for (const o of [this.lanterns, this.ramparts, ...this.portals, this.core, this.sockets, this.ley])
+        for (const o of [
+            this.lanterns,
+            this.ramparts,
+            this.fortress,
+            ...this.portals,
+            this.core,
+            this.sockets,
+            this.ley
+        ])
             scene.add(o.group);
         this.hoverSocket = null;
         this.range = createRangeIndicator((x, z) => terrain.heightAt(x, z));
@@ -93,6 +106,7 @@ export class World {
         this.islets.update(t);
         this.lanterns.update(t);
         this.ramparts.update(t);
+        this.fortress.update(t, dt, this.state);
         for (const p of this.portals) p.update(t);
         this.core.update(t);
         this.core.setHealth(this.state.lives / this.state.maxLives);

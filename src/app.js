@@ -19,6 +19,8 @@ import {
     continueEndless,
     wavesSurvived,
     repairTower,
+    repairGate,
+    reinforceGate,
     setRally,
     commandHero,
     heroSkill,
@@ -115,7 +117,8 @@ export class App {
             openSettings: () => this.openSettings(true),
             openBestiary: () => this.openBestiary(false),
             selectHero: () => this.selectHero(),
-            heroSkill: () => this.useHeroSkill()
+            heroSkill: () => this.useHeroSkill(),
+            selectGate: (id) => this.selectGate(this.state.gates[id])
         });
         this.hud.setVisible(false);
         this.radial = new Radial(this.uiRoot, {
@@ -131,7 +134,9 @@ export class App {
             closed: () => this.closeMenus(),
             repair: (id) => this.repair(id),
             rally: (id) => this.armRally(id),
-            heroSkill: () => this.useHeroSkill()
+            heroSkill: () => this.useHeroSkill(),
+            gateRepair: (id) => this.gateCommand(repairGate, id),
+            gateReinforce: (id) => this.gateCommand(reinforceGate, id)
         });
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
@@ -226,7 +231,7 @@ export class App {
         let bestWave = 0;
         for (const r of recs) {
             stars += Math.max(0, ...Object.values(r).map((d) => d.stars || 0));
-            if (r.hero?.stars) heroCleared++;
+            if (r.hero?.stars || r['siege-hero']?.stars) heroCleared++;
             bestWave = Math.max(bestWave, ...Object.values(r).map((d) => d.best || 0));
         }
         return { stars, maxStars: Object.keys(MAPS).length * 3, heroCleared, bestWave, hasProgress: recs.length > 0 };
@@ -249,7 +254,9 @@ export class App {
     }
 
     startMap(mapId, opts = {}) {
-        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege: !!opts.siege };
+        // 공성전 전용 맵은 언제나 공성전
+        const siege = !!opts.siege || !!MAPS[mapId]?.siegeOnly;
+        this.runOpts = { difficulty: opts.difficulty || 'normal', endless: !!opts.endless, siege };
         this.fade.classList.add('on');
         setTimeout(() => {
             this.state = createGame(mapId, this.runOpts);
@@ -270,7 +277,7 @@ export class App {
             this.rig.shiftCur = 0;
             this.rig.goalYaw = 0;
             this.rig.yaw = 0;
-            this.rig.goalDistance = 34;
+            this.rig.goalDistance = this.state.map.view?.distance ?? 34;
             this.rig.setPitch(52);
             this.rig.goal.y = 0;
             const s = this.state.paths[0];
@@ -282,11 +289,13 @@ export class App {
                 this.state.map.name,
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
-                    : this.state.siege
-                      ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
-                      : this.state.difficulty === 'hero'
-                        ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
-                        : '마지막 빛을 지켜라'
+                    : this.state.gates.length
+                      ? '공성전 · 성문이 무너지면 길이 열린다'
+                      : this.state.siege
+                        ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
+                        : this.state.difficulty === 'hero'
+                          ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                          : '마지막 빛을 지켜라'
             );
             this.coach?.destroy();
             this.coach = this.save.tutorialDone
@@ -298,12 +307,15 @@ export class App {
                   });
             this.resultT = null;
             if (this.state.siege) {
+                const gates = this.state.gates.length > 0;
                 setTimeout(
                     () =>
                         this.mode === 'playing' &&
                         this.hud.showHint(
-                            '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
-                            11000
+                            gates
+                                ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
+                                : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
+                            12000
                         ),
                     3800
                 );
@@ -412,6 +424,21 @@ export class App {
         if (this.mode !== 'playing') return;
         const r = repairTower(this.state, id);
         if (!r.ok) this.hud.toast(r.reason, true);
+    }
+
+    /** 성문 수리·보강 */
+    gateCommand(fn, id) {
+        if (this.mode !== 'playing') return;
+        const r = fn(this.state, id);
+        if (!r.ok) this.hud.toast(r.reason, true);
+        else if (this.selectedGate) this.inspector.render(this.state, true);
+    }
+
+    selectGate(gate) {
+        if (!gate || this.mode !== 'playing') return;
+        this.closeMenus();
+        this.selectedGate = gate;
+        this.inspector.showGate(gate, this.state);
     }
 
     /** 집결지 지정 모드: 다음 땅 클릭이 집결지가 된다 */
@@ -553,6 +580,7 @@ export class App {
         this.inspector.hide();
         this.selected = null;
         this.selectedEnemy = null;
+        this.selectedGate = null;
         this.buildHover = null;
         this.targeting = null;
         this.hud.armed = null;
@@ -596,13 +624,14 @@ export class App {
 
     pick(x, y) {
         this.raycaster.setFromCamera(this.ndc(x, y), this.rig.camera);
-        const targets = [...this.world.sockets.pickables];
+        const targets = [...this.world.sockets.pickables, ...this.world.fortress.pickables];
         for (const v of this.entities.towers.values()) targets.push(v.root);
         const hits = this.raycaster.intersectObjects(targets, true);
         for (const hit of hits) {
             let o = hit.object;
             while (o) {
                 if (o.userData.towerId != null) return { tower: findTower(this.state, o.userData.towerId) };
+                if (o.userData.gateId != null) return { gate: this.state.gates[o.userData.gateId] };
                 if (o.userData.socketId != null) {
                     const s = this.state.sockets[o.userData.socketId];
                     if (s.towerId != null) return { tower: findTower(this.state, s.towerId) };
@@ -674,7 +703,10 @@ export class App {
         }
         // 영웅을 고른 상태에서 땅(빈 곳·적 근처)을 누르면 이동
         if (this.heroSelected && !hit.tower && !hit.socket) return this.moveHero(e.clientX, e.clientY);
-        if (hit.tower) {
+        if (hit.gate) {
+            if (this.selectedGate === hit.gate) this.closeMenus();
+            else this.selectGate(hit.gate);
+        } else if (hit.tower) {
             if (this.selected === hit.tower) this.closeMenus();
             else this.selectTower(hit.tower);
         } else if (hit.enemy) {
@@ -709,6 +741,8 @@ export class App {
             else this.selectHero();
         } else if ((k === 'e' || k === 'E') && this.state.hero) this.useHeroSkill();
         else if ((k === 'r' || k === 'R') && this.selected?.type === 'barracks') this.armRally(this.selected.id);
+        else if ((k === 'g' || k === 'G') && this.selectedGate) this.gateCommand(repairGate, this.selectedGate.id);
+        else if ((k === 'u' || k === 'U') && this.selectedGate) this.gateCommand(reinforceGate, this.selectedGate.id);
         else if ((k === 'g' || k === 'G') && this.selected && this.selected.hp != null) this.repair(this.selected.id);
         else if (/^[1-7]$/.test(k)) {
             const type = TOWER_ORDER[Number(k) - 1];
@@ -736,7 +770,7 @@ export class App {
         this.renderer.renderer.domElement.style.cursor =
             this.targeting || this.rallyFor
                 ? 'crosshair'
-                : hit.socket || hit.tower || hit.unit
+                : hit.socket || hit.tower || hit.unit || hit.gate
                   ? 'pointer'
                   : this.heroSelected
                     ? 'crosshair'

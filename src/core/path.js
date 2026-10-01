@@ -75,3 +75,17 @@ export function distanceToPath(path, x, z) {
     }
     return Math.sqrt(best);
 }
+
+/** 점에서 가장 가까운 경로 위 지점: 경로 거리 d와 떨어진 거리 */
+export function nearestOnPath(path, x, z) {
+    let best = Infinity;
+    let bi = 0;
+    for (let i = 0; i < path.count; i++) {
+        const d = (path.xs[i] - x) ** 2 + (path.zs[i] - z) ** 2;
+        if (d < best) {
+            best = d;
+            bi = i;
+        }
+    }
+    return { d: Math.min(path.length, bi * path.step), dist: Math.sqrt(best) };
+}

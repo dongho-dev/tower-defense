@@ -15,8 +15,19 @@ import {
 import { ENEMIES, ELITE, hpScale, atkScale } from './data/enemies.js';
 import { WAVES, CAMPAIGN_WAVES, endlessWave, applyTheme } from './data/waves.js';
 import { updateUnits, syncSoldiers, removeUnitsOf, createHero, heroXp, hurtUnit } from './units.js';
+import { createGates, gateAhead, gateLimit, gateAttack, waveRepairGates, damageGate } from './gates.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
+export {
+    repairGate,
+    reinforceGate,
+    gateRepairCost,
+    gateReinforceOption,
+    damageGate,
+    findGate,
+    GATE_HP,
+    GATE_REINFORCE
+} from './gates.js';
 import { DIFFICULTY } from './data/difficulty.js';
 
 export const WAVE_GAP = 16;
@@ -56,6 +67,8 @@ export function createGame(mapId = 'dusk', opts = {}) {
     if (!map) throw new Error('unknown map ' + mapId);
     const diff = DIFFICULTY[opts.difficulty] || DIFFICULTY.normal;
     const lives = diff.lives ?? map.lives;
+    // 공성전 전용 맵은 언제나 공성전
+    const siege = !!opts.siege || !!map.siegeOnly;
     const sockets = map.sockets.map(([x, z], id) => ({ id, x, z, links: [], towerId: null }));
     for (const [a, b] of map.links) {
         sockets[a].links.push(b);
@@ -73,13 +86,14 @@ export function createGame(mapId = 'dusk', opts = {}) {
         meteors: [],
         units: [],
         hero: null,
+        gates: [],
         spawnQueue: [],
-        siege: !!opts.siege,
+        siege,
         difficulty: diff.id,
         // 공성전은 타워가 무너질 수 있는 대신 적이 조금 약하고 골드가 넉넉하다
-        hpMul: (map.hpMul || 1) * diff.hpMul * (opts.siege ? SIEGE_HP : 1),
+        hpMul: (map.hpMul || 1) * diff.hpMul * (siege ? SIEGE_HP : 1),
         endless: !!opts.endless,
-        gold: opts.gold ?? Math.round(map.startGold * diff.goldMul * (opts.siege ? 1.15 : 1)),
+        gold: opts.gold ?? Math.round(map.startGold * diff.goldMul * (siege && !map.siegeOnly ? 1.15 : 1)),
         lives,
         maxLives: lives,
         time: 0,
@@ -99,6 +113,7 @@ export function createGame(mapId = 'dusk', opts = {}) {
     };
     if (state.endless) ensureWaves(state);
     if (state.siege) createHero(state);
+    state.gates = createGates(state);
     return state;
 }
 
@@ -437,6 +452,7 @@ export function callWave(state) {
     const waveNo = ++state.waveIndex;
     if (waveNo > 1) payIncome(state);
     if (state.siege) for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
+    waveRepairGates(state);
     if (state.endless) ensureWaves(state);
     const wave = state.waves[waveNo - 1];
     for (const grp of wave.groups) {
@@ -531,6 +547,7 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         atk: (def.atk || 0) * atkScale(waveNo) * (elite ? 2 : 1),
         atkCd: 0.6 + ((id * 0.37) % 1),
         blockedBy: null,
+        gateId: null,
         burrowT: 0,
         burrowCd: cd(def.burrow, 0.6),
         blinkCd: cd(def.blink, 0.7),
@@ -631,14 +648,23 @@ function updateEnemies(state, dt) {
             let sp = e.speed * (1 - e.slow);
             if (e.enraged) sp *= def.enrage.speed;
             if (e.burrowT > 0) sp *= def.burrow.speed;
-            e.d += sp * dt;
+            // 성문이 길을 막고 있으면 문 앞에서 멈춘다
+            const gate = gateAhead(state, e);
+            const limit = gate ? gateLimit(state, e) : Infinity;
+            e.d = Math.min(e.d + sp * dt, limit);
             placeEnemy(state, e);
             if (e.d >= state.paths[e.pathIndex].length) {
                 leak(state, e);
                 continue;
             }
             if (def.boss && units) stomp(state, e, dt);
-            if (state.siege && e.atk > 0 && e.burrowT <= 0) siegeAttack(state, e, dt);
+            if (gate && e.d >= limit - 1e-6) {
+                e.gateId = gate.gate.id;
+                gateAttack(state, e, gate.gate, dt);
+            } else {
+                e.gateId = null;
+                if (state.siege && e.atk > 0 && e.burrowT <= 0) siegeAttack(state, e, dt);
+            }
         }
         if (def.heal) {
             e.healT -= dt;
@@ -681,7 +707,8 @@ function abilities(state, e, dt) {
             const len = state.paths[e.pathIndex].length;
             const x0 = e.x;
             const z0 = e.z;
-            e.d = Math.min(len - 0.4, e.d + def.blink.dist);
+            // 서 있는 성문은 넘지 못한다
+            e.d = Math.min(len - 0.4, gateLimit(state, e), e.d + def.blink.dist);
             placeEnemy(state, e);
             e.blockedBy = null;
             emit(state, { type: 'blink', id: e.id, boss: !!def.boss, x0, z0, x: e.x, z: e.z });
@@ -853,6 +880,9 @@ function onDeath(state, e, opts) {
             const r2 = def.deathBlast.radius ** 2;
             for (const t of state.towers.slice())
                 if ((t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= r2) damageTower(state, t, 20 * atkScale(e.waveNo));
+            // 성문 곁에서 터지면 문도 크게 상한다
+            for (const g of state.gates)
+                if ((g.x - e.x) ** 2 + (g.z - e.z) ** 2 <= r2 * 1.5) damageGate(state, g, 60 * atkScale(e.waveNo));
         }
         emit(state, { type: 'deathBlast', id: e.id, x: e.x, z: e.z, r: def.deathBlast.radius });
     }
@@ -984,7 +1014,8 @@ function updateTowers(state, dt) {
                 // 비행 시간 동안 적이 이동할 거리만큼 앞을 겨눈다
                 const dist = Math.hypot(target.x - tower.x, target.z - tower.z);
                 p.T = Math.max(0.55, dist / def.projectileSpeed + 0.35);
-                const lead = target.stunT > 0 ? 0 : target.speed * (1 - target.slow) * p.T;
+                const halted = target.stunT > 0 || target.gateId != null || target.blockedBy != null;
+                const lead = halted ? 0 : target.speed * (1 - target.slow) * p.T;
                 samplePath(state.paths[target.pathIndex], target.d + lead, _p);
                 p.tx = _p.x;
                 p.tz = _p.z;

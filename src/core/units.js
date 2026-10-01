@@ -137,10 +137,16 @@ export function createHero(state) {
     const z = p.z + p.dx * 0.9;
     const u = newUnit(state, 'hero', x, z, { level: 1, xp: 0, skillCd: 0, homeX: x, homeZ: z });
     u.maxHp = u.hp = HERO.hp(1);
-    // 처음 지킬 자리: 첫 갈래의 중간쯤 길가
-    const g = samplePath(path, path.length * 0.45, {});
-    u.gx = g.x - g.dz * 0.5;
-    u.gz = g.z + g.dx * 0.5;
+    // 처음 지킬 자리: 맵이 정해 두었으면 그곳, 아니면 첫 갈래의 중간쯤 길가
+    if (state.map.hero) {
+        [u.gx, u.gz] = state.map.hero;
+        u.x = u.homeX = u.gx;
+        u.z = u.homeZ = u.gz;
+    } else {
+        const g = samplePath(path, path.length * 0.45, {});
+        u.gx = g.x - g.dz * 0.5;
+        u.gz = g.z + g.dx * 0.5;
+    }
     state.units.push(u);
     state.hero = u;
     return u;

@@ -168,6 +168,35 @@ export const THEMES = {
         roof: '#1a3a5a',
         banner: '#1a8aa0',
         road: '#c8e0e8'
+    },
+    // 성채 방어: 가을 저녁, 사암 성벽과 남색 지붕
+    citadel: {
+        sky: { zenith: '#1c1838', upper: '#57406e', horizon: '#f4ae6a', below: '#9a6658', sunGlow: '#ffd890' },
+        cloud: { lit: '#ffe8c4', mid: '#eab08a', shadow: '#9a7488', deep: '#56486e', horizon: '#e09a70' },
+        fog: '#c08a7a',
+        sun: { color: '#ffb46a', intensity: 3.0 },
+        hemi: { sky: '#a094e0', ground: '#5a4428', intensity: 0.8 },
+        rim: { color: '#9a8cff', intensity: 0.85 },
+        env: 0.65,
+        ground: { grassA: '#56702c', grassB: '#86903a', dry: '#b08a48', dirt: '#86643e', rim: '#93836a' },
+        cliff: { soil: '#4e3828', bands: ['#a88e6c', '#86725a', '#b49c7c', '#6e5e4c', '#9a8468'], deep: '#30281f' },
+        veg: {
+            broad: ['#c8762a', '#d99a3a', '#b8522a', '#8a9a36', '#6a8a30', '#e0b04a'],
+            pine: ['#2f5a36', '#3a6438'],
+            broadRatio: 0.7,
+            trees: 130,
+            grass: ['#5e7a2c', '#768a34', '#8e8a3a', '#6a7a30'],
+            grassDensity: 0.95,
+            flowers: ['#ffe0a0', '#ff9a4a', '#ffd24a', '#e05a3a'],
+            snow: false,
+            dead: false,
+            crystals: null,
+            rock: '#a69680'
+        },
+        wall: '#cdb28c',
+        roof: '#2e4472',
+        banner: '#a82a2c',
+        road: '#f2dfc4'
     }
 };
 

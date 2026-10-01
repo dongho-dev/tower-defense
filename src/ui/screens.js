@@ -19,7 +19,7 @@ const MODES = {
     endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
     siege: {
         label: '공성전',
-        desc: '<b>공성전</b> · 적이 타워를 공격해 무너뜨립니다. <b>영웅</b>을 움직이고 <b>병영</b>으로 길목을 막고, 무너지기 전에 수리하세요. 기록은 따로 남습니다'
+        desc: '<b>공성전</b> · 전용 전장에서 <b>성문</b>을 지킵니다. 적은 성문 앞에서 문을 부수고 길가의 타워를 공격합니다. <b>영웅</b>을 움직이고 <b>병영</b>으로 길목을 막고, 무너지기 전에 수리하세요'
     }
 };
 
@@ -37,8 +37,14 @@ const THUMB_FALLBACK = {
     void: 'linear-gradient(160deg,#b0306a 0%,#2a0b3a 55%,#07030f 100%)',
     ember: 'linear-gradient(160deg,#ff7a3a 0%,#5a1a12 55%,#1a0a0a 100%)',
     dawn: 'linear-gradient(160deg,#ffc8b0 0%,#6a8ad0 55%,#2a3a7a 100%)',
-    storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)'
+    storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)',
+    citadel: 'linear-gradient(160deg,#f4ae6a 0%,#57406e 55%,#1c1838 100%)'
 };
+
+/** 공성전 모드에는 공성전 전용 맵만, 다른 모드에는 일반 맵만 보인다 */
+export function mapsForMode(mode) {
+    return Object.values(MAPS).filter((m) => !!m.siegeOnly === (mode === 'siege'));
+}
 
 export class Screens {
     constructor(root, actions) {
@@ -133,7 +139,7 @@ export class Screens {
                     <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"><span class="crown" title="영웅 난이도 정복">${ICONS.crown}</span></div>
                     <div class="body"><div class="name">${m.name}</div><div class="en">${m.en}</div>
                     <div class="desc">${m.desc}</div>
-                    <div class="meta"><span>${m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}<span data-len></span> · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="rec" data-rec></span></div></div>
+                    <div class="meta"><span>${m.gates ? `성문 ${m.gates.length}곳 · ` : m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}<span data-len></span> · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="rec" data-rec></span></div></div>
                 </button>`;
             })
             .join('');
@@ -154,14 +160,19 @@ export class Screens {
             el.querySelector('[data-opt-desc]').innerHTML =
                 `<b>${DIFFICULTY[diff].name}</b> · ${DIFFICULTY[diff].desc}` +
                 (MODES[mode].desc ? '<br>' + MODES[mode].desc : '');
+            const shown = new Set(mapsForMode(mode).map((m) => m.id));
             for (const card of el.querySelectorAll('[data-map]')) {
                 const id = card.dataset.map;
+                card.hidden = !shown.has(id);
                 const rec = recordOf(save, id, diff, mode);
                 card.querySelector('[data-len]').textContent = endless ? '∞ 웨이브' : '20 웨이브';
                 card.querySelector('[data-rec]').innerHTML = endless
                     ? `<span class="best">${ICONS.moon}<b>${rec.best || '—'}</b>${rec.best ? ' 웨이브' : ''}</span>`
                     : `<span class="stars">${starRow(rec.stars)}</span>`;
-                card.classList.toggle('hero-cleared', recordOf(save, id, 'hero').stars > 0);
+                card.classList.toggle(
+                    'hero-cleared',
+                    recordOf(save, id, 'hero', mode === 'siege' ? mode : 'campaign').stars > 0
+                );
                 card.classList.toggle('endless', endless);
                 card.classList.toggle('siege', mode === 'siege');
             }
@@ -195,7 +206,7 @@ export class Screens {
         );
         el.querySelector('[data-back]').onclick = () => this.actions.toTitle();
         this.mount(el);
-        el.querySelector('[data-map]').focus({ preventScroll: true });
+        el.querySelector('[data-map]:not([hidden])')?.focus({ preventScroll: true });
         return el;
     }
 
@@ -322,7 +333,7 @@ export class Screens {
                 <div class="stat"><b>${time}</b><span>전투 시간</span></div>
                 ${
                     state.siege
-                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div><div class="stat"><b>Lv ${state.hero ? state.hero.level : 1}</b><span>영웅 레벨</span></div>`
+                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div><div class="stat"><b>Lv ${state.hero ? state.hero.level : 1}</b><span>영웅 레벨</span></div>${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
                         : ''
                 }
             </div>

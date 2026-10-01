@@ -873,7 +873,10 @@ const _c = new THREE.Color();
 
 export function animateEnemy(v, e, t, dt) {
     const moving = e.stunT <= 0;
-    const speedK = moving ? 1 - e.slow * 0.8 : 0;
+    // 성문 앞에 멈춘 적은 제자리에서 문을 두드린다
+    const halted = e.gateId != null;
+    const speedK = moving ? (halted ? 0.3 : 1 - e.slow * 0.8) : 0;
+    v.group.position.x = halted && moving ? Math.max(0, Math.sin(t * 7 + e.id)) * 0.1 : 0;
     v.phase += dt * v.gait * speedK;
     const s = Math.sin(v.phase);
     for (let i = 0; i < v.legs.length; i++) {

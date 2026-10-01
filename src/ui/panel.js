@@ -12,6 +12,8 @@ import {
     upgradeOptions,
     previewStats,
     repairCost,
+    gateRepairCost,
+    gateReinforceOption,
     HERO
 } from '../core/game.js';
 import { enemyTraits } from '../core/data/enemies.js';
@@ -373,6 +375,44 @@ export class Inspector {
             <div class="ip-tip"><b>공략</b>${d.tip || d.desc}</div>`;
     }
 
+    // ---------- 성문 ----------
+    showGate(gate, state) {
+        this.mode = 'gate';
+        this.target = gate;
+        this.key = '';
+        this.render(state);
+        this.show();
+    }
+
+    gateHtml(g, state) {
+        const r = Math.max(0, g.hp / g.maxHp);
+        const rc = gateRepairCost(g);
+        const opt = gateReinforceOption(g);
+        const at = state.enemies.filter((e) => e.gateId === g.id).length;
+        const tags = [];
+        if (g.broken) tags.push('<span class="tag warn">무너짐 · 길이 열렸다</span>');
+        else if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
+        if (g.level) tags.push(`<span class="tag good">보강 ${g.level}단계</span>`);
+        tags.push('<span class="tag">지상 적을 막음</span>', '<span class="tag warn">비행 적은 넘어감</span>');
+        const repairLabel = g.broken ? `재건 ${rc}` : rc ? `수리 ${rc}` : '온전함';
+        return `<div class="ip-head" style="--tint:#e6c58c">
+                <i class="ico">${ICONS.shield}</i>
+                <div><div class="name">${g.name}</div><div class="sub">성문 · 보강 ${g.level}/2</div></div>
+            </div>
+            <div class="ip-main">
+                <div class="ip-desc">${g.broken ? '문이 부서져 적이 그대로 지나간다. 문 자리가 비면 다시 세울 수 있다.' : '지상 적은 이 문 앞에서 멈춰 문을 부순다. 웨이브가 시작될 때마다 조금씩 저절로 고쳐진다.'}</div>
+                <div class="ip-thp ${g.broken || r < 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${g.broken ? '무너짐' : `${Math.ceil(g.hp)} / ${g.maxHp}`}</b></div>
+                <div class="tag-row">${tags.join('')}</div>
+            </div>
+            <div class="ip-actions">
+                ${opt ? `<button class="ip-btn up ${state.gold < opt.cost || g.broken ? 'poor' : ''}" data-reinforce><span class="hk">U</span><span class="l">보강 ${g.level + 1}단계 · 체력 +${Math.round(g.baseHp * opt.hp)}</span><span class="c">${ICONS.gold}${opt.cost}</span></button>` : '<div class="maxed">최대 보강</div>'}
+                <div class="ip-row">
+                    <button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="${g.broken ? '재건' : '수리'} (G)">${ICONS.repair}<span>${repairLabel}</span></button>
+                </div>
+                <div class="ip-foot">${g.broken ? `재건하면 체력 절반으로 다시 선다` : '수리비는 잃은 체력에 비례'}</div>
+            </div>`;
+    }
+
     // ---------- 영웅 ----------
     showHero(u, state) {
         this.mode = 'hero';
@@ -441,6 +481,16 @@ export class Inspector {
                 e.enraged,
                 e.blockedBy
             ].join('|');
+        } else if (this.mode === 'gate') {
+            const g = this.target;
+            key = [
+                g.id,
+                g.broken,
+                g.level,
+                Math.ceil(g.hp / 10),
+                Math.floor(state.gold / 5),
+                state.enemies.filter((e) => e.gateId === g.id).length
+            ].join('|');
         } else if (this.mode === 'hero') {
             const u = this.target;
             key = [
@@ -464,6 +514,13 @@ export class Inspector {
         if (this.mode === 'tower') {
             this.el.innerHTML = this.towerHtml(this.target, state);
             this.bindTower(this.target, state);
+        } else if (this.mode === 'gate') {
+            const g = this.target;
+            this.el.innerHTML = this.gateHtml(g, state);
+            const rp = this.el.querySelector('[data-repair]');
+            if (rp) rp.onclick = () => this.actions.gateRepair(g.id);
+            const rf = this.el.querySelector('[data-reinforce]');
+            if (rf) rf.onclick = () => this.actions.gateReinforce(g.id);
         } else if (this.mode === 'enemy') this.el.innerHTML = this.enemyHtml(this.target);
         else if (this.mode === 'hero') {
             this.el.innerHTML = this.heroHtml(this.target);
@@ -477,6 +534,7 @@ export class Inspector {
         if (this.mode === 'tower' && !state.towers.includes(this.target)) return this.actions.closed();
         if (this.mode === 'enemy' && !this.target.alive) return this.actions.closed();
         if (this.mode === 'hero' && state.hero !== this.target) return this.actions.closed();
+        if (this.mode === 'gate' && !state.gates.includes(this.target)) return this.actions.closed();
         this.render(state);
     }
 }

@@ -59,6 +59,9 @@ export function createTerrain(state, theme) {
         1 +
         0.07 * fbm(Math.cos(theta) * 1.3 + 5, Math.sin(theta) * 1.3, 3) +
         0.025 * n2(Math.cos(theta) * 5, Math.sin(theta) * 5);
+    // 성채(공성전 맵): 성벽 사각형까지의 거리. 안쪽은 음수
+    const fort = state.map.fortress;
+    const fortDist = fort ? (x, z) => Math.max(Math.abs(x) - fort.hx, Math.abs(z) - fort.hz) : () => 99;
     const ellipseR = (x, z) => Math.sqrt((x / rx) ** 2 + (z / rz) ** 2) / rimFactor(Math.atan2(z / rz, x / rx));
 
     function heightAt(x, z) {
@@ -70,6 +73,8 @@ export function createTerrain(state, theme) {
         h = lerp(0.06, h, smoothstep(0.8, 1.25, socketDist(x, z)));
         const dc = Math.hypot(x - core.x, z - core.z);
         h = lerp(0.12, h, smoothstep(1.6, 2.6, dc));
+        // 성 안마당과 성벽 자리는 평평하게
+        if (fort) h = lerp(0.04, h, smoothstep(0.7, 2.4, fortDist(x, z)));
         const e = ellipseR(x, z);
         h += 0.22 * smoothstep(0.84, 0.99, e) * away;
         return h;
@@ -107,6 +112,8 @@ export function createTerrain(state, theme) {
             const dryK = smoothstep(0.35, 0.7, fbm(x * 0.07 - 4, z * 0.07 + 2, 3));
             c.lerp(dry, dryK * 0.55);
             c.lerp(dirt, 1 - smoothstep(0.9, 1.7, dp));
+            // 다져진 흙 안마당
+            if (fort) c.lerp(dirt, 0.45 * (1 - smoothstep(-0.8, 0.1, fortDist(x, z))));
             c.lerp(rimRock, smoothstep(0.93, 1.0, r) * 0.7);
             const shade = 0.82 + 0.18 * smoothstep(-0.05, 0.5, y);
             c.multiplyScalar(shade);
@@ -198,10 +205,11 @@ export function createTerrain(state, theme) {
         if (pathDist(x, z) < 1.3 + margin) return false;
         if (socketDist(x, z) < 1.1 + margin) return false;
         if (Math.hypot(x - core.x, z - core.z) < 2.4 + margin) return false;
+        if (fortDist(x, z) < 0.9 + margin) return false;
         return true;
     }
 
-    return { group, heightAt, pathDist, socketDist, ellipseR, isFree, rimPts, core, noise };
+    return { group, heightAt, pathDist, socketDist, ellipseR, isFree, fortDist, rimPts, core, noise };
 }
 
 export function hashString(s) {

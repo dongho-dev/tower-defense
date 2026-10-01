@@ -9,6 +9,8 @@ import {
     drainEvents,
     repairTower,
     repairCost,
+    repairGate,
+    gateRepairCost,
     TICK
 } from '../src/core/game.js';
 import { TOWERS, MAX_TIER } from '../src/core/data/towers.js';
@@ -41,6 +43,9 @@ export function playWithPlan(mapId, plan, opts = {}) {
         if (state.siege) {
             const hurt = state.towers.find((t) => t.hp < t.maxHp * 0.5 && repairCost(t) <= state.gold);
             if (hurt) repairTower(state, hurt.id);
+            // 성문: 절반 아래면 수리, 무너졌으면 재건
+            const gate = state.gates.find((g) => (g.broken || g.hp < g.maxHp * 0.5) && gateRepairCost(g) <= state.gold);
+            if (gate && !opts.noGateRepair) repairGate(state, gate.id);
         }
         // 1) 계획상 다음 소켓에 건설
         const next = plan.find(([sid]) => state.sockets[sid].towerId == null);

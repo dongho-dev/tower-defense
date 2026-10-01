@@ -832,6 +832,64 @@ export class Effects {
         this.rig.shake(0.35);
     }
 
+    /** 성문 붕괴: 나무 파편·돌가루·먼지 기둥, 크게 흔들림 */
+    on_gateBroken(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.8);
+        this.burst(this.smoke, p, 55, {
+            color: [0.5, 0.43, 0.36],
+            size: 1.1,
+            size1: 2.6,
+            speed: 3,
+            upMin: 0.3,
+            upMax: 1.4,
+            life: 2.4,
+            alpha: 0.75,
+            drag: 1.3,
+            spread: 1.2
+        });
+        // 쪼개진 문짝 (갈색 파편)
+        this.burst(this.smoke, p, 26, {
+            color: [0.32, 0.2, 0.1],
+            size: 0.16,
+            speed: 5,
+            upMin: 1,
+            upMax: 2.6,
+            life: 1.3,
+            grav: 9,
+            alpha: 1,
+            drag: 0.6
+        });
+        this.burst(this.add, p, 34, {
+            color: COL.ember,
+            size: 0.12,
+            speed: 5.5,
+            upMin: 1,
+            upMax: 2.4,
+            life: 1,
+            grav: 8
+        });
+        this.ring(p, 3.2, COL.blood, 0.8, 1.4);
+        this.ring(p, 1.8, COL.fireHot, 0.5, 1);
+        this.decal(p, 1.3, 'scorch', 30);
+        this.flash(p, 0xff7a3a, 30, 0.6, 10);
+        this.rig.shake(0.5);
+    }
+
+    on_gateReinforce(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.4);
+        this.burst(this.add, p, 30, {
+            color: COL.gold,
+            size: 0.1,
+            speed: 1.2,
+            upMin: 2,
+            upMax: 3.5,
+            life: 1,
+            spread: 1.6
+        });
+        this.ring(p, 1.8, COL.goldSoft, 0.6);
+        this.flash(p, 0xffc45a, 10, 0.4, 6);
+    }
+
     on_repair(ev) {
         const p = this.groundPoint(ev.x, ev.z, 0.3);
         this.burst(this.add, p, 24, {
@@ -1078,6 +1136,38 @@ export class Effects {
         this.ambientT += dt;
         this.updateBeams(state, t);
         const q = this.q;
+        // 무너진 성문: 그을린 잔해에서 연기 기둥과 불씨가 오른다 (멀리서도 보이게)
+        for (const g of state.gates || []) {
+            if (!g.broken || Math.random() > dt * 9 * q) continue;
+            const p = this.groundPoint(g.x + (Math.random() - 0.5) * 1.2, g.z + (Math.random() - 0.5) * 1.2, 0.3);
+            this.smoke.emit({
+                x: p.x,
+                y: p.y,
+                z: p.z,
+                vx: 0.15,
+                vy: 1.1 + Math.random() * 0.5,
+                vz: -0.1,
+                life: 2.6,
+                size: 0.5,
+                size1: 1.6,
+                color: [0.24, 0.21, 0.2],
+                alpha: 0.5,
+                drag: 0.3
+            });
+            if (Math.random() < 0.5)
+                this.add.emit({
+                    x: p.x,
+                    y: p.y,
+                    z: p.z,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: 0.8 + Math.random(),
+                    vz: (Math.random() - 0.5) * 0.4,
+                    life: 1.2,
+                    size: 0.08,
+                    color: COL.ember,
+                    drag: 0.5
+                });
+        }
         // 투사체 궤적
         for (const p of state.projectiles) {
             const mesh = this.entities.projectileAt?.(p.id);

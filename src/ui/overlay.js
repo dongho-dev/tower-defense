@@ -46,7 +46,17 @@ export class Overlay {
             } else if (ev.type === 'towerDestroyed') {
                 this.float('붕괴!', new THREE.Vector3(ev.x, 2, ev.z), '#ff6a6a', 22);
             } else if (ev.type === 'repair') {
-                this.float('수리 -' + ev.cost, new THREE.Vector3(ev.x, 2, ev.z), '#9fd8ff', 16);
+                const y = ev.gateId != null ? 3 : 2;
+                this.float(
+                    (ev.rebuilt ? '재건 -' : '수리 -') + ev.cost,
+                    new THREE.Vector3(ev.x, y, ev.z),
+                    '#9fd8ff',
+                    16
+                );
+            } else if (ev.type === 'gateBroken') {
+                this.float('성문 붕괴!', new THREE.Vector3(ev.x, 3.2, ev.z), '#ff6a6a', 26);
+            } else if (ev.type === 'gateReinforce') {
+                this.float('보강 -' + ev.cost, new THREE.Vector3(ev.x, 3, ev.z), '#ffe3a3', 18);
             } else if (ev.type === 'heroLevel') {
                 this.float('LEVEL ' + ev.level, new THREE.Vector3(ev.x, 2.2, ev.z), '#ffe3a3', 22);
             } else if (ev.type === 'immune') {
@@ -252,8 +262,41 @@ export class Overlay {
                 g.stroke();
             }
         }
-        // 타워 체력(공성전)과 기절
+        // 성문 체력: 늘 보인다 (무너지면 표시만)
         const now = state.time;
+        const fortress = world.fortress;
+        for (const gt of state.gates || []) {
+            const top = fortress?.gateTop(gt.id, _v);
+            if (!top) continue;
+            const p = this.project(top);
+            if (p.behind) continue;
+            const x = Math.round(p.x - 30);
+            const y = Math.round(p.y);
+            if (gt.broken) {
+                g.font = '800 11px "Noto Sans KR", sans-serif';
+                g.textAlign = 'center';
+                g.textBaseline = 'middle';
+                g.lineWidth = 3;
+                g.strokeStyle = 'rgba(12,6,18,0.9)';
+                g.strokeText(gt.name + ' 붕괴', p.x, y + 2);
+                g.fillStyle = '#ff8a7a';
+                g.fillText(gt.name + ' 붕괴', p.x, y + 2);
+                continue;
+            }
+            const r = Math.max(0, gt.hp / gt.maxHp);
+            const recent = gt.hitT != null && now - gt.hitT < 0.15;
+            bar(
+                x,
+                y,
+                60,
+                6,
+                r,
+                r > 0.5 ? '#ffd98a' : r > 0.25 ? '#ffb24a' : '#ff5f5a',
+                r > 0.5 ? '#fff2c0' : null,
+                recent ? '#ffffff' : gt.level ? '#ffd66e' : 'rgba(230,184,92,0.7)'
+            );
+        }
+        // 타워 체력(공성전)과 기절
         for (const t of state.towers || []) {
             const stunned = t.stunT > 0;
             const showHp = t.hp != null && (t.hp < t.maxHp || (t.hitT != null && now - t.hitT < 2));

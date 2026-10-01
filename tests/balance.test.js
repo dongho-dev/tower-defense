@@ -40,3 +40,23 @@ test('공허의 첨탑: 10타워 전략은 승리, 6타워로는 패배', () => 
     const weak = playWithPlan('voidspire', autoPlan('voidspire', 6)).state;
     assert.equal(weak.status, 'lost');
 });
+
+// 성채 방어: 성문 곁 소켓(안마당)에 박격포·궁수탑을 짝지어 세우는 계획
+const FORTRESS_PLAN = [
+    [7, 'ember', 'a'],
+    [6, 'ranger', 'b'],
+    [0, 'ember', 'a'],
+    [1, 'ranger', 'b'],
+    [2, 'ember', 'a'],
+    [3, 'ranger', 'b'],
+    [4, 'ember', 'a'],
+    [5, 'ranger', 'b']
+];
+
+test('성채 방어: 무대응은 초반 패배, 성문 곁 8타워는 승리', () => {
+    const none = playWithPlan('fortress', [], { noUpgrades: true, skills: false }).state;
+    assert.equal(none.status, 'lost');
+    assert.ok(none.waveIndex <= 6, `웨이브 ${none.waveIndex}까지 버팀`);
+    const { state } = playWithPlan('fortress', FORTRESS_PLAN);
+    assert.equal(state.status, 'won');
+});

@@ -22,6 +22,7 @@ export class Hud {
             <div class="res gold panel" title="골드"><i class="ico">${ICONS.gold}</i><div><div class="val num" data-gold>0</div><div class="lbl">골드</div></div><span class="delta" data-gold-delta></span></div>
             <div class="res wave panel" title="웨이브"><i class="ico">${ICONS.wave}</i><div><div class="val num" data-wave>0/20</div><div class="lbl" data-wave-lbl>웨이브</div></div><div class="wave-prog"><i data-wave-prog></i></div></div>
             <div class="mode-tag" data-mode-tag></div>
+            <div class="gate-status" data-gates></div>
         </div>
         <div class="controls panel">
             <button class="icon-btn" data-speed title="배속 (F)" aria-label="배속 전환">${ICONS.play}</button>
@@ -70,6 +71,7 @@ export class Hud {
             waveLbl: q('[data-wave-lbl]'),
             waveProg: q('[data-wave-prog]'),
             modeTag: q('[data-mode-tag]'),
+            gates: q('[data-gates]'),
             bossName: q('[data-boss-name]'),
             bossHp: q('[data-boss-hp]'),
             bossLag: q('[data-boss-lag]'),
@@ -152,6 +154,35 @@ export class Hud {
         this.el.classList.toggle('siege', !!state.siege);
         this.$.lifeBox.classList.toggle('hero', d.id === 'hero');
         this.el.classList.toggle('endless', !!state.endless);
+        // 성문 현황: 누르면 그 성문을 고른다
+        this.$.gates.innerHTML = state.gates
+            .map(
+                (g) =>
+                    `<button class="gchip panel" data-gate="${g.id}" title="${g.name} · 눌러서 선택"><span class="nm">${g.name}</span><span class="bar"><i></i></span></button>`
+            )
+            .join('');
+        this.$.gates.style.display = state.gates.length ? '' : 'none';
+        this.gateEls = [...this.$.gates.querySelectorAll('[data-gate]')].map((el) => {
+            el.addEventListener('click', () => this.actions.selectGate(Number(el.dataset.gate)));
+            return { el, fill: el.querySelector('i') };
+        });
+    }
+
+    /** 성문 체력 칩: 맞는 중이면 깜빡이고, 무너지면 붉게 */
+    updateGates(state) {
+        state.gates.forEach((g, i) => {
+            const v = this.gateEls[i];
+            if (!v) return;
+            const r = g.broken ? 0 : g.hp / g.maxHp;
+            const hit = g.hitT != null && state.time - g.hitT < 0.6 && !g.broken;
+            this.set('gate' + i, Math.round(r * 50) + '|' + hit + '|' + g.broken + '|' + g.level, () => {
+                v.fill.style.width = r * 100 + '%';
+                v.el.classList.toggle('low', r < 0.35);
+                v.el.classList.toggle('hit', hit);
+                v.el.classList.toggle('broken', g.broken);
+                v.el.classList.toggle('lv', g.level > 0);
+            });
+        });
     }
 
     setVisible(v) {
@@ -324,6 +355,7 @@ export class Hud {
         } else this.bossLag = 1;
 
         this.updateHero(state);
+        if (state.gates.length) this.updateGates(state);
     }
 
     /** 영웅 카드: 체력·경험치·기술 쿨다운·부활 */
@@ -372,6 +404,13 @@ export class Hud {
                 if (ev.hint) this.showHint(ev.hint);
             } else if (ev.type === 'towerDestroyed') {
                 this.toast('타워가 무너졌습니다!', true);
+            } else if (ev.type === 'gateBroken') {
+                this.showBanner(`${ev.name} 붕괴`, '길이 열렸다 · 적이 수정으로 몰려온다', true);
+                this.$.vig.classList.add('on');
+                clearTimeout(this.vigT);
+                this.vigT = setTimeout(() => this.$.vig.classList.remove('on'), 260);
+            } else if (ev.type === 'repair' && ev.rebuilt) {
+                this.toast('성문을 다시 세웠습니다');
             } else if (ev.type === 'heroLevel') {
                 this.toast(`${HERO.name} 레벨 ${ev.level}!`);
             } else if (ev.type === 'unitDeath' && ev.kind === 'hero') {
