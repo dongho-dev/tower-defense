@@ -225,12 +225,39 @@ function colossus(M, body) {
 
 const BUILDERS = { grunt, stalker, ironclad, wraith, hexcaller, colossus };
 
+// 종류별 윤곽 빛: 어두운 몸이 땅에 묻히지 않게 가장자리를 은은하게 밝힌다
+const RIM = {
+    grunt: 0xb07aff,
+    stalker: 0xff8a5a,
+    ironclad: 0xffb060,
+    wraith: 0x5affe0,
+    hexcaller: 0x6dff9a,
+    colossus: 0xff4fd0
+};
+
+function addRim(mat, color, strength) {
+    mat.userData.rim = { value: new THREE.Color(color).multiplyScalar(strength) };
+    mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uRim = mat.userData.rim;
+        sh.fragmentShader = sh.fragmentShader
+            .replace('#include <common>', '#include <common>' + String.fromCharCode(10) + 'uniform vec3 uRim;')
+            .replace(
+                '#include <emissivemap_fragment>',
+                `#include <emissivemap_fragment>
+                float rimK = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+                totalEmissiveRadiance += uRim * pow(rimK, 2.6);`
+            );
+    };
+    mat.customProgramCacheKey = () => 'rim';
+}
+
 export function buildEnemyModel(type, elite) {
     const M = materials();
     // 피격 섬광을 위해 몸체 재질만 개체별로 복제
     const body = M.shadowFlesh.clone();
     if (type === 'ironclad') body.color.set(0x241c24);
     if (type === 'wraith') body.color.set(0x1c2430);
+    addRim(body, elite ? 0xffa040 : RIM[type], elite ? 1.2 : 1.1);
     const v = BUILDERS[type](M, body);
     v.body = body;
     v.flashMats = [body];

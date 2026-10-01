@@ -22,6 +22,7 @@ import {
     SKILLS
 } from './core/game.js';
 import { TOWER_ORDER, TOWERS } from './core/data/towers.js';
+import { MAPS } from './core/data/maps.js';
 import { TOWER_TINT } from './ui/icons.js';
 import { Renderer, QUALITY } from './render/Renderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -221,7 +222,7 @@ export class App {
             if (r.hero?.stars) heroCleared++;
             bestWave = Math.max(bestWave, ...Object.values(r).map((d) => d.best || 0));
         }
-        return { stars, maxStars: 9, heroCleared, bestWave, hasProgress: recs.length > 0 };
+        return { stars, maxStars: Object.keys(MAPS).length * 3, heroCleared, bestWave, hasProgress: recs.length > 0 };
     }
 
     toSelect(opts = {}) {

@@ -61,7 +61,13 @@ export class World {
         scene.add(this.vegetation.group);
         this.lanterns = createLanterns(state, terrain);
         this.ramparts = createRamparts(state, terrain, th);
-        this.portals = state.paths.map((_, i) => createPortal(state, terrain, i));
+        // 시작점이 같은 갈래(갈라지는 길)는 포털 하나를 같이 쓴다
+        const starts = [];
+        state.paths.forEach((p, i) => {
+            if (!starts.some((j) => Math.hypot(state.paths[j].xs[0] - p.xs[0], state.paths[j].zs[0] - p.zs[0]) < 1))
+                starts.push(i);
+        });
+        this.portals = starts.map((i) => createPortal(state, terrain, i));
         this.portal = this.portals[0];
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);

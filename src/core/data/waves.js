@@ -203,6 +203,174 @@ WAVES.voidspire = [
     }
 ];
 
+// ---------- 공용 캠페인 템플릿 (새 맵용) ----------
+// [enemy, count, gap, delay, extra]. 갈래가 여럿이면 큰 무리는 갈래마다 나눠 보낸다.
+const TEMPLATE = [
+    { g: [['grunt', 10, 1.0]] },
+    {
+        g: [
+            ['grunt', 10, 0.9],
+            ['stalker', 6, 0.6, 5]
+        ]
+    },
+    {
+        g: [
+            ['grunt', 12, 0.7],
+            ['stalker', 8, 0.5, 4]
+        ]
+    },
+    {
+        g: [
+            ['ironclad', 3, 2.4],
+            ['grunt', 12, 0.6, 3]
+        ],
+        hint: '흑철 기사는 물리 피해에 강합니다. 마법 타워를 섞으세요.'
+    },
+    {
+        g: [
+            ['wraith', 8, 0.9],
+            ['grunt', 10, 0.6, 3]
+        ],
+        hint: '망령은 마법 피해에 강합니다. 궁수탑과 박격포가 효과적이에요.'
+    },
+    {
+        g: [
+            ['stalker', 16, 0.4],
+            ['ironclad', 4, 1.8, 5]
+        ]
+    },
+    {
+        g: [
+            ['grunt', 16, 0.5],
+            ['hexcaller', 2, 4, 4],
+            ['wraith', 8, 0.8, 6]
+        ],
+        hint: '주술사는 주변 아군을 치유합니다. 먼저 쓰러뜨리세요.'
+    },
+    {
+        g: [
+            ['ironclad', 8, 1.3],
+            ['hexcaller', 3, 3, 3],
+            ['stalker', 12, 0.4, 7]
+        ]
+    },
+    {
+        g: [
+            ['wraith', 14, 0.6],
+            ['grunt', 18, 0.45, 3]
+        ]
+    },
+    {
+        g: [
+            ['ironclad', 2, 4, 0, { elite: true }],
+            ['ironclad', 5, 1.6, 2],
+            ['hexcaller', 3, 3, 4]
+        ],
+        hint: '정예 등장. 공명과 스킬을 아끼지 마세요.'
+    },
+    {
+        g: [
+            ['stalker', 22, 0.3],
+            ['wraith', 10, 0.7, 4]
+        ]
+    },
+    {
+        g: [
+            ['grunt', 26, 0.35],
+            ['ironclad', 8, 1.2, 4],
+            ['hexcaller', 4, 2.5, 6]
+        ]
+    },
+    {
+        g: [
+            ['wraith', 16, 0.5],
+            ['hexcaller', 5, 2.2, 3]
+        ]
+    },
+    {
+        g: [
+            ['ironclad', 12, 0.9],
+            ['stalker', 18, 0.3, 6]
+        ]
+    },
+    {
+        g: [
+            ['wraith', 3, 3, 0, { elite: true }],
+            ['grunt', 24, 0.35, 2],
+            ['wraith', 12, 0.55, 6]
+        ]
+    },
+    {
+        g: [
+            ['grunt', 22, 0.32],
+            ['stalker', 18, 0.28, 4],
+            ['ironclad', 8, 1.1, 6],
+            ['hexcaller', 5, 2.2, 8]
+        ]
+    },
+    {
+        g: [
+            ['ironclad', 16, 0.8],
+            ['hexcaller', 6, 1.8, 4]
+        ]
+    },
+    {
+        g: [
+            ['wraith', 22, 0.42],
+            ['ironclad', 4, 3.5, 6, { elite: true }]
+        ]
+    },
+    {
+        g: [
+            ['stalker', 26, 0.26],
+            ['grunt', 24, 0.32, 3],
+            ['ironclad', 12, 0.9, 6],
+            ['wraith', 14, 0.5, 9],
+            ['hexcaller', 6, 1.8, 10]
+        ]
+    },
+    {
+        g: [
+            ['grunt', 18, 0.45],
+            ['ironclad', 8, 1.3, 3],
+            ['colossus', 1, 1, 9],
+            ['hexcaller', 5, 2.5, 10],
+            ['wraith', 12, 0.6, 14]
+        ],
+        hint: '공허의 거상이 깨어났습니다. 모든 힘을 쏟아부으세요!'
+    }
+];
+
+const FLAVOR = {
+    swarm: { grunt: 1.25, stalker: 1.3, ironclad: 0.8 },
+    armored: { ironclad: 1.35, wraith: 0.8 },
+    spectral: { wraith: 1.35, grunt: 0.85 }
+};
+
+/** 템플릿을 맵에 맞춘다: 갈래 수만큼 나누고, 맛(flavor)에 따라 종류별 수를 바꾼다 */
+export function campaignWaves(pathCount = 1, flavor = null) {
+    const fl = FLAVOR[flavor] || {};
+    return TEMPLATE.map((w, wi) => {
+        const groups = [];
+        w.g.forEach(([enemy, count, gap, delay = 0, extra = {}], gi) => {
+            const n = enemy === 'colossus' ? count : Math.max(1, Math.round(count * (fl[enemy] || 1)));
+            if (pathCount > 1 && n >= 6) {
+                const per = Math.ceil(n / pathCount);
+                for (let p = 0; p < pathCount; p++) {
+                    groups.push(g(enemy, per, gap * 1.15, delay + p * 1.5, { ...extra, path: p }));
+                }
+            } else {
+                groups.push(g(enemy, n, gap, delay, { ...extra, path: (wi + gi) % pathCount }));
+            }
+        });
+        return { groups, ...(w.hint ? { hint: w.hint } : {}) };
+    });
+}
+
+WAVES.cinder = campaignWaves(1, 'swarm');
+WAVES.bloom = campaignWaves(2, 'spectral');
+WAVES.stormreach = campaignWaves(2, 'armored');
+
 export function waveEnemyCount(wave) {
     return wave.groups.reduce((n, grp) => n + grp.count, 0);
 }

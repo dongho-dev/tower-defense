@@ -20,7 +20,10 @@ const h = (html) => {
 const THUMB_FALLBACK = {
     dusk: 'linear-gradient(160deg,#f08a64 0%,#4b2c72 55%,#161236 100%)',
     frost: 'linear-gradient(160deg,#f2a0a4 0%,#34407e 55%,#0e1430 100%)',
-    void: 'linear-gradient(160deg,#b0306a 0%,#2a0b3a 55%,#07030f 100%)'
+    void: 'linear-gradient(160deg,#b0306a 0%,#2a0b3a 55%,#07030f 100%)',
+    ember: 'linear-gradient(160deg,#ff7a3a 0%,#5a1a12 55%,#1a0a0a 100%)',
+    dawn: 'linear-gradient(160deg,#ffc8b0 0%,#6a8ad0 55%,#2a3a7a 100%)',
+    storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)'
 };
 
 export class Screens {
@@ -77,7 +80,7 @@ export class Screens {
                 summary.hasProgress
                     ? `<div class="title-record">
                 <div class="rec-row"><span class="k">별</span><span class="v">${summary.stars}<em>/${summary.maxStars}</em></span></div>
-                <div class="rec-row"><span class="k">영웅 정복</span><span class="v">${summary.heroCleared}<em>/3</em></span></div>
+                <div class="rec-row"><span class="k">영웅 정복</span><span class="v">${summary.heroCleared}<em>/${summary.maxStars / 3}</em></span></div>
                 <div class="rec-row"><span class="k">끝없는 밤</span><span class="v">${summary.bestWave || '—'}<em>${summary.bestWave ? ' 웨이브' : ''}</em></span></div>
             </div>`
                     : ''
