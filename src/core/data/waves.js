@@ -218,3 +218,56 @@ export function waveSummary(wave) {
     }
     return [...map.values()];
 }
+
+// ---------- 끝없는 밤: 20웨이브 이후 자동 생성 ----------
+
+export const CAMPAIGN_WAVES = 20;
+
+function rng(seed) {
+    let s = seed >>> 0 || 1;
+    return () => {
+        s = (s + 0x6d2b79f5) >>> 0;
+        let t = s;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// 적 종류별 기본 수와 간격 (후반 웨이브 기준)
+const ENDLESS_POOL = [
+    ['grunt', 20, 0.38],
+    ['stalker', 20, 0.28],
+    ['ironclad', 10, 0.9],
+    ['wraith', 14, 0.5],
+    ['hexcaller', 5, 2]
+];
+
+/**
+ * waveNo(21~)번째 웨이브를 결정적으로 만든다. 같은 맵·같은 번호면 항상 같은 웨이브.
+ * 체력은 hpScale(waveNo)로 계속 오르고, 수와 정예 비중이 조금씩 늘며 5웨이브마다 거상이 온다.
+ */
+export function endlessWave(waveNo, pathCount = 1, seed = 0) {
+    const k = waveNo - CAMPAIGN_WAVES;
+    const rand = rng(waveNo * 7919 + seed * 104729);
+    const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+    const path = () => ({ path: Math.floor(rand() * pathCount) });
+    const grow = 1 + Math.min(1.2, k * 0.05);
+    const groups = [];
+    const n = 3 + Math.min(3, Math.floor(k / 4));
+    for (let i = 0; i < n; i++) {
+        const [enemy, count, gap] = pick(ENDLESS_POOL);
+        groups.push(g(enemy, Math.round((count * grow) / Math.max(1, pathCount * 0.6)), gap, i * 3, path()));
+    }
+    const elite = pick(['ironclad', 'wraith', 'stalker', 'hexcaller']);
+    groups.push(g(elite, Math.min(8, 2 + Math.floor(k / 4)), 2.5, 4, { ...path(), elite: true }));
+    let hint = null;
+    if (k % 5 === 0) {
+        const bosses = 1 + Math.floor(k / 15);
+        for (let i = 0; i < bosses; i++) {
+            groups.push(g('colossus', 1, 1, 8 + i * 18, { path: (i + Math.floor(rand() * pathCount)) % pathCount }));
+        }
+        hint = bosses > 1 ? `거상 ${bosses}체가 몰려온다. 끝없는 밤이 깊어진다.` : '거상이 다시 깨어났다.';
+    }
+    return { groups, hint, endless: true };
+}

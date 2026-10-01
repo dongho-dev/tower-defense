@@ -242,14 +242,31 @@ export function buildEnemyModel(type, elite) {
     });
     if (v.ironClone) v.flashMats.push(v.ironClone);
     if (elite) {
-        const crown = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.025, 5, 12), M.gold);
-        crown.rotation.x = Math.PI / 2;
+        // 가시 왕관 + 발밑의 주황 룬 고리
+        const crown = new THREE.Group();
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.022, 5, 14), M.gold);
+        band.rotation.x = Math.PI / 2;
+        crown.add(band);
+        for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.028, i % 2 ? 0.09 : 0.14, 4), M.gold);
+            spike.position.set(Math.cos(a) * 0.15, 0.05, Math.sin(a) * 0.15);
+            crown.add(spike);
+        }
+        const jewel = new THREE.Mesh(new THREE.OctahedronGeometry(0.035), M.eyeGlow);
+        jewel.position.set(0, 0.03, 0.16);
+        crown.add(jewel);
         crown.position.y = 1.15;
         v.group.add(crown);
+        const sigil = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.47, 6), M.emberGlow);
+        sigil.rotation.x = -Math.PI / 2;
+        sigil.position.y = 0.03;
+        v.sigil = sigil;
     }
     shadowAll(v.group, true, false);
     const root = new THREE.Group();
     root.add(v.group);
+    if (v.sigil) root.add(v.sigil);
     v.root = root;
     v.phase = Math.random() * 6;
     return v;
@@ -269,6 +286,7 @@ export function animateEnemy(v, e, t, dt) {
     for (let i = 0; i < v.arms.length; i++) v.arms[i].rotation.y = (i % 2 ? s : -s) * v.stride * 0.6;
     v.group.position.y = (v.float || 0) + Math.abs(s) * v.bob + (v.float ? Math.sin(t * 2 + e.id) * 0.06 : 0);
     if (v.orb) v.orb.rotation.y += dt * 3;
+    if (v.sigil) v.sigil.rotation.z += dt * 1.2;
     // 피격·둔화·빙결 색
     const hit = v.hitT > 0 ? v.hitT / 0.12 : 0;
     for (const m of v.flashMats) {

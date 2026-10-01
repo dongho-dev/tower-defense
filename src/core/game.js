@@ -3,7 +3,8 @@ import { buildPath, samplePath } from './path.js';
 import { MAPS } from './data/maps.js';
 import { TOWERS, MAX_TIER, SELL_RATE, CHAIN_JUMP, baseStats } from './data/towers.js';
 import { ENEMIES, ELITE, hpScale } from './data/enemies.js';
-import { WAVES } from './data/waves.js';
+import { WAVES, CAMPAIGN_WAVES, endlessWave } from './data/waves.js';
+import { DIFFICULTY } from './data/difficulty.js';
 
 export const WAVE_GAP = 16;
 export const EARLY_BONUS_PER_SEC = 1.5;
@@ -40,12 +41,14 @@ export function meteorDamage(state) {
 export function createGame(mapId = 'dusk', opts = {}) {
     const map = MAPS[mapId];
     if (!map) throw new Error('unknown map ' + mapId);
+    const diff = DIFFICULTY[opts.difficulty] || DIFFICULTY.normal;
+    const lives = diff.lives ?? map.lives;
     const sockets = map.sockets.map(([x, z], id) => ({ id, x, z, links: [], towerId: null }));
     for (const [a, b] of map.links) {
         sockets[a].links.push(b);
         sockets[b].links.push(a);
     }
-    return {
+    const state = {
         mapId,
         map,
         paths: map.paths.map(buildPath),
@@ -55,11 +58,14 @@ export function createGame(mapId = 'dusk', opts = {}) {
         projectiles: [],
         zones: [],
         meteors: [],
-        gold: opts.gold ?? map.startGold,
-        lives: map.lives,
-        maxLives: map.lives,
+        difficulty: diff.id,
+        hpMul: (map.hpMul || 1) * diff.hpMul,
+        endless: !!opts.endless,
+        gold: opts.gold ?? Math.round(map.startGold * diff.goldMul),
+        lives,
+        maxLives: lives,
         time: 0,
-        waves: WAVES[map.waves],
+        waves: WAVES[map.waves].slice(),
         waveIndex: 0,
         spawners: [],
         nextWaveIn: null,
@@ -73,7 +79,40 @@ export function createGame(mapId = 'dusk', opts = {}) {
         healTick: 0,
         auraTick: 0
     };
+    if (state.endless) ensureWaves(state);
+    return state;
 }
+
+/** 끝없는 밤: 다음 웨이브까지 미리 만들어 둔다 (HUD 미리보기용) */
+function ensureWaves(state) {
+    while (state.waves.length < state.waveIndex + 2) {
+        const n = state.waves.length + 1;
+        state.waves.push(endlessWave(n, state.paths.length, state.map.id.length));
+    }
+}
+
+/** 남은 웨이브가 있는가 (끝없는 밤이면 항상 있다) */
+export function hasMoreWaves(state) {
+    return state.endless || state.waveIndex < state.waves.length;
+}
+
+/** 승리 직후 끝없는 밤으로 이어 간다 */
+export function continueEndless(state) {
+    if (state.status !== 'won' || state.endless) return { ok: false };
+    state.status = 'playing';
+    state.endless = true;
+    ensureWaves(state);
+    state.nextWaveIn = WAVE_GAP;
+    emit(state, { type: 'endless' });
+    return { ok: true };
+}
+
+/** 막아 낸 웨이브 수 (패배했다면 진행 중이던 웨이브는 제외) */
+export function wavesSurvived(state) {
+    return Math.max(0, state.status === 'lost' ? state.waveIndex - 1 : state.waveIndex);
+}
+
+export { CAMPAIGN_WAVES };
 
 export function drainEvents(state) {
     const ev = state.events;
@@ -238,7 +277,7 @@ export function setTargeting(state, towerId, mode) {
 }
 
 export function canCallWave(state) {
-    if (state.status !== 'playing' || state.waveIndex >= state.waves.length) return false;
+    if (state.status !== 'playing' || !hasMoreWaves(state)) return false;
     if (state.waveIndex === 0) return true;
     return state.nextWaveIn != null;
 }
@@ -252,6 +291,7 @@ export function callWave(state) {
         state.stats.earlyBonus += bonus;
     }
     const waveNo = ++state.waveIndex;
+    if (state.endless) ensureWaves(state);
     const wave = state.waves[waveNo - 1];
     for (const grp of wave.groups) {
         state.spawners.push({ group: grp, waveNo, spawned: 0, nextAt: state.time + grp.delay });
@@ -262,7 +302,8 @@ export function callWave(state) {
         wave: waveNo,
         bonus,
         hint: wave.hint || null,
-        boss: wave.groups.some((g) => ENEMIES[g.enemy].boss)
+        boss: wave.groups.some((g) => ENEMIES[g.enemy].boss),
+        endless: !!wave.endless
     });
     return { ok: true, bonus };
 }
@@ -295,7 +336,9 @@ const _p = {};
 function spawnEnemy(state, grp, waveNo) {
     const def = ENEMIES[grp.enemy];
     const elite = !!grp.elite;
-    const hp = def.hp * hpScale(waveNo) * (elite ? ELITE.hp : 1) * (state.map.hpMul || 1) * (grp.hpMul || 1);
+    const hp = def.hp * hpScale(waveNo) * (elite ? ELITE.hp : 1) * state.hpMul * (grp.hpMul || 1);
+    // 끝없는 밤에선 현상금도 조금씩 오른다
+    const bountyMul = waveNo > CAMPAIGN_WAVES ? 1 + (waveNo - CAMPAIGN_WAVES) * 0.04 : 1;
     const id = state.nextId++;
     const pathIndex = grp.path || 0;
     // 개체마다 좌우로 살짝 벌려서 줄 서 있는 느낌을 없앤다 (결정적)
@@ -310,7 +353,7 @@ function spawnEnemy(state, grp, waveNo) {
         hp,
         maxHp: hp,
         speed: def.speed,
-        bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1)),
+        bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul),
         lives: def.lives * (elite ? ELITE.lives : 1),
         radius: def.radius * (elite ? ELITE.scale : 1),
         pathIndex,
@@ -351,7 +394,7 @@ function updateSpawners(state) {
     const before = state.spawners.length;
     state.spawners = state.spawners.filter((sp) => sp.spawned < sp.group.count);
     // 최신 웨이브의 스폰이 모두 끝나면 다음 웨이브 카운트다운 시작
-    if (before > 0 && state.spawners.length === 0 && state.waveIndex < state.waves.length && state.nextWaveIn == null) {
+    if (before > 0 && state.spawners.length === 0 && hasMoreWaves(state) && state.nextWaveIn == null) {
         state.nextWaveIn = WAVE_GAP;
         emit(state, { type: 'waveSpawned', wave: state.waveIndex });
     }
@@ -741,6 +784,7 @@ export function step(state, dt = TICK) {
     state.enemies = state.enemies.filter((e) => e.alive);
     if (
         state.status === 'playing' &&
+        !state.endless &&
         state.waveIndex >= state.waves.length &&
         !state.spawners.length &&
         !state.enemies.length

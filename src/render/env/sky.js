@@ -1,6 +1,6 @@
 // 노을 하늘, IBL 환경맵, 섬 아래 구름바다, 떠다니는 작은 섬들.
 import * as THREE from 'three';
-import { puffSprite } from '../util/textures.js';
+import { cumulusSprite } from '../util/textures.js';
 import { mulberry32 } from '../util/noise.js';
 
 export const SUN_AZIMUTH = THREE.MathUtils.degToRad(158); // 서쪽(포털 쪽), 약간 카메라 쪽
@@ -125,18 +125,31 @@ float fbm(vec2 p) {
     for (int i = 0; i < 6; i++) { s += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
     return s;
 }
+// 뭉게구름 높이: 큰 덩어리(워핑된 fbm) 위에 작은 둥근 봉우리
+float billow(vec2 p) {
+    vec2 q = vec2(fbm(p + vec2(0.0, uTime * 0.004)), fbm(p + vec2(5.2, 1.3)));
+    float big = fbm(p + 1.6 * q);
+    float puff = 1.0 - abs(vnoise(p * 3.1 + q * 2.0) * 2.0 - 1.0);
+    return big + puff * puff * 0.16;
+}
 void main() {
-    vec2 p = vWorld.xz * 0.028 + vec2(uTime * 0.006, uTime * 0.002);
-    float d = fbm(p);
-    float e = 0.02;
-    float dx = fbm(p + vec2(e, 0.0)) - d;
-    float dz = fbm(p + vec2(0.0, e)) - d;
-    vec3 n = normalize(vec3(-dx * 22.0, 1.0, -dz * 22.0));
-    float lit = clamp(dot(n, normalize(uSun)) * 0.7 + 0.35, 0.0, 1.0);
-    float dens = smoothstep(0.32, 0.78, d);
-    vec3 col = mix(uDeep, uShadow, dens);
-    col = mix(col, uMid, smoothstep(0.4, 0.8, dens) * lit);
-    col = mix(col, uLit, pow(lit, 3.0) * smoothstep(0.55, 0.9, dens));
+    vec2 p = vWorld.xz * 0.024 + vec2(uTime * 0.005, uTime * 0.0018);
+    float d = billow(p);
+    float e = 0.015;
+    float dx = billow(p + vec2(e, 0.0)) - d;
+    float dz = billow(p + vec2(0.0, e)) - d;
+    vec3 n = normalize(vec3(-dx * 26.0, 1.0, -dz * 26.0));
+    vec3 L = normalize(uSun);
+    float ndl = dot(n, L);
+    float lit = clamp(ndl * 0.6 + 0.45, 0.0, 1.0);
+    float dens = smoothstep(0.38, 0.86, d);
+    // 골짜기는 깊게, 봉우리 꼭대기는 해를 받아 빛난다
+    vec3 col = mix(uDeep, uShadow, smoothstep(0.0, 0.55, dens));
+    col = mix(col, uMid, smoothstep(0.35, 0.85, dens) * lit);
+    col = mix(col, uLit, pow(clamp(ndl, 0.0, 1.0), 2.0) * smoothstep(0.55, 0.95, dens));
+    // 봉우리 가장자리의 은빛 테 (역광)
+    float rim = pow(1.0 - n.y, 1.5) * smoothstep(0.5, 0.8, dens);
+    col += uLit * rim * 0.9;
     // 해 쪽으로 갈수록 밝게
     vec2 toSun = normalize(uSun.xz);
     float sunSide = clamp(dot(normalize(vWorld.xz + 0.001), toSun), 0.0, 1.0);
@@ -169,28 +182,37 @@ export function createCloudSea(sunDir, theme) {
     sea.position.y = -13;
     sea.name = 'cloudSea';
 
-    // 섬 둘레의 구름 덩어리 (깊이감)
+    // 섬 둘레의 적운 무리: 몇 덩어리씩 모여 구름 둑을 이룬다
     const puffs = new THREE.Group();
     const rand = mulberry32(99);
-    const tex = [puffSprite(3), puffSprite(8), puffSprite(13)];
-    for (let i = 0; i < 70; i++) {
-        const a = rand() * Math.PI * 2;
-        const r = 17 + rand() * 40;
-        const mat2 = new THREE.SpriteMaterial({
-            map: tex[i % 3],
-            color: new THREE.Color(c.mid).lerp(new THREE.Color(c.lit), 0.4 + rand() * 0.4),
-            transparent: true,
-            opacity: 0.28 + rand() * 0.25,
-            depthWrite: false,
-            fog: false
-        });
-        const s = new THREE.Sprite(mat2);
-        const size = 14 + rand() * 22;
-        s.scale.set(size, size * 0.55, 1);
-        s.position.set(Math.cos(a) * r * 1.2, -6 - rand() * 7, Math.sin(a) * r * 0.9);
-        s.userData.drift = 0.2 + rand() * 0.4;
-        s.userData.base = s.position.clone();
-        puffs.add(s);
+    const tex = [1, 2, 3, 4].map(cumulusSprite);
+    const lit = new THREE.Color(c.lit);
+    const mid = new THREE.Color(c.mid);
+    for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2 + rand() * 0.3;
+        const r = 25 + rand() * 16;
+        const cx = Math.cos(a) * r * 1.2;
+        const cz = Math.sin(a) * r * 0.95;
+        const n = 3 + Math.floor(rand() * 4);
+        for (let i = 0; i < n; i++) {
+            const m = new THREE.SpriteMaterial({
+                map: tex[(k + i) % 4],
+                color: mid.clone().lerp(lit, 0.55 + rand() * 0.35),
+                transparent: true,
+                opacity: 0.8,
+                depthWrite: false,
+                fog: false
+            });
+            const sp = new THREE.Sprite(m);
+            const size = 6 + rand() * 8 - i * 0.4;
+            sp.scale.set(size, size * 0.5, 1);
+            sp.center.set(0.5, 0.12);
+            sp.position.set(cx + (rand() - 0.5) * 12, -12.8 + rand() * 1.2, cz + (rand() - 0.5) * 9);
+            sp.userData.drift = 0.2 + rand() * 0.4;
+            sp.userData.base = sp.position.clone();
+            sp.renderOrder = -1;
+            puffs.add(sp);
+        }
     }
     return {
         sea,

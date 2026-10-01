@@ -1,6 +1,14 @@
 // 전체 화면 UI: 타이틀, 맵 선택, 일시정지, 설정, 결과, 튜토리얼 안내.
 import { ICONS } from './icons.js';
 import { MAPS } from '../core/data/maps.js';
+import { DIFFICULTY, DIFFICULTY_ORDER } from '../core/data/difficulty.js';
+
+/** 저장 데이터에서 맵·난이도 기록 */
+export function recordOf(save, mapId, diff) {
+    return save.records?.[mapId]?.[diff] || { stars: 0, best: 0 };
+}
+
+const starRow = (n) => [1, 2, 3].map((i) => `<i class="${i <= n ? 'on' : ''}">${ICONS.star}</i>`).join('');
 
 const h = (html) => {
     const t = document.createElement('template');
@@ -39,45 +47,131 @@ export class Screens {
         return el;
     }
 
-    title(hasProgress) {
+    /** summary: { stars, maxStars, heroCleared, bestWave, hasProgress } */
+    title(summary) {
+        const items = [
+            ['select', '전투 개시', summary.hasProgress ? '이어서 도전하기' : '마지막 빛을 지켜라'],
+            [
+                'endless',
+                '끝없는 밤',
+                summary.bestWave ? `최고 기록 ${summary.bestWave} 웨이브` : '빛이 꺼질 때까지 버텨라'
+            ],
+            ['settings', '설정', '그래픽 · 소리 · 화면 흔들림']
+        ];
+        const roman = ['I', 'II', 'III'];
         const el = h(`<div class="screen title">
-            <div class="title-wrap">
-                <h1 class="logo">LAST LIGHT</h1>
-                <div class="logo-sub">에테르 보루</div>
-                <div class="logo-rule"></div>
-                <div class="menu">
-                    <button class="menu-btn primary" data-go="select">전투 개시<small>${hasProgress ? '이어서 도전하기' : '마지막 빛을 지켜라'}</small></button>
-                    <button class="menu-btn" data-go="settings">설정</button>
-                </div>
+            <div class="title-shade"></div>
+            <div class="title-left">
+                <div class="kicker"><span>에테르 보루</span><i></i><span>AETHER BASTION</span></div>
+                <h1 class="logo" aria-label="LAST LIGHT"><span class="w1">LAST</span><span class="w2">L<span class="lit">I<b></b></span>GHT</span></h1>
+                <p class="tagline">하늘에 떠 있는 마지막 보루. 균열이 열리면 밤이 온다.</p>
+                <nav class="tmenu">${items
+                    .map(
+                        ([go, label, sub], i) =>
+                            `<button class="titem" data-go="${go}"><span class="no">${roman[i]}</span><span class="lbl">${label}<small>${sub}</small></span></button>`
+                    )
+                    .join('')}</nav>
             </div>
-            <div class="foot-note">빈 소켓을 눌러 타워 건설 · 드래그/방향키 시점 이동 · 휠 확대 · Space 웨이브 호출 · Q/W 스킬</div>
+            ${
+                summary.hasProgress
+                    ? `<div class="title-record">
+                <div class="rec-row"><span class="k">별</span><span class="v">${summary.stars}<em>/${summary.maxStars}</em></span></div>
+                <div class="rec-row"><span class="k">영웅 정복</span><span class="v">${summary.heroCleared}<em>/3</em></span></div>
+                <div class="rec-row"><span class="k">끝없는 밤</span><span class="v">${summary.bestWave || '—'}<em>${summary.bestWave ? ' 웨이브' : ''}</em></span></div>
+            </div>`
+                    : ''
+            }
+            <div class="title-foot"><span>소켓 클릭 · 건설</span><span>드래그 · 시점</span><span>Space · 웨이브</span><span>Q W · 스킬</span><span class="ver">v2.1</span></div>
         </div>`);
-        el.querySelector('[data-go=select]').onclick = () => this.actions.toSelect();
-        el.querySelector('[data-go=settings]').onclick = () => this.actions.openSettings();
+        const go = (where) =>
+            where === 'select'
+                ? this.actions.toSelect()
+                : where === 'endless'
+                  ? this.actions.toSelect({ endless: true })
+                  : this.actions.openSettings();
+        const btns = [...el.querySelectorAll('.titem')];
+        btns.forEach((btn) => {
+            btn.onclick = () => go(btn.dataset.go);
+            btn.onmouseenter = () => btn.focus({ preventScroll: true });
+        });
+        el.addEventListener('keydown', (e) => {
+            const i = btns.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const n = (i + (e.key === 'ArrowDown' ? 1 : btns.length - 1)) % btns.length;
+                btns[n].focus({ preventScroll: true });
+            }
+        });
         return this.mount(el);
     }
 
     select(save, thumbs) {
+        let diff = DIFFICULTY[save.lastDifficulty] ? save.lastDifficulty : 'normal';
+        let endless = !!save.lastEndless;
         const cards = Object.values(MAPS)
             .map((m) => {
-                const stars = save.stars[m.id] || 0;
                 const bg = thumbs[m.id] ? `url(${thumbs[m.id]})` : THUMB_FALLBACK[m.theme || 'dusk'];
                 return `<button class="map-card panel ornate" data-map="${m.id}">
-                    <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"></div>
+                    <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"><span class="crown" title="영웅 난이도 정복">${ICONS.crown}</span></div>
                     <div class="body"><div class="name">${m.name}</div><div class="en">${m.en}</div>
                     <div class="desc">${m.desc}</div>
-                    <div class="meta"><span>${m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}20 웨이브 · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}">${ICONS.star}</i>`).join('')}</span></div></div>
+                    <div class="meta"><span>${m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}<span data-len></span> · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="rec" data-rec></span></div></div>
                 </button>`;
             })
             .join('');
         const el = h(`<div class="screen dim"><div class="select-wrap">
             <h2>전장 선택</h2>
+            <div class="select-opts">
+                <div class="opt-group"><div class="opt-lbl">난이도</div><div class="seg big" data-diff>${DIFFICULTY_ORDER.map((d) => `<button data-v="${d}" class="d-${d}">${d === 'hero' ? ICONS.crown : ''}${DIFFICULTY[d].name}</button>`).join('')}</div></div>
+                <div class="opt-group"><div class="opt-lbl">모드</div><div class="seg big" data-mode><button data-v="campaign">전투 · 20 웨이브</button><button data-v="endless" class="m-endless">${ICONS.moon}끝없는 밤</button></div></div>
+            </div>
+            <div class="opt-desc" data-opt-desc></div>
             <div class="maps">${cards}</div>
             <div class="back-row"><button class="menu-btn ghost" data-back>돌아가기</button></div>
         </div></div>`);
-        el.querySelectorAll('[data-map]').forEach((b) => (b.onclick = () => this.actions.startMap(b.dataset.map)));
+        const refresh = () => {
+            el.querySelectorAll('[data-diff] button').forEach((b) => b.classList.toggle('on', b.dataset.v === diff));
+            el.querySelectorAll('[data-mode] button').forEach((b) =>
+                b.classList.toggle('on', (b.dataset.v === 'endless') === endless)
+            );
+            el.querySelector('[data-opt-desc]').innerHTML =
+                `<b>${DIFFICULTY[diff].name}</b> · ${DIFFICULTY[diff].desc}` +
+                (endless ? '<br><b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' : '');
+            for (const card of el.querySelectorAll('[data-map]')) {
+                const id = card.dataset.map;
+                const rec = recordOf(save, id, diff);
+                card.querySelector('[data-len]').textContent = endless ? '∞ 웨이브' : '20 웨이브';
+                card.querySelector('[data-rec]').innerHTML = endless
+                    ? `<span class="best">${ICONS.moon}<b>${rec.best || '—'}</b>${rec.best ? ' 웨이브' : ''}</span>`
+                    : `<span class="stars">${starRow(rec.stars)}</span>`;
+                card.classList.toggle('hero-cleared', recordOf(save, id, 'hero').stars > 0);
+                card.classList.toggle('endless', endless);
+            }
+        };
+        el.querySelectorAll('[data-diff] button').forEach(
+            (b) =>
+                (b.onclick = () => {
+                    diff = b.dataset.v;
+                    this.actions.setPref('lastDifficulty', diff);
+                    refresh();
+                })
+        );
+        el.querySelectorAll('[data-mode] button').forEach(
+            (b) =>
+                (b.onclick = () => {
+                    endless = b.dataset.v === 'endless';
+                    this.actions.setPref('lastEndless', endless);
+                    refresh();
+                })
+        );
+        refresh();
+        el.querySelectorAll('[data-map]').forEach(
+            (b) => (b.onclick = () => this.actions.startMap(b.dataset.map, { difficulty: diff, endless }))
+        );
         el.querySelector('[data-back]').onclick = () => this.actions.toTitle();
-        return this.mount(el);
+        this.mount(el);
+        el.querySelector('[data-map]').focus({ preventScroll: true });
+        return el;
     }
 
     pause() {
@@ -132,24 +226,42 @@ export class Screens {
         return this.mount(el);
     }
 
-    results({ won, stars, state, best }) {
+    results({ won, stars, state, record, newBest, survived }) {
         const secs = Math.round(state.time);
         const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-        const el = h(`<div class="screen dim"><div class="modal panel ornate" style="min-width:520px">
-            <h2 style="margin-bottom:6px;${won ? '' : 'color:#ffb0b0'}">${won ? '승리' : '패배'}</h2>
-            <div style="color:var(--muted);font-size:14px">${won ? '마지막 빛이 지켜졌다' : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`}</div>
-            ${won ? `<div class="result-stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}">${ICONS.star}</i>`).join('')}</div>` : '<div style="height:20px"></div>'}
+        const diff = DIFFICULTY[state.difficulty];
+        const endless = state.endless;
+        const title = endless ? '밤이 끝났다' : won ? '승리' : '패배';
+        const sub = endless
+            ? `끝없는 밤에서 ${survived} 웨이브를 버텨 냈다`
+            : won
+              ? '마지막 빛이 지켜졌다'
+              : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
+        const offerEndless = won && !endless;
+        const el = h(`<div class="screen dim"><div class="modal panel ornate results" style="min-width:520px">
+            <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}</div>
+            <h2 style="margin-bottom:6px;${won || endless ? '' : 'color:#ffb0b0'}">${title}</h2>
+            <div style="color:var(--muted);font-size:14px">${sub}</div>
+            ${
+                endless
+                    ? `<div class="result-best ${newBest ? 'new' : ''}"><b>${survived}</b><span>${newBest ? '새 최고 기록!' : `최고 기록 ${record.best} 웨이브`}</span></div>`
+                    : won
+                      ? `<div class="result-stars">${starRow(stars)}</div>`
+                      : '<div style="height:20px"></div>'
+            }
             <div class="result-grid">
                 <div class="stat"><b>${state.stats.kills}</b><span>처치</span></div>
                 <div class="stat"><b>${state.lives}/${state.maxLives}</b><span>남은 생명</span></div>
                 <div class="stat"><b>${state.stats.goldEarned + state.stats.earlyBonus}</b><span>획득 골드</span></div>
                 <div class="stat"><b>${time}</b><span>전투 시간</span></div>
             </div>
-            ${won && best != null ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">최고 기록 · 별 ${best}개</div>` : ''}
+            ${offerEndless ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">${diff.name} 최고 기록 · 별 ${record.stars}개</div>` : ''}
             <div class="menu">
-                <button class="menu-btn primary" data-a="restart">${won ? '다시 도전' : '다시 싸운다'}</button>
+                ${offerEndless ? `<button class="menu-btn primary endless-go" data-a="endless">끝없는 밤으로 계속<small>21 웨이브부터 끝없이 · 최고 기록 도전</small></button>` : ''}
+                <button class="menu-btn ${offerEndless ? '' : 'primary'}" data-a="restart">${won ? '다시 도전' : '다시 싸운다'}</button>
                 <button class="menu-btn ghost" data-a="select">전장 선택</button>
             </div></div></div>`);
+        el.querySelector('[data-a=endless]')?.addEventListener('click', () => this.actions.continueEndless());
         el.querySelector('[data-a=restart]').onclick = () => this.actions.restart();
         el.querySelector('[data-a=select]').onclick = () => this.actions.toSelect();
         this.mount(el);
