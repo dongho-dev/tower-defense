@@ -1580,6 +1580,33 @@ svg {
     filter: drop-shadow(0 0 10px rgba(255, 170, 60, 0.9)) drop-shadow(0 2px 3px #000);
     display: none;
 }
+/* 공성전 전용 맵 장르 표시: 디펜스 · 살아남기 */
+.map-card .thumb .genre {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    background: rgba(12, 8, 20, 0.78);
+    border: 1px solid rgba(143, 176, 255, 0.7);
+    color: #dbe7ff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.map-card .thumb .genre svg {
+    width: 14px;
+    height: 14px;
+}
+.map-card .thumb .genre.g-survival {
+    border-color: rgba(255, 190, 120, 0.7);
+    color: #ffe6c0;
+}
 .map-card.hero-cleared .thumb .crown {
     display: block;
 }
@@ -2505,6 +2532,47 @@ svg {
 }
 .map-card.siege .thumb {
     filter: saturate(0.85) brightness(0.9) contrast(1.05);
+}
+.mode-tag .t.survival {
+    color: #ffe6c0;
+    border-color: rgba(255, 190, 120, 0.65);
+    box-shadow: 0 0 12px rgba(255, 170, 90, 0.25);
+}
+/* 살아남기: 동틀 때까지 남은 시간 */
+.res.dawn {
+    position: relative;
+}
+.res.dawn .ico {
+    color: #b8c4ff;
+}
+.res.dawn .dawn-prog {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 5px;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(140, 160, 255, 0.15);
+    overflow: hidden;
+}
+.res.dawn .dawn-prog i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #3a4aa8, #8aa0ff 70%, #ffd29a);
+    box-shadow: 0 0 8px rgba(160, 180, 255, 0.7);
+}
+.res.dawn.near .ico,
+.res.dawn.done .ico {
+    color: #ffd29a;
+}
+.res.dawn.near .val {
+    color: #ffe6c0;
+    text-shadow: 0 0 12px rgba(255, 190, 120, 0.6);
+}
+.wave-call .sub .dir {
+    color: #ffb8d8;
+    font-weight: 700;
 }
 .mode-tag .t.siege {
     color: #dbe7ff;

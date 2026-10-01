@@ -289,13 +289,15 @@ export class App {
                 this.state.map.name,
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
-                    : this.state.gates.length
-                      ? '공성전 · 성문이 무너지면 길이 열린다'
-                      : this.state.siege
-                        ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
-                        : this.state.difficulty === 'hero'
-                          ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
-                          : '마지막 빛을 지켜라'
+                    : this.state.survival
+                      ? '살아남기 · 동이 틀 때까지 버텨라'
+                      : this.state.gates.length
+                        ? '공성전 · 성문이 무너지면 길이 열린다'
+                        : this.state.siege
+                          ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
+                          : this.state.difficulty === 'hero'
+                            ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                            : '마지막 빛을 지켜라'
             );
             this.coach?.destroy();
             this.coach = this.save.tutorialDone
@@ -312,9 +314,11 @@ export class App {
                     () =>
                         this.mode === 'playing' &&
                         this.hud.showHint(
-                            gates
-                                ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
-                                : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
+                            this.state.survival
+                                ? '정해진 길이 없습니다. 적은 섬 <b>가장자리 사방</b>에서 수정으로 곧장 옵니다. 가장자리 <b>보랏빛 장막</b>이 밝게 일렁이는 쪽에서 다음 무리가 옵니다. 지나가는 적은 타워를 공격하니 <b>G</b>로 수리하세요. <b>동이 틀 때까지</b> 버티면 승리합니다.'
+                                : gates
+                                  ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
+                                  : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
                             12000
                         ),
                     3800

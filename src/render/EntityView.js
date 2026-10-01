@@ -90,7 +90,7 @@ export class EntityView {
             if (ev.type === 'fire') {
                 const v = this.towers.get(ev.towerId);
                 if (v) v.recoil = 1;
-            } else if (ev.type === 'death' || ev.type === 'leak') {
+            } else if (ev.type === 'death' || ev.type === 'leak' || ev.type === 'dawnBurn') {
                 const v = this.enemies.get(ev.id);
                 if (v) {
                     this.enemies.delete(ev.id);

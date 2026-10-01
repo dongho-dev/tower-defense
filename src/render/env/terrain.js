@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { createNoise, smoothstep, lerp } from '../util/noise.js';
 import { grassDetail } from '../util/textures.js';
+import { buildPath } from '../../core/path.js';
+import { corridorTrails } from '../../core/survival.js';
 
 export const ROAD_Y = -0.04;
 const RES = 0.2;
@@ -17,36 +19,45 @@ export function createTerrain(state, theme) {
     const gz0 = -rz - 1.5;
     const gw = Math.ceil((2 * rx + 3) / RES);
     const gh = Math.ceil((2 * rz + 3) / RES);
-    const pathField = new Float32Array(gw * gh).fill(99);
-    for (const path of state.paths) {
-        for (let k = 0; k < path.count; k += 2) {
-            const px = path.xs[k];
-            const pz = path.zs[k];
-            const ci = Math.round((px - gx0) / RES);
-            const cj = Math.round((pz - gz0) / RES);
-            const R = Math.ceil(4 / RES);
-            for (let j = Math.max(0, cj - R); j < Math.min(gh, cj + R); j++) {
-                for (let i = Math.max(0, ci - R); i < Math.min(gw, ci + R); i++) {
-                    const d = Math.hypot(gx0 + i * RES - px, gz0 + j * RES - pz);
-                    const idx = j * gw + i;
-                    if (d < pathField[idx]) pathField[idx] = d;
+    function distanceField(paths, reach) {
+        const field = new Float32Array(gw * gh).fill(99);
+        const R = Math.ceil(reach / RES);
+        for (const path of paths) {
+            for (let k = 0; k < path.count; k += 2) {
+                const px = path.xs[k];
+                const pz = path.zs[k];
+                const ci = Math.round((px - gx0) / RES);
+                const cj = Math.round((pz - gz0) / RES);
+                for (let j = Math.max(0, cj - R); j < Math.min(gh, cj + R); j++) {
+                    for (let i = Math.max(0, ci - R); i < Math.min(gw, ci + R); i++) {
+                        const d = Math.hypot(gx0 + i * RES - px, gz0 + j * RES - pz);
+                        const idx = j * gw + i;
+                        if (d < field[idx]) field[idx] = d;
+                    }
                 }
             }
         }
+        return field;
     }
-    function pathDist(x, z) {
+    // 살아남기 맵은 길이 없다: 땅은 골목의 희미한 흔적만 다지고, 나무는 적이 지나는 레인 전체를 피한다
+    const survival = state.map.survival;
+    const pathField = distanceField(survival ? corridorTrails(survival).map(buildPath) : state.paths, 4);
+    const laneField = survival ? distanceField(state.paths, 2) : pathField;
+    const fieldAt = (field, x, z) => {
         const fi = (x - gx0) / RES;
         const fj = (z - gz0) / RES;
         const i = Math.max(0, Math.min(gw - 2, Math.floor(fi)));
         const j = Math.max(0, Math.min(gh - 2, Math.floor(fj)));
         const tx = Math.min(1, Math.max(0, fi - i));
         const tz = Math.min(1, Math.max(0, fj - j));
-        const a = pathField[j * gw + i];
-        const b = pathField[j * gw + i + 1];
-        const c = pathField[(j + 1) * gw + i];
-        const d = pathField[(j + 1) * gw + i + 1];
+        const a = field[j * gw + i];
+        const b = field[j * gw + i + 1];
+        const c = field[(j + 1) * gw + i];
+        const d = field[(j + 1) * gw + i + 1];
         return lerp(lerp(a, b, tx), lerp(c, d, tx), tz);
-    }
+    };
+    const pathDist = (x, z) => fieldAt(pathField, x, z);
+    const laneDist = (x, z) => fieldAt(laneField, x, z);
     const socketDist = (x, z) => {
         let best = 99;
         for (const s of state.sockets) best = Math.min(best, Math.hypot(s.x - x, s.z - z));
@@ -111,7 +122,7 @@ export function createTerrain(state, theme) {
             c.copy(grassA).lerp(grassB, smoothstep(0.25, 0.8, n));
             const dryK = smoothstep(0.35, 0.7, fbm(x * 0.07 - 4, z * 0.07 + 2, 3));
             c.lerp(dry, dryK * 0.55);
-            c.lerp(dirt, 1 - smoothstep(0.9, 1.7, dp));
+            c.lerp(dirt, (survival ? 0.7 : 1) * (1 - smoothstep(0.9, 1.7, dp)));
             // 다져진 흙 안마당
             if (fort) c.lerp(dirt, 0.45 * (1 - smoothstep(-0.8, 0.1, fortDist(x, z))));
             c.lerp(rimRock, smoothstep(0.93, 1.0, r) * 0.7);
@@ -202,7 +213,7 @@ export function createTerrain(state, theme) {
 
     function isFree(x, z, margin = 0) {
         if (ellipseR(x, z) > 0.94 - margin * 0.02) return false;
-        if (pathDist(x, z) < 1.3 + margin) return false;
+        if (pathDist(x, z) < 1.3 + margin || laneDist(x, z) < 0.9 + margin) return false;
         if (socketDist(x, z) < 1.1 + margin) return false;
         if (Math.hypot(x - core.x, z - core.z) < 2.4 + margin) return false;
         if (fortDist(x, z) < 0.9 + margin) return false;

@@ -2,7 +2,7 @@
 // node tests/balance-probe.mjs 로 시나리오별 결과를 보고 의도한 변화인지 판단한다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { playWithPlan, STANDARD_PLAN, autoPlan } from './helpers.js';
+import { playWithPlan, STANDARD_PLAN, autoPlan, SURVIVAL_PLAN } from './helpers.js';
 
 test('아무것도 짓지 않으면 초반에 패배한다', () => {
     const { state } = playWithPlan('dusk', [], { noUpgrades: true, skills: false });
@@ -59,4 +59,18 @@ test('성채 방어: 무대응은 초반 패배, 성문 곁 8타워는 승리', 
     assert.ok(none.waveIndex <= 6, `웨이브 ${none.waveIndex}까지 버팀`);
     const { state } = playWithPlan('fortress', FORTRESS_PLAN);
     assert.equal(state.status, 'won');
+});
+
+test('기나긴 밤(살아남기): 무대응은 1분 안에 패배, 보루 12타워는 동틀 때까지 버티고 6타워는 무너진다', () => {
+    const none = playWithPlan('longnight', [], { noUpgrades: true, skills: false }).state;
+    assert.equal(none.status, 'lost');
+    assert.ok(none.survival.clock < 90, `${Math.round(none.survival.clock)}초 버팀`);
+    const good = playWithPlan('longnight', SURVIVAL_PLAN).state;
+    assert.equal(good.status, 'won');
+    assert.ok(good.lives >= 10, `생명 ${good.lives}`);
+    const weak = playWithPlan('longnight', SURVIVAL_PLAN.slice(0, 6)).state;
+    assert.equal(weak.status, 'lost');
+    // 업그레이드 없이 넓게만 지으면 중반을 못 넘긴다
+    const flat = playWithPlan('longnight', SURVIVAL_PLAN, { noUpgrades: true }).state;
+    assert.equal(flat.status, 'lost');
 });

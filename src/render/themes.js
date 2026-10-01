@@ -197,6 +197,57 @@ export const THEMES = {
         roof: '#2e4472',
         banner: '#a82a2c',
         road: '#f2dfc4'
+    },
+    // 기나긴 밤(살아남기): 해가 막 진 푸른 황혼에서 시작해 밤이 깊어진다 (NIGHT_CYCLE이 시간에 따라 바꾼다)
+    nightfall: {
+        sky: { zenith: '#10132e', upper: '#2e2c62', horizon: '#c8706a', below: '#4c3a66', sunGlow: '#ff9a6a' },
+        cloud: { lit: '#e8b8b0', mid: '#a87a96', shadow: '#5a4a78', deep: '#2c2a52', horizon: '#b06a78' },
+        fog: '#6a5a8a',
+        sun: { color: '#ffa070', intensity: 2.5 },
+        hemi: { sky: '#8c8ce8', ground: '#4a3a3a', intensity: 0.85 },
+        rim: { color: '#7c8cff', intensity: 0.95 },
+        env: 0.5,
+        ground: { grassA: '#4a6c36', grassB: '#6a8442', dry: '#8a7c50', dirt: '#7c5e42', rim: '#857c70' },
+        cliff: { soil: '#3a2e2a', bands: ['#8a7e74', '#6c625c', '#968a7e', '#5a524e', '#7e7468'], deep: '#221e22' },
+        veg: {
+            broad: ['#3f6a3a', '#4a7040', '#6a7a3a', '#8a5a3a', '#5a6a8a'],
+            pine: ['#2a4a3a', '#30503e', '#28403a'],
+            broadRatio: 0.45,
+            trees: 110,
+            grass: ['#3e6030', '#4a6a34', '#56703a', '#46623a'],
+            grassDensity: 0.85,
+            flowers: ['#c8d8ff', '#a890ff', '#fff0c0'],
+            snow: false,
+            dead: false,
+            crystals: { color: '#a8c4ff', emissive: '#4a6aff', count: 14, intensity: 1.3 },
+            rock: '#8a8a92'
+        },
+        wall: '#a89c8c',
+        roof: '#2a3a6a',
+        banner: '#5a3a8a',
+        road: '#d8d0c8'
+    }
+};
+
+/** 살아남기의 밤 순환: 가장 깊은 밤과 동틀 녘 색. 테마 기본색 → 밤 → 새벽으로 섞는다 */
+export const NIGHT_CYCLE = {
+    night: {
+        sky: { zenith: '#03040e', upper: '#0a0f2a', horizon: '#1e2450', below: '#120f24', sunGlow: '#34448a' },
+        cloud: { lit: '#4a5a88', mid: '#2e3866', shadow: '#1a2044', deep: '#0c1028', horizon: '#262c58' },
+        fog: '#141a36',
+        sun: { color: '#8aa4ff', intensity: 1.0 },
+        hemi: { sky: '#4a5ab0', ground: '#141018', intensity: 0.46 },
+        rim: { color: '#6a7cff', intensity: 0.75 },
+        env: 0.22
+    },
+    dawn: {
+        sky: { zenith: '#2a3a78', upper: '#7a6aa8', horizon: '#ffc89a', below: '#d08a8a', sunGlow: '#fff0c0' },
+        cloud: { lit: '#fff2dc', mid: '#ffc0a8', shadow: '#b08ab0', deep: '#6a5a98', horizon: '#ffb090' },
+        fog: '#e0a8a0',
+        sun: { color: '#ffd8a0', intensity: 3.2 },
+        hemi: { sky: '#b0b8ff', ground: '#6a4a3a', intensity: 0.9 },
+        rim: { color: '#ffd0a0', intensity: 0.8 },
+        env: 0.7
     }
 };
 

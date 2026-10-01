@@ -52,7 +52,8 @@ test('성채 방어: 언제나 공성전, 네 성문이 각자 한 갈래를 막
     }
     // 기존 맵에는 성문이 없다
     assert.equal(createGame('dusk', { siege: true }).gates.length, 0);
-    assert.ok(Object.values(MAPS).every((m) => !m.siegeOnly || m.gates?.length));
+    // 공성전 전용 맵: 디펜스는 성문이 있고, 살아남기는 길 없이 사방에서 온다
+    assert.ok(Object.values(MAPS).every((m) => !m.siegeOnly || m.gates?.length || m.genre === 'survival'));
 });
 
 test('성문: 지상 적은 문 앞에서 멈춰 문을 치고, 비행 적은 넘어간다', () => {

@@ -1,5 +1,11 @@
 // 맵 정의. 좌표는 지면 (x, z), +z가 화면 아래(카메라 쪽).
 // sockets: [x, z], links: 공명 레이 라인으로 연결되는 소켓 인덱스 쌍.
+// 공성전 전용 맵(siegeOnly)은 genre로 장르를 밝힌다: 'defense'(디펜스) | 'survival'(살아남기).
+import { survivalLanes, survivalSockets } from '../survival.js';
+
+// 살아남기 맵: 골목 6개, 가장자리 5도마다 레인 하나 (survival.js 참고)
+const LONG_NIGHT = { dawn: 600, corridors: 6, corridorAt: 0, laneStep: 5, spawnR: 11.6, stretch: 1.27 };
+const LONG_NIGHT_SOCKETS = survivalSockets(LONG_NIGHT);
 
 export const MAPS = {
     dusk: {
@@ -511,6 +517,7 @@ export const MAPS = {
         difficulty: 2,
         theme: 'citadel',
         siegeOnly: true,
+        genre: 'defense',
         startGold: 380,
         lives: 20,
         hpMul: 0.8,
@@ -610,5 +617,29 @@ export const MAPS = {
             [22, 24]
         ],
         waves: 'fortress'
+    },
+    longnight: {
+        id: 'longnight',
+        name: '기나긴 밤',
+        en: 'The Long Night',
+        desc: '정해진 길이 없다. 적이 섬 가장자리 사방에서 수정으로 곧장 몰려온다. 밤은 갈수록 깊어지고 적은 늘어난다. 동이 틀 때까지 타워만으로 버텨라.',
+        difficulty: 3,
+        theme: 'nightfall',
+        siegeOnly: true,
+        genre: 'survival',
+        // 영웅 없이 타워만으로 버틴다
+        noHero: true,
+        startGold: 420,
+        lives: 20,
+        // 길이 짧아(가장자리→수정 12~17칸) 적이 타워 사이에 머무는 시간이 짧다. 대신 느리고 약하다
+        hpMul: 0.6,
+        speedMul: 0.6,
+        island: { rx: 16.2, rz: 12.6 },
+        view: { distance: 38 },
+        survival: LONG_NIGHT,
+        paths: survivalLanes(LONG_NIGHT),
+        sockets: LONG_NIGHT_SOCKETS.sockets,
+        links: LONG_NIGHT_SOCKETS.links,
+        waves: 'longnight'
     }
 };

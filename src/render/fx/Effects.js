@@ -553,6 +553,27 @@ export class Effects {
         this.burst(this.add, p, 10, { color: COL.void, size: 0.25, speed: 1.5, life: 0.5 });
     }
 
+    /** 살아남기: 동이 트면 남은 적이 금빛으로 타 사라진다 */
+    on_dawnBurn(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.5);
+        this.burst(this.add, p, 12, { color: COL.goldSoft, size: 0.16, speed: 1.4, life: 0.9, grav: -1.2 });
+        this.burst(this.smoke, p, 5, {
+            color: [0.2, 0.14, 0.1],
+            size: 0.5,
+            size1: 1.1,
+            speed: 0.6,
+            upMin: 0.6,
+            upMax: 1.4,
+            life: 1.2
+        });
+    }
+
+    on_dawn() {
+        const c = this.world.core.top;
+        this.flash(c, 0xffd8a0, 60, 2.4, 40);
+        this.ring(new THREE.Vector3(c.x, 0, c.z), 7, COL.goldSoft, 1.4, 0.8);
+    }
+
     on_leak() {
         const c = this.world.core.top;
         this.burst(this.add, c, 40, { color: COL.blood, size: 0.3, speed: 4, life: 0.7, grav: 2 });
@@ -1390,7 +1411,7 @@ export class Effects {
                 fadeIn: 0.3
             });
         }
-        if (Math.random() < 0.7 * q) {
+        if (this.world.portals.length && Math.random() < 0.7 * q) {
             const portals = this.world.portals;
             const pg = portals[Math.floor(Math.random() * portals.length)].group.position;
             const a = Math.random() * Math.PI * 2;

@@ -115,6 +115,25 @@ export const STANDARD_PLAN = [
     [17, 'ranger', 'a']
 ];
 
+/**
+ * 기나긴 밤(살아남기): 골목 사이 보루마다 소켓 5개 [안쪽, 가운데 둘, 바깥 둘], 보루 g의 첫 소켓 = g * 5.
+ * 안쪽 고리 6곳으로 수정 둘레를 먼저 막고, 가운데 고리로 넓힌다.
+ */
+export const SURVIVAL_PLAN = [
+    [0, 'ranger', 'b'],
+    [10, 'ember', 'a'],
+    [20, 'storm', 'a'],
+    [5, 'frost', 'a'],
+    [15, 'ranger', 'a'],
+    [25, 'ember', 'a'],
+    [2, 'storm', 'b'],
+    [12, 'ranger', 'b'],
+    [22, 'ember', 'b'],
+    [7, 'frost', 'b'],
+    [17, 'storm', 'a'],
+    [27, 'ranger', 'a']
+];
+
 /** 맵에 상관없이: 경로 커버리지가 높은 소켓부터 종류를 섞어 배치하는 계획 */
 export function autoPlan(mapId, n = 10, cycleOverride = null) {
     const state = createGame(mapId);

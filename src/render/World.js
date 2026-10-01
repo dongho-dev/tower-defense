@@ -15,6 +15,8 @@ import {
     createLeyLines
 } from './env/structures.js';
 import { createFortress } from './env/fortress.js';
+import { createRifts } from './env/rifts.js';
+import { createNightCycle } from './env/nightcycle.js';
 
 export class World {
     constructor(renderer, state, quality) {
@@ -24,6 +26,7 @@ export class World {
         scene.fog = new THREE.Fog(th.fog, 60, 150);
 
         const { sky, env } = createSky(renderer, th);
+        this.sky = sky;
         scene.add(sky);
         scene.environment = env;
         scene.environmentIntensity = th.env;
@@ -45,7 +48,8 @@ export class World {
         sun.shadow.normalBias = 0.03;
         sun.shadow.radius = 3;
         scene.add(sun, sun.target);
-        scene.add(new THREE.HemisphereLight(th.hemi.sky, th.hemi.ground, th.hemi.intensity));
+        const hemi = new THREE.HemisphereLight(th.hemi.sky, th.hemi.ground, th.hemi.intensity);
+        scene.add(hemi);
         const rim = new THREE.DirectionalLight(th.rim.color, th.rim.intensity);
         rim.position.set(18, 14, -22);
         scene.add(rim);
@@ -57,10 +61,12 @@ export class World {
 
         const terrain = (this.terrain = createTerrain(state, th));
         scene.add(terrain.group);
-        scene.add(createRoad(state, th).group);
+        // 살아남기 맵은 길이 없다 (골목의 희미한 흔적은 지형 색으로만)
+        const survival = !!state.survival;
+        if (!survival) scene.add(createRoad(state, th).group);
         this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass, theme: th });
         scene.add(this.vegetation.group);
-        this.lanterns = createLanterns(state, terrain);
+        this.lanterns = survival ? { group: new THREE.Group(), update() {} } : createLanterns(state, terrain);
         // 성채 맵은 섬 가장자리 성벽 대신 수정을 둘러싼 성벽과 성문을 세운다
         this.ramparts = state.map.fortress
             ? { group: new THREE.Group(), update() {} }
@@ -72,8 +78,10 @@ export class World {
             if (!starts.some((j) => Math.hypot(state.paths[j].xs[0] - p.xs[0], state.paths[j].zs[0] - p.zs[0]) < 1))
                 starts.push(i);
         });
-        this.portals = starts.map((i) => createPortal(state, terrain, i));
-        this.portal = this.portals[0];
+        // 살아남기: 포털 대신 가장자리를 두른 어둠의 장막 (웨이브 방향이 밝아진다)
+        this.rifts = survival ? createRifts(state, terrain) : null;
+        this.portals = survival ? [] : starts.map((i) => createPortal(state, terrain, i));
+        this.portal = survival ? this.rifts.portal : this.portals[0];
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);
         this.ley = createLeyLines(state, terrain);
@@ -82,6 +90,7 @@ export class World {
             this.ramparts,
             this.fortress,
             ...this.portals,
+            ...(this.rifts ? [this.rifts] : []),
             this.core,
             this.sockets,
             this.ley
@@ -90,6 +99,7 @@ export class World {
         this.hoverSocket = null;
         this.range = createRangeIndicator((x, z) => terrain.heightAt(x, z));
         scene.add(this.range.mesh);
+        this.night = createNightCycle(state, th, { scene, sky, cloud, sun, hemi, rim, core: this.core });
     }
 
     showRange(opt) {
@@ -108,6 +118,8 @@ export class World {
         this.ramparts.update(t);
         this.fortress.update(t, dt, this.state);
         for (const p of this.portals) p.update(t);
+        this.rifts?.update(t, dt);
+        this.night.update(dt);
         this.core.update(t);
         this.core.setHealth(this.state.lives / this.state.maxLives);
         this.sockets.update(t, this.state, this.hoverSocket);

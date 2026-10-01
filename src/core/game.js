@@ -16,6 +16,7 @@ import { ENEMIES, ELITE, hpScale, atkScale } from './data/enemies.js';
 import { WAVES, CAMPAIGN_WAVES, endlessWave, applyTheme } from './data/waves.js';
 import { updateUnits, syncSoldiers, removeUnitsOf, createHero, heroXp, hurtUnit } from './units.js';
 import { createGates, gateAhead, gateLimit, gateAttack, waveRepairGates, damageGate } from './gates.js';
+import { createSurvival, pickLane } from './survival.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
 export {
@@ -109,10 +110,12 @@ export function createGame(mapId = 'dusk', opts = {}) {
         events: [],
         nextId: 1,
         healTick: 0,
-        auraTick: 0
+        auraTick: 0,
+        // 살아남기: 밤 시계와 동틀 시각 (그 밖의 맵은 null)
+        survival: map.survival ? createSurvival(map) : null
     };
     if (state.endless) ensureWaves(state);
-    if (state.siege) createHero(state);
+    if (state.siege && !map.noHero) createHero(state);
     state.gates = createGates(state);
     return state;
 }
@@ -132,7 +135,8 @@ export function hasMoreWaves(state) {
 
 /** 승리 직후 끝없는 밤으로 이어 간다 */
 export function continueEndless(state) {
-    if (state.status !== 'won' || state.endless) return { ok: false };
+    // 살아남기는 동이 트면 끝난다
+    if (state.status !== 'won' || state.endless || state.survival) return { ok: false };
     state.status = 'playing';
     state.endless = true;
     ensureWaves(state);
@@ -441,8 +445,10 @@ export function canCallWave(state) {
     return state.nextWaveIn != null;
 }
 
-export function callWave(state) {
-    if (!canCallWave(state)) return { ok: false, reason: '아직 다음 웨이브를 부를 수 없습니다.' };
+export function callWave(state, force = false) {
+    // force: 살아남기의 밤 시계가 정한 시각이 되면 앞 웨이브가 아직 나오는 중이어도 부른다
+    if (!(force && state.status === 'playing' && hasMoreWaves(state)) && !canCallWave(state))
+        return { ok: false, reason: '아직 다음 웨이브를 부를 수 없습니다.' };
     let bonus = 0;
     if (state.nextWaveIn != null && state.nextWaveIn > 0.5) {
         bonus = Math.floor(state.nextWaveIn * EARLY_BONUS_PER_SEC);
@@ -450,6 +456,8 @@ export function callWave(state) {
         state.stats.earlyBonus += bonus;
     }
     const waveNo = ++state.waveIndex;
+    // 살아남기: 일찍 부르면 밤 시계가 그 웨이브 시각까지 앞당겨진다
+    if (state.survival) state.survival.clock = Math.max(state.survival.clock, state.waves[waveNo - 1].at || 0);
     if (waveNo > 1) payIncome(state);
     if (state.siege) for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
     waveRepairGates(state);
@@ -515,7 +523,8 @@ function spawnEnemy(state, grp, waveNo, at = null) {
     // 끝없는 밤에선 현상금도 조금씩 오른다
     const bountyMul = waveNo > CAMPAIGN_WAVES ? 1 + (waveNo - CAMPAIGN_WAVES) * 0.04 : 1;
     const id = state.nextId++;
-    const pathIndex = at ? at.pathIndex : grp.path || 0;
+    // 살아남기: 그룹이 정한 방향의 가장자리 레인 하나에서 나온다
+    const pathIndex = at ? at.pathIndex : state.survival ? pickLane(state, grp, id) : grp.path || 0;
     // 개체마다 좌우로 살짝 벌려서 줄 서 있는 느낌을 없앤다 (결정적)
     const offset = def.boss ? 0 : (((id * 0.618034) % 1) - 0.5) * 0.55;
     const cd = (ab, k) => (ab ? ab.every * k : 0);
@@ -528,7 +537,7 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         scale: elite ? ELITE.scale : 1,
         hp,
         maxHp: hp,
-        speed: def.speed,
+        speed: def.speed * (state.map.speedMul || 1),
         bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul),
         lives: def.lives * (elite ? ELITE.lives : 1),
         radius: def.radius * (elite ? ELITE.scale : 1),
@@ -599,9 +608,9 @@ function updateSpawners(state) {
     }
     const before = state.spawners.length;
     state.spawners = state.spawners.filter((sp) => sp.spawned < sp.group.count);
-    // 최신 웨이브의 스폰이 모두 끝나면 다음 웨이브 카운트다운 시작
+    // 최신 웨이브의 스폰이 모두 끝나면 다음 웨이브 카운트다운 시작 (살아남기는 밤 시계가 정한다)
     if (before > 0 && state.spawners.length === 0 && hasMoreWaves(state) && state.nextWaveIn == null) {
-        state.nextWaveIn = WAVE_GAP;
+        if (!state.survival) state.nextWaveIn = WAVE_GAP;
         emit(state, { type: 'waveSpawned', wave: state.waveIndex });
     }
 }
@@ -1259,7 +1268,8 @@ export function step(state, dt = TICK) {
     if (state.status !== 'playing') return;
     state.time += dt;
     for (const k in state.skills) state.skills[k].cd = Math.max(0, state.skills[k].cd - dt);
-    if (state.nextWaveIn != null) {
+    if (state.survival) updateNight(state, dt);
+    else if (state.nextWaveIn != null) {
         state.nextWaveIn -= dt;
         if (state.nextWaveIn <= 0) callWave(state);
     }
@@ -1275,6 +1285,7 @@ export function step(state, dt = TICK) {
     if (
         state.status === 'playing' &&
         !state.endless &&
+        !state.survival &&
         state.waveIndex >= state.waves.length &&
         !state.spawners.length &&
         !state.spawnQueue.length &&
@@ -1283,6 +1294,40 @@ export function step(state, dt = TICK) {
         state.status = 'won';
         emit(state, { type: 'victory', stars: starsFor(state) });
     }
+}
+
+// ---------- 살아남기: 밤 시계 ----------
+
+/** 첫 웨이브를 부르면 밤 시계가 간다. 웨이브는 시각(at)에 저절로 오고, 시계가 동틀 시각에 닿으면 승리 */
+function updateNight(state, dt) {
+    const sv = state.survival;
+    if (state.waveIndex === 0) return;
+    sv.clock += dt;
+    const next = state.waves[state.waveIndex];
+    if (next && sv.clock >= next.at) callWave(state, true);
+    // 이번 웨이브가 다 나왔으면 다음 웨이브까지 카운트다운 (일찍 부를 수 있다)
+    const after = state.waves[state.waveIndex];
+    state.nextWaveIn = after && !state.spawners.length ? Math.max(0.01, after.at - sv.clock) : null;
+    if (sv.clock >= sv.dawn) dawnBreaks(state);
+}
+
+/** 동이 튼다: 남은 적은 햇빛에 타 사라지고 승리 */
+function dawnBreaks(state) {
+    const sv = state.survival;
+    sv.dawned = true;
+    sv.clock = sv.dawn;
+    for (const e of state.enemies) {
+        if (!e.alive) continue;
+        e.alive = false;
+        emit(state, { type: 'dawnBurn', id: e.id, enemy: e.type, elite: e.elite, x: e.x, z: e.z });
+    }
+    state.enemies = [];
+    state.spawners = [];
+    state.spawnQueue = [];
+    state.nextWaveIn = null;
+    state.status = 'won';
+    emit(state, { type: 'dawn' });
+    emit(state, { type: 'victory', stars: starsFor(state) });
 }
 
 export function starsFor(state) {
