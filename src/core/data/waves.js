@@ -494,69 +494,69 @@ WAVES.fortress = [
     }
 ];
 
-// 얼어붙은 분지(살아남기): 본진을 세우면 밤 시계가 흐르고, at = 시계(초)에 웨이브가 저절로 온다.
-// 적은 모두 맵 한가운데 둥지에서 쏟아진다. 첫 습격까지 80초는 짓는 시간, 900초(15분)에 동이 튼다.
-// 6:00 · 10:00 · 14:00에 빙하 거신(보스)이 나온다 (HUD가 30초 전부터 경고한다).
+// 얼어붙은 분지(살아남기): 판이 시작되면 밤 시계가 흐르고, at = 시계(초)에 웨이브가 저절로 온다.
+// 적은 모두 맵 한가운데 둥지에서 쏟아진다. 첫 습격까지 110초는 생존자가 고원을 찾아 본진을 짓는 시간,
+// 930초(15분 30초)에 동이 튼다. 6:30 · 10:30 · 14:30에 빙하 거신(보스)이 나온다 (HUD가 30초 전부터 경고한다).
 const NEST = {};
 const BOSS = (hpMul) => ({ hpMul });
 
 WAVES.mountain = [
     {
-        at: 80,
-        groups: [g('grunt', 10, 0.8, 0, NEST)],
+        at: 110,
+        groups: [g('grunt', 8, 0.8, 0, NEST)],
         hint: '둥지가 깨어났다! 적은 가장 가까운 건물을 노린다. 비탈(입구)을 방벽으로 막고 그 뒤에 타워를 세우세요.'
     },
-    { at: 120, groups: [g('grunt', 12, 0.7, 0, NEST), g('stalker', 6, 0.5, 4, NEST)] },
+    { at: 150, groups: [g('grunt', 10, 0.7, 0, NEST), g('stalker', 4, 0.5, 4, NEST)] },
     {
-        at: 160,
-        groups: [g('grunt', 14, 0.6, 0, NEST), g('stalker', 8, 0.5, 3, NEST), g('rimeguard', 2, 2, 6, NEST)],
+        at: 190,
+        groups: [g('grunt', 12, 0.6, 0, NEST), g('stalker', 6, 0.5, 3, NEST), g('rimeguard', 2, 2, 6, NEST)],
         hint: '길이 막혔거나 너무 돌아가야 하면 적은 방벽부터 부순다. 다친 벽은 G로 수리하세요.'
     },
     {
-        at: 200,
-        groups: [g('harpy', 8, 0.6, 0, NEST), g('grunt', 12, 0.6, 2, NEST)],
+        at: 230,
+        groups: [g('harpy', 6, 0.6, 0, NEST), g('grunt', 12, 0.6, 2, NEST)],
         hint: '하피는 하늘을 날아 벽을 넘는다. 본진 둘레에도 타워를 두세요.'
     },
-    { at: 240, groups: [g('grunt', 18, 0.5, 0, NEST), g('rimeguard', 4, 1.5, 3, NEST), g('hexcaller', 2, 3, 6, NEST)] },
-    { at: 280, groups: [g('stalker', 22, 0.3, 0, NEST), g('yeti', 2, 3, 4, NEST)] },
-    { at: 320, groups: [g('grunt', 20, 0.45, 0, NEST), g('rimeguard', 6, 1.2, 3, NEST), g('harpy', 8, 0.6, 6, NEST)] },
+    { at: 270, groups: [g('grunt', 16, 0.5, 0, NEST), g('rimeguard', 3, 1.5, 3, NEST), g('hexcaller', 2, 3, 6, NEST)] },
+    { at: 310, groups: [g('stalker', 18, 0.3, 0, NEST), g('yeti', 2, 3, 4, NEST)] },
+    { at: 350, groups: [g('grunt', 20, 0.45, 0, NEST), g('rimeguard', 6, 1.2, 3, NEST), g('harpy', 8, 0.6, 6, NEST)] },
     {
-        at: 360,
+        at: 390,
         groups: [g('glacier', 1, 1, 0, BOSS(0.4)), g('grunt', 16, 0.5, 2, NEST), g('rimeguard', 4, 1.4, 6, NEST)],
         hint: '빙하 거신이 깨어났다. 체력이 엄청나다 · 방벽 여러 겹으로 붙잡아 두고 화력을 모으세요.'
     },
-    { at: 400, groups: [g('yeti', 5, 1.6, 0, NEST), g('hexcaller', 3, 2.5, 3, NEST), g('grunt', 20, 0.45, 4, NEST)] },
+    { at: 430, groups: [g('yeti', 5, 1.6, 0, NEST), g('hexcaller', 3, 2.5, 3, NEST), g('grunt', 20, 0.45, 4, NEST)] },
     {
-        at: 440,
+        at: 470,
         groups: [g('harpy', 14, 0.45, 0, NEST), g('wraith', 6, 1, 3, NEST), g('stalker', 16, 0.35, 5, NEST)],
         hint: '하늘이 새까맣다. 외딴 광산을 먼저 노린다.'
     },
     {
-        at: 480,
+        at: 510,
         groups: [g('rimeguard', 10, 0.9, 0, NEST), g('ironclad', 6, 1.4, 3, NEST), g('grunt', 24, 0.4, 5, NEST)]
     },
     {
-        at: 520,
+        at: 550,
         groups: [g('yeti', 8, 1.2, 0, NEST), g('yeti', 1, 1, 6, { elite: true }), g('stalker', 24, 0.3, 3, NEST)]
     },
-    { at: 560, groups: [g('grunt', 30, 0.35, 0, NEST), g('hexcaller', 4, 2.5, 3, NEST), g('harpy', 12, 0.5, 6, NEST)] },
+    { at: 590, groups: [g('grunt', 30, 0.35, 0, NEST), g('hexcaller', 4, 2.5, 3, NEST), g('harpy', 12, 0.5, 6, NEST)] },
     {
-        at: 600,
+        at: 630,
         groups: [g('glacier', 1, 1, 0, BOSS(0.7)), g('yeti', 6, 1.5, 3, NEST), g('rimeguard', 8, 1, 6, NEST)],
         hint: '두 번째 빙하 거신. 벽이 무너지기 전에 수리하고, 서리로 묶어 두세요.'
     },
     {
-        at: 640,
+        at: 670,
         groups: [g('rimeguard', 14, 0.7, 0, NEST), g('wraith', 10, 0.8, 3, NEST), g('grunt', 30, 0.35, 5, NEST)]
     },
-    { at: 680, groups: [g('stalker', 40, 0.2, 0, NEST), g('yeti', 6, 1.4, 4, NEST)] },
-    { at: 720, groups: [g('ironclad', 12, 0.9, 0, NEST), g('hexcaller', 5, 2, 3, NEST), g('harpy', 16, 0.4, 5, NEST)] },
+    { at: 710, groups: [g('stalker', 40, 0.2, 0, NEST), g('yeti', 6, 1.4, 4, NEST)] },
+    { at: 750, groups: [g('ironclad', 12, 0.9, 0, NEST), g('hexcaller', 5, 2, 3, NEST), g('harpy', 16, 0.4, 5, NEST)] },
     {
-        at: 760,
+        at: 790,
         groups: [g('grunt', 40, 0.3, 0, NEST), g('rimeguard', 14, 0.7, 3, NEST), g('yeti', 8, 1.2, 6, NEST)]
     },
     {
-        at: 800,
+        at: 830,
         groups: [
             g('wraith', 16, 0.6, 0, NEST),
             g('harpy', 16, 0.5, 2, NEST),
@@ -565,7 +565,7 @@ WAVES.mountain = [
         ]
     },
     {
-        at: 840,
+        at: 870,
         // 동이 틀 때까지 끊이지 않고 몰려온다 (60초)
         groups: [
             g('glacier', 1, 1, 0, NEST),

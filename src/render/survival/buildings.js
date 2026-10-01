@@ -1,11 +1,15 @@
-// 살아남기 건물 보조 렌더: 방벽(인스턴스 메시 하나로 수백 개), 2×2·4×4 건물의 돌 기단, 배치 미리보기 고스트.
+// 살아남기 건물 보조 렌더: 방벽(인스턴스 메시 하나로 수백 개), 2×2·4×4 건물의 돌 기단, 배치 미리보기 고스트,
+// 생존자가 지으러 갈 예정 자리(하늘색 상자), 짓는 중인 건물의 나무 비계.
 // 타워·광산 모델 자체는 EntityView가 그리고, 여기서는 그 아래 기단 높이를 알려 준다.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { workerOrders } from '../../core/survival.js';
 
 const MAX_WALLS = 3000;
 const MAX_PADS = 400;
 const MAX_GHOST = 400;
+const MAX_PLAN = 200;
+const MAX_SCAFFOLD = 8;
 
 function painted(g, color, snowAbove = null) {
     g = g.index ? g.toNonIndexed() : g;
@@ -48,6 +52,32 @@ function padGeometry() {
     const g = new THREE.CylinderGeometry(0.62, 0.7, 1, 8, 1);
     g.rotateY(Math.PI / 8);
     return painted(g, '#8a8278', 0.45);
+}
+
+/** 비계: 네 기둥 + 위아래 테두리 + 엇갈린 가새 (1×1×1 상자 크기, 가운데가 원점) */
+function scaffoldGeometry() {
+    const parts = [];
+    const bar = (w, h, d, x, y, z, rz = 0, rx = 0) => {
+        const g = new THREE.BoxGeometry(w, h, d);
+        g.rotateZ(rz);
+        g.rotateX(rx);
+        g.translate(x, y, z);
+        parts.push(painted(g, '#b08a5a'));
+    };
+    const t = 0.05;
+    for (const sx of [-0.5, 0.5]) for (const sz of [-0.5, 0.5]) bar(t, 1, t, sx, 0, sz);
+    for (const y of [-0.45, 0.5])
+        for (const s of [-0.5, 0.5]) {
+            bar(1, t, t, 0, y, s);
+            bar(t, t, 1, s, y, 0);
+        }
+    for (const s of [-0.5, 0.5]) {
+        bar(t, 1.35, t, 0, 0, s, Math.PI / 4);
+        bar(t, 1.35, t, s, 0, 0, 0, Math.PI / 4);
+    }
+    const g = mergeGeometries(parts);
+    g.computeVertexNormals();
+    return g;
 }
 
 const WALL_TINT = [new THREE.Color('#ffffff'), new THREE.Color('#d8e2ee'), new THREE.Color('#aebfe0')];
@@ -96,6 +126,26 @@ export function createSurvivalBuildings(state, terrain) {
     ghostBlocks.renderOrder = 6;
     ghostBlocks.setColorAt(0, new THREE.Color());
     group.add(ghostQuads, ghostBlocks);
+
+    // 생존자가 지으러 갈 예정 자리: 옅은 하늘색 상자
+    const planMat = new THREE.MeshBasicMaterial({
+        color: 0x7fe0ff,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false
+    });
+    const plans = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), planMat, MAX_PLAN);
+    plans.count = 0;
+    plans.frustumCulled = false;
+    plans.renderOrder = 6;
+    group.add(plans);
+    // 짓는 중인 건물의 비계
+    const wood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true });
+    const scaffolds = new THREE.InstancedMesh(scaffoldGeometry(), wood, MAX_SCAFFOLD);
+    scaffolds.count = 0;
+    scaffolds.frustumCulled = false;
+    scaffolds.castShadow = true;
+    group.add(scaffolds);
 
     const m4 = new THREE.Matrix4();
     const q = new THREE.Quaternion();
@@ -147,7 +197,8 @@ export function createSurvivalBuildings(state, terrain) {
                     // 맞은 직후 살짝 흔들린다
                     const hit = t.hitT != null && now - t.hitT < 0.15 ? 0.04 : 0;
                     v.set(t.x + (hit ? Math.sin(now * 90) * hit : 0), y, t.z);
-                    s.set(1, 1, 1);
+                    // 짓는 중이면 다 지은 만큼만 솟아 있다
+                    s.set(1, t.build ? Math.max(0.15, t.build.t / t.build.T) : 1, 1);
                     m4.compose(v, q.identity(), s);
                     walls.setMatrixAt(nw, m4);
                     const r = t.hp / t.maxHp;
@@ -178,6 +229,33 @@ export function createSurvivalBuildings(state, terrain) {
             }
             walls.count = nw;
             pads.count = np;
+            // 비계: 짓는 중인 건물 (본진 포함)
+            let ns = 0;
+            const scaffold = (x, z, size, hgt) => {
+                if (ns >= MAX_SCAFFOLD) return;
+                const w = size * T * 0.92;
+                v.set(x, terrain.heightAt(x, z) + hgt / 2, z);
+                m4.compose(v, q.identity(), s.set(w, hgt, w));
+                scaffolds.setMatrixAt(ns++, m4);
+            };
+            for (const t of state.towers)
+                if (t.build && t.cell) scaffold(t.x, t.z, t.cell.s, t.type === 'wall' ? 1.1 : 2.2);
+            if (b?.build) scaffold(b.x, b.z, b.s, 3.2);
+            scaffolds.count = ns;
+            scaffolds.instanceMatrix.needsUpdate = true;
+            // 예정 자리
+            let npl = 0;
+            for (const o of workerOrders(sv)) {
+                if (o.type !== 'build' || o.started || npl >= MAX_PLAN) continue;
+                const c = { x: -f.half + (o.i + o.s / 2) * T, z: -f.half + (o.j + o.s / 2) * T };
+                const hgt = o.btype === 'wall' ? 1.0 : o.btype === 'base' ? 2.6 : o.btype === 'mine' ? 1.3 : 1.9;
+                const w = o.s * T * (o.btype === 'wall' ? 0.94 : 0.8);
+                v.set(c.x, terrain.heightAt(c.x, c.z) + hgt / 2, c.z);
+                m4.compose(v, q.identity(), s.set(w, hgt, w));
+                plans.setMatrixAt(npl++, m4);
+            }
+            plans.count = npl;
+            plans.instanceMatrix.needsUpdate = true;
             walls.instanceMatrix.needsUpdate = true;
             if (walls.instanceColor) walls.instanceColor.needsUpdate = true;
             pads.instanceMatrix.needsUpdate = true;

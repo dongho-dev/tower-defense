@@ -1,21 +1,25 @@
 // 살아남기 지형 메시: 타일 격자(snowfield)를 높이장으로 바꿔 한 장의 메시로 만든다.
-// 타일 하나에 꼭짓점 3×3. 단 사이는 smoothstep으로 가파르게 이어 절벽처럼 보이고, 비탈은 고르게 잇는다.
-// 색: 고원·벌판은 눈, 분지는 얼어붙은 검보랏빛 땅, 비탈은 다져진 흙, 가파른 면은 바위띠.
+// 타일 하나에 꼭짓점 4×4. 단(고원·벌판·분지)은 평평하고, 단 사이는 타일 경계에서 거의 수직으로 떨어지는 바위 벽이다.
+// 비탈은 통로 축을 따라 곧게 이어지는 다져진 길(가로 줄무늬)이고, 양옆 벽이 수직으로 막는다.
+// 절벽 윗변(통행 불가 테두리)은 얼음 낀 회청색 띠로 칠해 걸을 수 있는 눈밭과 또렷이 갈린다.
 // 적·건물·이펙트가 땅에 붙도록 heightAt은 이 메시의 꼭짓점 높이를 그대로 보간한다.
 import * as THREE from 'three';
 import { KIND, fbm, valueNoise } from '../../core/snowfield.js';
 
-const SUB = 3;
+const SUB = 4;
 
 const C = (h) => new THREE.Color(h);
 const COL = {
-    snowHi: C('#e9eef8'),
-    snowMid: C('#d2dae8'),
+    snowHi: C('#f0f4fb'),
+    snowMid: C('#a4afc6'),
     snowShade: C('#a9b6d0'),
     trample: C('#8f877e'),
     basin: C('#5d5a74'),
     corrupt: C('#5a2c74'),
-    ramp: C('#a39486'),
+    ramp: C('#8e7a68'),
+    rampDark: C('#544538'),
+    rim: C('#8592ad'),
+    rimEdge: C('#56607a'),
     rockA: C('#4e4642'),
     rockB: C('#6e6258'),
     rockDeep: C('#2a2424'),
@@ -87,47 +91,61 @@ export function createSurvivalTerrain(state, fogLayer) {
             } else if (K === KIND.nest) h = L[0] - 0.1;
             th[k] = h;
         }
-    const tileH = (i, j) => th[Math.max(0, Math.min(N - 1, j)) * N + Math.max(0, Math.min(N - 1, i))];
-    const isRamp = (i, j) => kind[Math.max(0, Math.min(N - 1, j)) * N + Math.max(0, Math.min(N - 1, i))] === KIND.ramp;
-    const sstep = (t) => t * t * (3 - 2 * t);
 
-    // 2) 꼭짓점 높이: 이웃 네 타일 중심 사이를 smoothstep(절벽) 또는 선형(비탈)으로
+    // 2) 꼭짓점 높이: 타일 안쪽 꼭짓점은 그 타일 높이 그대로(평평한 단).
+    //    타일 경계 꼭짓점은 닿은 타일들 높이가 비슷하면 평균, 크게 다르면 낮은 쪽(= 높은 타일 가장자리에서 수직으로 떨어짐).
+    //    비탈 타일에 닿은 꼭짓점은 통로 축을 따라 곧게 (양옆 벽은 수직, 위·아래 끝은 단 높이와 이어진다).
+    //    바위끼리 맞닿은 경계는 평균(바위 덩어리가 한 몸으로 솟게).
     const V = N * SUB + 1;
     const step = T / SUB;
     const H = new Float32Array(V * V);
+    const rocky = (K) => K === KIND.rock || K === KIND.border;
+    const touch = [];
     for (let vj = 0; vj < V; vj++)
         for (let vi = 0; vi < V; vi++) {
-            const x = vi * step;
-            const z = vj * step;
-            const fi = x / T - 0.5;
-            const fj = z / T - 0.5;
-            const i0 = Math.floor(fi);
-            const j0 = Math.floor(fj);
-            const tx = fi - i0;
-            const tz = fj - j0;
-            const ramp = isRamp(i0, j0) || isRamp(i0 + 1, j0) || isRamp(i0, j0 + 1) || isRamp(i0 + 1, j0 + 1);
-            // 절벽은 smoothstep을 두 번 걸어 윗면은 평평하고 벽은 가파르게
-            const sx = ramp ? tx : sstep(sstep(tx));
-            const sz = ramp ? tz : sstep(sstep(tz));
-            const a = tileH(i0, j0) + (tileH(i0 + 1, j0) - tileH(i0, j0)) * sx;
-            const b = tileH(i0, j0 + 1) + (tileH(i0 + 1, j0 + 1) - tileH(i0, j0 + 1)) * sx;
-            H[vj * V + vi] = a + (b - a) * sz;
+            const bi = vi % SUB === 0;
+            const bj = vj % SUB === 0;
+            const ti = Math.floor(vi / SUB);
+            const tj = Math.floor(vj / SUB);
+            touch.length = 0;
+            for (const di of bi ? [-1, 0] : [0])
+                for (const dj of bj ? [-1, 0] : [0]) {
+                    const i = Math.max(0, Math.min(N - 1, ti + di));
+                    const j = Math.max(0, Math.min(N - 1, tj + dj));
+                    touch.push(j * N + i);
+                }
+            const x = -half + vi * step;
+            const z = -half + vj * step;
+            let rampN = -1;
+            let lo = Infinity;
+            let hi = -Infinity;
+            let sum = 0;
+            let allRock = true;
+            for (const k of touch) {
+                if (kind[k] === KIND.ramp) rampN = f.rampOf[k];
+                lo = Math.min(lo, th[k]);
+                hi = Math.max(hi, th[k]);
+                sum += th[k];
+                if (!rocky(kind[k])) allRock = false;
+            }
+            let h;
+            if (rampN >= 0) h = f.rampHeightAt(rampN, x, z);
+            else if (hi - lo < 0.25 || allRock) h = sum / touch.length;
+            else h = lo;
+            H[vj * V + vi] = h;
         }
-    // 3) 가파른 곳일수록 크게 울퉁불퉁 (절벽·바위), 평지는 눈 둔덕 정도
-    const base = H.slice();
+    // 3) 바위·산맥은 울퉁불퉁하게, 평지는 눈 둔덕 정도 (비탈과 절벽 윗변은 건드리지 않는다)
     for (let vj = 0; vj < V; vj++)
         for (let vi = 0; vi < V; vi++) {
             const k = vj * V + vi;
-            const l = base[vj * V + Math.max(0, vi - 1)];
-            const r = base[vj * V + Math.min(V - 1, vi + 1)];
-            const u = base[Math.max(0, vj - 1) * V + vi];
-            const d = base[Math.min(V - 1, vj + 1) * V + vi];
-            const steep = Math.min(1, (Math.abs(r - l) + Math.abs(d - u)) / (step * 2.2));
+            const ti = Math.min(N - 1, Math.floor(vi / SUB));
+            const tj = Math.min(N - 1, Math.floor(vj / SUB));
+            const K = kind[tj * N + ti];
             const x = vi * step;
             const z = vj * step;
-            H[k] +=
-                fbm(x * 0.35, z * 0.35, seed + 11, 2) * (0.06 + 0.55 * steep) +
-                fbm(x * 1.4, z * 1.4, seed + 12, 2) * 0.12 * steep;
+            if (rocky(K))
+                H[k] += fbm(x * 0.5, z * 0.5, seed + 11, 3) * 0.6 + fbm(x * 1.6, z * 1.6, seed + 12, 2) * 0.18;
+            else if (K === KIND.ground && vi % SUB && vj % SUB) H[k] += fbm(x * 0.35, z * 0.35, seed + 13, 2) * 0.05;
         }
 
     // 4) 메시
@@ -172,6 +190,26 @@ export function createSurvivalTerrain(state, fogLayer) {
     const nrm = geo.getAttribute('normal').array;
 
     // 5) 색
+    /** 절벽 발치 그늘 배율: 이 타일보다 0.5 넘게 높은 이웃 타일까지의 거리로 (1 = 그늘 없음) */
+    const footShade = (ti, tj, x, z) => {
+        const h0 = th[tj * N + ti];
+        let d = Infinity;
+        for (let dj = -1; dj <= 1; dj++)
+            for (let di = -1; di <= 1; di++) {
+                if (!di && !dj) continue;
+                const i = ti + di;
+                const j = tj + dj;
+                if (i < 0 || j < 0 || i >= N || j >= N) continue;
+                const nk = j * N + i;
+                if (kind[nk] === KIND.ramp || th[nk] - h0 < 0.5) continue;
+                const x0 = -half + i * T;
+                const z0 = -half + j * T;
+                const dx = Math.max(x0 - x, 0, x - (x0 + T));
+                const dz = Math.max(z0 - z, 0, z - (z0 + T));
+                d = Math.min(d, Math.hypot(dx, dz));
+            }
+        return d >= T ? 1 : 0.62 + 0.38 * (d / T);
+    };
     const c = new THREE.Color();
     const tmp = new THREE.Color();
     const cx = 0;
@@ -199,17 +237,27 @@ export function createSurvivalTerrain(state, fogLayer) {
                 if (level[tk] === 1 && K === KIND.ground)
                     c.lerp(COL.trample, Math.max(0, n1 - 0.62) * 1.6 * (0.6 + 0.4 * n2));
             }
-            if (K === KIND.ramp) c.lerp(COL.ramp, 0.55 + 0.2 * n2);
+            if (K === KIND.ramp) {
+                // 다져진 길: 통로를 가로지르는 바퀴 자국 줄무늬
+                const r = f.ramps[f.rampOf[tk]];
+                const along = r.d[0] !== 0 ? x : z;
+                const band = 0.5 + 0.5 * Math.sin(along * 7.5);
+                c.copy(COL.ramp).lerp(COL.rampDark, 0.35 * band + 0.15 * n2);
+            }
+            // 절벽 윗변(통행 불가 테두리): 얼음 낀 회청색 띠, 바깥 가장자리일수록 짙게
+            if (K === KIND.cliff) c.copy(COL.rim).lerp(COL.rimEdge, 0.25 + 0.25 * n2);
             if (f.vein[tk] >= 0) c.lerp(COL.vein, 0.45);
-            // 가파른 면 = 바위띠 (높이에 따라 줄무늬)
-            const steep = THREE.MathUtils.smoothstep(1 - ny, 0.14, 0.38);
+            // 가파른 면 = 바위벽 (높이에 따라 줄무늬)
+            const steep = THREE.MathUtils.smoothstep(1 - ny, 0.12, 0.32);
             if (steep > 0) {
-                tmp.copy(COL.rockA).lerp(COL.rockB, (Math.sin(pos[k * 3 + 1] * 5.5 + n2 * 2) + 1) * 0.5);
-                tmp.lerp(COL.rockDeep, 0.3 * n1);
+                tmp.copy(COL.rockA).lerp(COL.rockB, (Math.sin(pos[k * 3 + 1] * 7 + n2 * 2) + 1) * 0.5);
+                tmp.lerp(COL.rockDeep, 0.35 * n1);
                 c.lerp(tmp, steep);
             }
             // 바위 능선·산맥 꼭대기에는 눈이 쌓인다
             if ((K === KIND.rock || K === KIND.border) && ny > 0.8) c.lerp(COL.snowMid, (ny - 0.8) * 4);
+            // 절벽 발치 그늘: 더 높은 이웃 타일에 가까울수록 어둡게 (위에서 내려다봐도 단 차이가 읽히게)
+            if (f.walkableKind(tk) && K !== KIND.ramp) c.multiplyScalar(footShade(ti, tj, x, z));
             col[k * 3] = c.r;
             col[k * 3 + 1] = c.g;
             col[k * 3 + 2] = c.b;
@@ -228,10 +276,45 @@ export function createSurvivalTerrain(state, fogLayer) {
         map: snowDetail(seed)
     });
     fogLayer.patch(mat);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.receiveShadow = true;
-    mesh.castShadow = true;
-    mesh.name = 'survival-terrain';
+    // 넓은 맵을 한 장으로 그리면 화면 밖·그림자 카메라 밖 삼각형까지 매번 다 그린다:
+    // 꼭짓점은 함께 쓰고 삼각형 목록만 CHUNK×CHUNK 타일 조각으로 나눠, 보이는 조각만 그리게 한다
+    const CHUNK = 12;
+    const CS = CHUNK * SUB;
+    const chunks = [];
+    for (let cj = 0; cj * CS < V - 1; cj++)
+        for (let ci = 0; ci * CS < V - 1; ci++) {
+            const i0 = ci * CS;
+            const j0 = cj * CS;
+            const i1 = Math.min(V - 1, i0 + CS);
+            const j1 = Math.min(V - 1, j0 + CS);
+            const sub = new Uint32Array((i1 - i0) * (j1 - j0) * 6);
+            let m = 0;
+            let lo = Infinity;
+            let hi = -Infinity;
+            for (let vj = j0; vj < j1; vj++)
+                for (let vi = i0; vi < i1; vi++) {
+                    const q = (vj * (V - 1) + vi) * 6;
+                    for (let r = 0; r < 6; r++) sub[m++] = idx[q + r];
+                    const h = H[vj * V + vi];
+                    lo = Math.min(lo, h);
+                    hi = Math.max(hi, h);
+                }
+            const cg = new THREE.BufferGeometry();
+            for (const name of ['position', 'normal', 'color', 'uv']) cg.setAttribute(name, geo.getAttribute(name));
+            cg.setIndex(new THREE.BufferAttribute(sub, 1));
+            const cx0 = -half + i0 * step;
+            const cz0 = -half + j0 * step;
+            const cx1 = -half + i1 * step;
+            const cz1 = -half + j1 * step;
+            cg.boundingBox = new THREE.Box3(new THREE.Vector3(cx0, lo - 0.5, cz0), new THREE.Vector3(cx1, hi + 1, cz1));
+            cg.boundingSphere = cg.boundingBox.getBoundingSphere(new THREE.Sphere());
+            const cm = new THREE.Mesh(cg, mat);
+            cm.receiveShadow = true;
+            cm.castShadow = true;
+            cm.name = 'survival-terrain';
+            chunks.push(cm);
+        }
+    const mesh = chunks[0];
 
     // 맵 밖: 검은 바닥 (가장자리 산맥 너머)
     const outside = new THREE.Mesh(
@@ -241,7 +324,7 @@ export function createSurvivalTerrain(state, fogLayer) {
     outside.rotation.x = -Math.PI / 2;
     outside.position.y = -2;
     const group = new THREE.Group();
-    group.add(mesh, outside);
+    group.add(...chunks, outside);
 
     function heightAt(x, z) {
         const fx = Math.max(0, Math.min(V - 1.001, (x + half) / step));
@@ -259,6 +342,7 @@ export function createSurvivalTerrain(state, fogLayer) {
     return {
         group,
         mesh,
+        chunks,
         heightAt,
         // 기존 지형 API 호환 (주변 반딧불이 연출 등): 살아남기는 쓰지 않는다
         ellipseR: () => 2,

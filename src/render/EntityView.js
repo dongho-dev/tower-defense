@@ -5,6 +5,7 @@ import { buildEnemyModel, animateEnemy } from './models/enemies.js';
 import { materials } from './models/materials.js';
 import { buildUnitModel, animateUnit } from './models/units.js';
 import { disposeObject } from './dispose.js';
+import { mergeStaticParts, TOWER_MOVING } from './survival/mergeEnemy.js';
 
 const _v = new THREE.Vector3();
 export const ENEMY_SCALE = 1.5;
@@ -139,6 +140,11 @@ export class EntityView {
             if (v.sig !== sig) {
                 if (v.model) this.drop(v.model.group);
                 v.model = buildTowerModel(tower.type, tower.tier, tower.branch, tower.id, tower.mastery);
+                // 살아남기: 타워가 수십 개라 그림자 패스를 아끼고 (돌 기단이 그림자를 드리운다), 정적인 조각은 합친다
+                if (state.survival) {
+                    mergeStaticParts(v.model, TOWER_MOVING);
+                    v.model.group.traverse((o) => (o.castShadow = false));
+                }
                 if (v.model.turret) v.model.turret.rotation.y = -tower.aim;
                 v.root.add(v.model.group);
                 v.sig = sig;
@@ -149,7 +155,9 @@ export class EntityView {
             const k = v.pop;
             const s = k < 1 ? 1 - Math.pow(1 - k, 3) * Math.cos(k * 9) * 0.9 : 1;
             const k0 = v.free ? 1.25 : 1;
-            v.root.scale.set(s * k0, Math.max(0.05, s) * k0, s * k0);
+            // 살아남기: 생존자가 짓는 중이면 다 지은 만큼만 솟아 있다
+            const bp = tower.build ? Math.max(0.12, tower.build.t / tower.build.T) : 1;
+            v.root.scale.set(s * k0, Math.max(0.05, s) * k0 * bp, s * k0);
             v.recoil = Math.max(0, v.recoil - dt * 6);
             animateTower(v.model, tower, t, dt, v.recoil);
         }
@@ -162,6 +170,12 @@ export class EntityView {
     }
 
     syncEnemies(state, t, dt) {
+        // 살아남기 대공세: 적이 많으면 작은 장식(눈·뿔·무기 등)을 감춰 그리기 호출을 줄인다
+        const lod = !!state.survival && state.enemies.length > 45;
+        if (lod !== this.lod) {
+            this.lod = lod;
+            for (const v of this.enemies.values()) for (const d of v.details || []) d.visible = !lod;
+        }
         for (const e of state.enemies) {
             let v = this.enemies.get(e.id);
             if (!v) {
@@ -169,6 +183,18 @@ export class EntityView {
                 v.root.userData.enemyId = e.id;
                 // 살아남기는 적이 수백 마리라 그림자 패스를 아낀다 (보스만 그림자)
                 if (state.survival && !e.def.boss) v.root.traverse((o) => (o.castShadow = false));
+                if (state.survival && !e.def.boss) {
+                    // 움직이지 않는 조각은 재질마다 한 메시로 (대공세 그리기 호출 줄이기)
+                    mergeStaticParts(v);
+                    // 남은 작은 장식 메시 (경계 구 반지름이 작은 것)
+                    v.details = [];
+                    v.root.traverse((o) => {
+                        if (!o.isMesh) return;
+                        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+                        if (o.geometry.boundingSphere.radius < 0.07) v.details.push(o);
+                    });
+                    if (this.lod) for (const d of v.details) d.visible = false;
+                }
                 v.root.scale.setScalar(e.scale * ENEMY_SCALE);
                 v.lastHp = e.hp;
                 v.spawnT = 0;

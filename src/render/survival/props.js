@@ -101,8 +101,9 @@ export function createSurvivalProps(state, terrain, fogLayer) {
             let count = 0;
             let size = 1;
             if (K === KIND.cliff) {
-                count = r() < 0.5 ? 2 : 1;
-                size = 1.05;
+                // 절벽 가장자리는 또렷하게 둔다: 바윗덩이는 드물고 작게 (비탈 양옆 벽에는 없다)
+                count = !f.flank[k] && r() < 0.12 ? 1 : 0;
+                size = 0.6;
             } else if (K === KIND.rock) {
                 count = 2;
                 size = 1.25;
@@ -167,7 +168,7 @@ export function createSurvivalProps(state, terrain, fogLayer) {
     for (let j = 1; j < N - 1; j++)
         for (let i = 1; i < N - 1; i++) {
             const k = j * N + i;
-            if (!f.walkableKind(k) || f.vein[k] >= 0) continue;
+            if (kind[k] !== KIND.ground || f.vein[k] >= 0) continue;
             let near = false;
             for (const [di, dj] of [
                 [1, 0],
@@ -178,7 +179,7 @@ export function createSurvivalProps(state, terrain, fogLayer) {
                 const nk = (j + dj) * N + i + di;
                 if (kind[nk] === KIND.cliff || kind[nk] === KIND.rock) near = true;
             }
-            const p = near ? 0.45 : f.level[k] === 1 ? 0.025 : 0;
+            const p = near ? 0.2 : f.level[k] === 1 ? 0.02 : 0;
             if (r() < p) pebbles.push(k);
         }
     const pebbleMesh = new THREE.InstancedMesh(rockGeometry(), rockMat, pebbles.length);

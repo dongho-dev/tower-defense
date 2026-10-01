@@ -315,9 +315,14 @@ export class Hud {
                     ? `밤 시계가 흐르기 시작합니다 · <b>Space</b>`
                     : '첫 웨이브를 부릅니다 · <b>Space</b>';
             });
-        } else if (state.survival && !state.survival.started) {
-            this.set('wcTitle', 'site', () => (this.$.wcTitle.textContent = '터 고르기'));
-            this.set('wcSub', 'site', () => (this.$.wcSub.textContent = '본진을 세우면 밤 시계가 흐릅니다'));
+        } else if (state.survival && !state.survival.base && state.waveIndex === 0) {
+            this.set('wcTitle', 'site', () => (this.$.wcTitle.textContent = '본진 짓기'));
+            const left = Math.ceil(next.at - state.survival.clock);
+            this.set(
+                'wcSub',
+                'site' + left,
+                () => (this.$.wcSub.textContent = `고원을 찾아 본진을 · 둥지가 깨어나기까지 ${formatClock(left)}`)
+            );
         } else if (state.survival && !next) {
             const cur = state.waves[state.waveIndex - 1];
             this.set('wcTitle', 'last', () => (this.$.wcTitle.textContent = '마지막 대공세'));

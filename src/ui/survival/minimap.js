@@ -1,11 +1,12 @@
-// 살아남기 미니맵: 지형(미리 그린 그림) + 탐험 안개 + 건물·적 점 + 카메라 사각형 + 공격 경고 핑.
+// 살아남기 미니맵: 지형(미리 그린 그림) + 탐험 안개 + 건물·적 점 + 생존자 + 카메라 사각형 + 공격 경고 핑.
+// 탐험하지 않은 곳은 검게 가리고, 적은 지금 보이는 것만 그린다 (맵 구조를 미리 드러내지 않는다).
 // 누르거나 끌면 그곳으로 카메라가 간다. 화면 왼쪽 아래에 늘 있다 (스타1처럼 경보 노릇).
 import * as THREE from 'three';
 
 const SIZE = 220;
 
 export class Minimap {
-    /** opts: { state, world, rig, camera, onJump(x, z), sites } */
+    /** opts: { state, world, rig, camera, onJump(x, z) } */
     constructor(parent, opts) {
         this.o = opts;
         this.el = document.createElement('div');
@@ -123,19 +124,6 @@ export class Minimap {
                 t.type === 'wall' ? (hurt ? '#e0a050' : '#9ff0b0') : t.type === 'mine' ? '#5cf0b8' : '#36d86a';
             g.fillRect(i * k, j * k, s * k, s * k);
         }
-        // 명당 후보 (본진을 세우기 전)
-        if (!sv.base && extra.sites) {
-            for (const s of extra.sites) {
-                const x = this.px(s.x);
-                const y = this.px(s.z);
-                const r = 7 + Math.sin(this.t * 4) * 1.5;
-                g.strokeStyle = s.id === extra.hoverSite ? '#ffffff' : '#ffd66e';
-                g.lineWidth = 2;
-                g.beginPath();
-                g.arc(x, y, r, 0, Math.PI * 2);
-                g.stroke();
-            }
-        }
         // 안개
         this.refreshFog();
         g.drawImage(this.fogC, 0, 0, S, S);
@@ -148,16 +136,40 @@ export class Minimap {
             g.lineWidth = 1;
             g.strokeRect(b.i * k - 1, b.j * k - 1, b.s * k + 2, b.s * k + 2);
         }
-        // 둥지
+        // 둥지 (탐험한 뒤에만)
         const awake = state.waveIndex > 0;
+        const nestSeen = sv.fog.explored[sv.field.cellAt(0, 0)];
         const nr = sv.nest.r * (S / (2 * this.half)) + (awake ? Math.sin(this.t * 5) * 1.2 : 0);
-        g.fillStyle = awake ? 'rgba(200,70,255,0.9)' : 'rgba(150,70,200,0.7)';
-        g.beginPath();
-        g.arc(S / 2, S / 2, nr, 0, Math.PI * 2);
-        g.fill();
-        g.strokeStyle = '#1a0624';
-        g.lineWidth = 1.5;
-        g.stroke();
+        if (nestSeen) {
+            g.fillStyle = awake ? 'rgba(200,70,255,0.9)' : 'rgba(150,70,200,0.7)';
+            g.beginPath();
+            g.arc(S / 2, S / 2, nr, 0, Math.PI * 2);
+            g.fill();
+            g.strokeStyle = '#1a0624';
+            g.lineWidth = 1.5;
+            g.stroke();
+        }
+        // 생존자 예정 건설 자리
+        for (const o of extra.plans || []) {
+            if (o.type !== 'build' || o.started) continue;
+            g.strokeStyle = 'rgba(127,224,255,0.9)';
+            g.lineWidth = 1;
+            g.strokeRect(o.i * k, o.j * k, o.s * k, o.s * k);
+        }
+        // 생존자: 하늘색 점 (쓰러졌으면 본진에 부활 표시)
+        const w = sv.worker;
+        if (w.alive) {
+            const x = this.px(w.x);
+            const y = this.px(w.z);
+            const r = 3 + Math.sin(this.t * 6) * 0.6;
+            g.fillStyle = '#7fe0ff';
+            g.beginPath();
+            g.arc(x, y, r, 0, Math.PI * 2);
+            g.fill();
+            g.strokeStyle = '#06222c';
+            g.lineWidth = 1.2;
+            g.stroke();
+        }
         // 적 (보이는 것만)
         let shown = 0;
         for (const e of state.enemies) {
@@ -201,7 +213,11 @@ export class Minimap {
             g.closePath();
             g.stroke();
         }
-        const txt = sv.base ? `보이는 적 ${shown}` : '명당을 고르세요';
+        const txt = !w.alive
+            ? `생존자 부활 ${Math.ceil(w.respawnT)}초`
+            : sv.base
+              ? `보이는 적 ${shown}`
+              : '고원을 찾아 본진을 지으세요';
         if (this.info.textContent !== txt) this.info.textContent = txt;
     }
 }

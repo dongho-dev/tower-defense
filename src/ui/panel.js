@@ -18,8 +18,15 @@ import {
     HERO
 } from '../core/game.js';
 import { enemyTraits } from '../core/data/enemies.js';
+import { nextMineTech, mineTechMul } from '../core/survival.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
+
+/** 살아남기: 탐험해서 찾은 광맥 수 */
+function foundVeins(state) {
+    const sv = state.survival;
+    return sv.field.veins.filter((v) => sv.fog.explored[v.j * sv.field.N + v.i]).length;
+}
 
 /** 살아남기: 광맥 위 광산이면 수입 배율과 캐는 간격 */
 function veinInfo(state, tower) {
@@ -452,13 +459,19 @@ export class Inspector {
         const at = state.enemies.filter((e) => e.atkTargetId === 'base').length;
         const mines = state.towers.filter((t) => t.type === 'mine').length;
         const veins = state.survival.field.veins.length;
+        const sv = state.survival;
+        const b = sv.base;
+        const building = !!b.build;
+        const tech = nextMineTech(sv);
+        const techMul = Math.round((mineTechMul(sv) - 1) * 100);
         const tags = [];
         if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
-        tags.push(`<span class="tag good">광산 ${mines}/${veins}</span>`);
+        tags.push(`<span class="tag good">광산 ${mines} · 찾은 광맥 ${foundVeins(state)}/${veins}</span>`);
+        if (techMul) tags.push(`<span class="tag good">채굴 기술 ${sv.mineTech}단계 · 수입 +${techMul}%</span>`);
         tags.push('<span class="tag">무너지면 패배</span>');
         return `<div class="ip-head" style="--tint:#ffd27a">
                 <i class="ico">${ICONS.shield}</i>
-                <div><div class="name">본진 · 마지막 빛</div><div class="sub">명당에 세운 수정 성소</div></div>
+                <div><div class="name">본진 · 마지막 빛</div><div class="sub">${building ? `짓는 중 ${Math.round((b.build.t / b.build.T) * 100)}% · 생존자가 곁에 있어야 올라간다` : '고원에 세운 수정 성소 · 생존자가 여기서 다시 일어난다'}</div></div>
             </div>
             <div class="ip-main">
                 <div class="ip-desc">적은 가장 가까운 건물을 노리고, 길을 막은 방벽은 부수고 들어온다. 저절로 고쳐지지 않는다.</div>
@@ -466,10 +479,15 @@ export class Inspector {
                 <div class="tag-row">${tags.join('')}</div>
             </div>
             <div class="ip-actions">
+                ${
+                    tech
+                        ? `<button class="ip-btn up ${state.gold < tech.cost || building ? 'poor' : ''}" data-mine><span class="hk">U</span><span class="l">채굴 기술 ${sv.mineTech + 1}단계 · 광산 수입 +${Math.round((tech.mul - 1) * 100)}%</span><span class="c">${ICONS.gold}${tech.cost}</span></button>`
+                        : '<div class="maxed">채굴 기술 최고 단계</div>'
+                }
                 <div class="ip-row">
-                    <button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="수리 (G)">${ICONS.repair}<span>${rc ? `수리 ${rc}` : '온전함'}</span></button>
+                    <button class="ip-btn small repair ${!rc || building ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="생존자가 가서 수리 (G)">${ICONS.repair}<span>${building ? '짓는 중' : rc ? `수리 ${rc}` : '온전함'}</span></button>
                 </div>
-                <div class="ip-foot">수리비는 잃은 체력에 비례 (체력 1당 0.4 골드)</div>
+                <div class="ip-foot">수리는 생존자가 가서 한다 · 체력 1당 0.4 골드</div>
             </div>`;
     }
 
@@ -552,7 +570,10 @@ export class Inspector {
                 state.enemies.filter((e) => e.gateId === g.id).length
             ].join('|');
         } else if (this.mode === 'base') {
+            const b = state.survival.base;
             key = [
+                state.survival.mineTech,
+                b?.build ? Math.round(b.build.t) : -1,
                 Math.ceil(state.lives / 5),
                 Math.floor(state.gold / 5),
                 state.enemies.filter((e) => e.atkTargetId === 'base').length,
@@ -592,6 +613,8 @@ export class Inspector {
             this.el.innerHTML = this.baseHtml(state);
             const rp = this.el.querySelector('[data-repair]');
             if (rp) rp.onclick = () => this.actions.baseRepair();
+            const mt = this.el.querySelector('[data-mine]');
+            if (mt) mt.onclick = () => this.actions.mineTech?.();
         } else if (this.mode === 'enemy') this.el.innerHTML = this.enemyHtml(this.target);
         else if (this.mode === 'hero') {
             this.el.innerHTML = this.heroHtml(this.target);

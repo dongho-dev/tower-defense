@@ -1,10 +1,18 @@
 // 살아남기 맵의 지형 격자 (스타1 '살아남기' 유즈맵처럼 넓은 땅 전체가 전장이다).
 // 맵은 size×size 타일이고, 타일 한 칸 = tile 월드 단위. 원점(0, 0)이 맵 한가운데다.
-// 높이는 세 단(0 = 가운데 분지, 1 = 눈벌판, 2 = 고원)이고, 단 사이는 절벽(못 지나감)과 비탈(지나감)로 나뉜다.
+// 높이는 이산적인 세 단(0 = 가운데 분지, 1 = 눈벌판, 2 = 고원)이다. 단과 단 사이는 절벽(못 지나감)이고,
+// 단을 바꾸는 길은 '비탈' 하나뿐이다. 비탈은 축에 나란한 곧은 통로(폭 w칸, 길이 RAMP_LEN칸)이고 양옆이
+// 절벽 벽(flank)으로 막혀 있어 위·아래 끝으로만 드나든다. 그래서 통로를 가로질러 벽 한 줄을 세우면 완전히 막힌다.
 // 바위 능선과 맵 가장자리 산맥은 못 지나간다. 광맥은 2×2 타일이고 광산만 지을 수 있다.
 // 게임 로직(길 찾기·건설 판정·안개)과 렌더러(지형 메시·미니맵)가 같은 격자를 함께 쓴다.
 
 export const KIND = { ground: 0, ramp: 1, cliff: 2, rock: 3, border: 4, nest: 5 };
+
+/** 비탈 통로 길이(칸): 위 단 가장자리 한 줄 + 아래 단으로 세 줄 */
+export const RAMP_LEN = 4;
+
+/** 비탈 방향: e·w·s·n (j가 늘면 남쪽) */
+const DIRS = { e: [1, 0], w: [-1, 0], s: [0, 1], n: [0, -1] };
 
 /** 결정적 해시 노이즈 */
 function hash2(x, y, seed) {
@@ -60,9 +68,11 @@ function distToPolyline(pts, x, y) {
 /**
  * 맵 정의(spec)로 타일 격자를 만든다. 좌표는 모두 타일 단위(0 ~ size).
  * spec: { size, tile, levels: [h0, h1, h2], seed, border,
- *   basin: { at, r, ramps: [{ to, w }] }, nestR,
- *   sites: [{ id, name, at, r: [rx, ry], ramps: [{ to, w }], veins: [[i, j]...], base: [i, j] }],
+ *   basin: { at, r, ramps: [{ dir, at, w }] }, nestR,
+ *   sites: [{ id, name, at, r: [rx, ry], ramps: [{ dir, at, w }], veins: [[i, j]...], base: [i, j] }],
  *   ridges: [{ pts, w }], veins: [[i, j]...] (벌판 광맥) }
+ * 비탈 { dir, at, w }: dir 쪽으로 내려가는 폭 w의 통로. at = 통로 가운데 줄(dir이 e·w면 j, n·s면 i).
+ * 분지 비탈의 dir은 분지 한가운데에서 바깥(벌판) 쪽이다.
  */
 export function createField(spec) {
     const N = spec.size;
@@ -93,7 +103,7 @@ export function createField(spec) {
         const dx = (x - s.x) / s.rx;
         const dy = (y - s.y) / s.ry;
         const a = Math.atan2(dy, dx);
-        const edge = 1 + 0.2 * fbm(Math.cos(a) * 2.2 + s.n * 7, Math.sin(a) * 2.2, seed + 3, 2);
+        const edge = 1 + 0.16 * fbm(Math.cos(a) * 2.2 + s.n * 7, Math.sin(a) * 2.2, seed + 3, 2);
         return Math.hypot(dx, dy) / edge;
     };
     const basin = spec.basin;
@@ -119,52 +129,128 @@ export function createField(spec) {
                 }
         }
 
-    // 2) 비탈길: 위 단 안쪽 점(from)에서 아래 단 바깥 점(to)으로 뻗는 폭 w의 띠.
-    //    가장자리 앞뒤 ramp칸 범위에서만 비탈이 되고, 높이는 가장자리에서 잰 거리로 이어 준다.
-    const RAMP_RUN = 2.6;
+    // 2) 비탈 통로: 위 단 가장자리(rim) 칸에서 아래 단 쪽으로 RAMP_LEN줄. 양옆 한 칸은 절벽 벽(flank),
+    //    위 끝 앞 세 줄은 위 단 평지, 아래 끝 뒤 세 줄은 아래 단 평지로 다져 둔다 (드나드는 곳이 또렷하게).
     const ramps = [];
-    for (const s of sites)
-        for (const r of s.ramps || [])
-            ramps.push({
-                from: [s.x, s.y],
-                to: r.to,
-                w: r.w,
-                hi: s.level ?? 2,
-                lo: 1,
-                q: (x, y) => siteQ(s, x, y),
-                r: Math.min(s.rx, s.ry),
-                owner: s.id
-            });
-    for (const r of basin.ramps || [])
-        ramps.push({
-            from: r.to,
-            to: basin.at,
-            w: r.w,
-            hi: 1,
-            lo: 0,
-            q: (x, y) => 2 - basinQ(x, y),
-            r: basin.r,
-            owner: 'basin',
-            inv: true
-        });
-    const rampH = new Float32Array(N * N).fill(-1);
     const rampOf = new Int16Array(N * N).fill(-1);
-    ramps.forEach((r, n) => {
-        for (let j = 0; j < N; j++)
-            for (let i = 0; i < N; i++) {
-                const x = i + 0.5;
-                const y = j + 0.5;
-                const d = distToPolyline([r.from, r.to], x, y);
-                if (d > r.w / 2) continue;
-                // 가장자리에서 잰 부호 있는 거리 (위 단 안쪽이 +)
-                const q = r.inv ? basinQ(x, y) : r.q(x, y);
-                const sd = r.inv ? (q - 1) * r.r : (1 - q) * r.r;
-                if (Math.abs(sd) > RAMP_RUN) continue;
-                const k = idx(i, j);
-                const t = clamp01((sd + RAMP_RUN) / (2 * RAMP_RUN));
-                rampH[k] = r.lo + (r.hi - r.lo) * t;
-                rampOf[k] = n;
+    const rampT = new Int8Array(N * N).fill(-1);
+    const flank = new Uint8Array(N * N);
+    const clear = new Uint8Array(N * N);
+    const lat = (w) => {
+        const a = Math.floor((w - 1) / 2);
+        return [-a, w - 1 - a];
+    };
+    const planRamp = (r, owner, siteN) => {
+        const dir = DIRS[r.dir];
+        const along = dir[0] !== 0;
+        // 시작점: 위 단(고원) 안쪽 또는 분지 한가운데에서 dir 쪽으로 걸어 나가며 경계를 찾는다
+        let si;
+        let sj;
+        if (owner === 'basin') {
+            si = along ? Math.floor(basin.at[0]) : r.at;
+            sj = along ? r.at : Math.floor(basin.at[1]);
+        } else {
+            const s = sites[siteN];
+            si = along ? Math.floor(s.x) : r.at;
+            sj = along ? r.at : Math.floor(s.y);
+        }
+        let ri = si;
+        let rj = sj;
+        let d;
+        if (owner === 'basin') {
+            // 분지 안에서 바깥으로: 처음 만나는 벌판 칸이 위 끝, 통로는 분지 쪽(-dir)으로 내려간다
+            while (inside(ri, rj) && level[idx(ri, rj)] === 0) {
+                ri += dir[0];
+                rj += dir[1];
             }
+            d = [-dir[0], -dir[1]];
+        } else {
+            const hi = level[idx(si, sj)];
+            while (inside(ri + dir[0], rj + dir[1]) && level[idx(ri + dir[0], rj + dir[1])] === hi) {
+                ri += dir[0];
+                rj += dir[1];
+            }
+            d = dir;
+        }
+        const hi = owner === 'basin' ? 1 : (sites[siteN].level ?? 2);
+        const lo = owner === 'basin' ? 0 : 1;
+        const [a, b] = lat(r.w);
+        const p = [-d[1], d[0]];
+        const at = (t, l) => [ri + d[0] * t + p[0] * l, rj + d[1] * t + p[1] * l];
+        return { dir: r.dir, d, p, w: r.w, a, b, hi, lo, owner, site: siteN, ri, rj, at };
+    };
+    const rampSpecs = [];
+    sites.forEach((s) => (s.ramps || []).forEach((r) => rampSpecs.push(planRamp(r, s.id, s.n))));
+    (basin.ramps || []).forEach((r) => rampSpecs.push(planRamp(r, 'basin', -1)));
+    // 다지기: 위 끝 앞은 위 단, 아래 끝 뒤는 아래 단 평지
+    for (const R of rampSpecs) {
+        for (let t = -3; t <= -1; t++)
+            for (let l = R.a - 2; l <= R.b + 2; l++) {
+                const [i, j] = R.at(t, l);
+                if (!inside(i, j)) continue;
+                const k = idx(i, j);
+                level[k] = R.hi;
+                if (R.site >= 0) site[k] = R.site;
+                clear[k] = 1;
+            }
+        for (let t = RAMP_LEN; t <= RAMP_LEN + 2; t++)
+            for (let l = R.a - 2; l <= R.b + 2; l++) {
+                const [i, j] = R.at(t, l);
+                if (!inside(i, j)) continue;
+                const k = idx(i, j);
+                level[k] = R.lo;
+                site[k] = -1;
+                clear[k] = 1;
+            }
+    }
+    // 통로와 양옆 벽
+    rampSpecs.forEach((R, n) => {
+        const cells = [];
+        const rows = [];
+        for (let t = 0; t < RAMP_LEN; t++) {
+            const row = [];
+            for (let l = R.a - 1; l <= R.b + 1; l++) {
+                const [i, j] = R.at(t, l);
+                if (!inside(i, j)) continue;
+                const k = idx(i, j);
+                clear[k] = 1;
+                if (l < R.a || l > R.b) {
+                    flank[k] = 1;
+                    level[k] = R.hi;
+                    site[k] = -1;
+                    continue;
+                }
+                rampOf[k] = n;
+                rampT[k] = t;
+                level[k] = t < RAMP_LEN / 2 ? R.hi : R.lo;
+                site[k] = -1;
+                row.push(k);
+                cells.push(k);
+            }
+            rows.push(row);
+        }
+        const top = R.at(-0.5, (R.a + R.b) / 2);
+        const bottom = R.at(RAMP_LEN + 1.5, (R.a + R.b) / 2);
+        ramps.push({
+            n,
+            owner: R.owner,
+            site: R.site,
+            dir: R.dir,
+            d: R.d,
+            p: R.p,
+            w: R.w,
+            hi: R.hi,
+            lo: R.lo,
+            a: R.a,
+            b: R.b,
+            ri: R.ri,
+            rj: R.rj,
+            cells,
+            rows,
+            // 위 끝 바로 앞(위 단)·아래 끝 바로 뒤(아래 단) 점 (타일 좌표)
+            top: [top[0] + 0.5, top[1] + 0.5],
+            to: [bottom[0] + 0.5, bottom[1] + 0.5]
+        });
     });
 
     // 3) 바위 능선
@@ -203,6 +289,7 @@ export function createField(spec) {
                 }
         }
     }
+    for (let k = 0; k < N * N; k++) if (clear[k]) rock[k] = 0;
 
     // 4) 칸 종류
     const bw = spec.border ?? 3;
@@ -212,7 +299,7 @@ export function createField(spec) {
             const x = i + 0.5;
             const y = j + 0.5;
             const edge = Math.min(x, y, N - x, N - y);
-            const bn = bw + 1.6 * valueNoise(x * 0.18, y * 0.18, seed + 21) + (edge < bw + 3 ? 0 : 0);
+            const bn = bw + 1.6 * valueNoise(x * 0.18, y * 0.18, seed + 21);
             if (edge < bn) {
                 kind[k] = KIND.border;
                 continue;
@@ -221,11 +308,15 @@ export function createField(spec) {
                 kind[k] = KIND.ramp;
                 continue;
             }
+            if (flank[k]) {
+                kind[k] = KIND.cliff;
+                continue;
+            }
             if (rock[k]) {
                 kind[k] = KIND.rock;
                 continue;
             }
-            // 이웃에 더 낮은 단이 있으면 절벽 (비탈칸은 낮은 단으로 치지 않는다)
+            // 이웃 여덟 칸에 더 낮은 단(비탈 칸 말고)이 있으면 절벽 가장자리
             let cliff = false;
             for (let dj = -1; dj <= 1 && !cliff; dj++)
                 for (let di = -1; di <= 1; di++) {
@@ -241,8 +332,6 @@ export function createField(spec) {
                 }
             kind[k] = cliff ? KIND.cliff : KIND.ground;
         }
-    // 비탈이 위·아래 단 어느 쪽에도 닿지 못한 조각(절벽 안쪽에 갇힌 칸)은 절벽으로
-    for (let k = 0; k < N * N; k++) if (kind[k] === KIND.ramp && rampH[k] < 0) kind[k] = KIND.cliff;
 
     // 5) 둥지 (가운데 구조물: 못 지나가고 못 짓는다)
     const nestR = spec.nestR ?? 3.2;
@@ -254,8 +343,9 @@ export function createField(spec) {
             if (d <= basin.r + 3) nobuild[idx(i, j)] = 1;
         }
 
-    // 6) 광맥 (2×2, 왼쪽 위 칸 기준)
+    // 6) 광맥 (2×2, 왼쪽 위 칸 기준). 바위만 걷어 낸다 (절벽·비탈 위 광맥은 맵 정의 오류)
     const veins = [];
+    let badVeins = 0;
     const addVein = (i, j, siteN) => {
         const id = veins.length;
         veins.push({
@@ -271,7 +361,8 @@ export function createField(spec) {
             for (let di = 0; di < 2; di++) {
                 const k = idx(i + di, j + dj);
                 vein[k] = id;
-                if (kind[k] !== KIND.ground && kind[k] !== KIND.ramp) kind[k] = KIND.ground;
+                if (kind[k] === KIND.rock) kind[k] = KIND.ground;
+                else if (kind[k] !== KIND.ground) badVeins++;
             }
     };
     sites.forEach((s) => (s.veins || []).forEach(([i, j]) => addVein(i, j, s.n)));
@@ -289,14 +380,14 @@ export function createField(spec) {
             if ((kind[k] === KIND.ground || kind[k] === KIND.ramp) && !seen[k] && vein[k] < 0) kind[k] = KIND.rock;
     }
 
-    // 7) 표시 높이 (단 높이, 비탈은 이어진 높이)
+    // 7) 표시 높이: 단 높이 그대로, 비탈은 통로를 따라 고르게
     const L = spec.levels;
-    const lv = (v) => {
-        const a = Math.floor(v);
-        const f = v - a;
-        return a >= L.length - 1 ? L[L.length - 1] : L[a] + (L[a + 1] - L[a]) * f;
-    };
-    for (let k = 0; k < N * N; k++) height[k] = kind[k] === KIND.ramp ? lv(rampH[k]) : L[level[k]];
+    for (let k = 0; k < N * N; k++) {
+        if (kind[k] === KIND.ramp) {
+            const r = ramps[rampOf[k]];
+            height[k] = L[r.hi] + (L[r.lo] - L[r.hi]) * ((rampT[k] + 0.5) / RAMP_LEN);
+        } else height[k] = L[level[k]];
+    }
 
     const field = {
         N,
@@ -307,10 +398,14 @@ export function createField(spec) {
         height,
         vein,
         veins,
+        badVeins,
         nobuild,
         site,
         rampOf,
+        rampT,
+        flank,
         ramps,
+        levels: L,
         sites: sites.map((s) => ({
             id: s.id,
             n: s.n,
@@ -344,18 +439,28 @@ export function createField(spec) {
         walkableKind(k) {
             return kind[k] === KIND.ground || kind[k] === KIND.ramp;
         },
-        /** 표시 높이를 쌍선형 보간 (적·건물·이펙트를 땅에 붙일 때) */
+        /**
+         * 비탈 칸의 연속 높이: 통로 축을 따라 위 끝(s=0)에서 아래 끝(s=RAMP_LEN)까지 곧게 (렌더러·heightAt)
+         * 비탈이 아니면 null
+         */
+        rampHeightAt(n, x, z) {
+            const r = ramps[n];
+            const ti = (x + half) / T;
+            const tj = (z + half) / T;
+            // 위 끝 경계에서 축 방향으로 잰 거리
+            const s0 =
+                r.d[0] !== 0
+                    ? (ti - (r.d[0] > 0 ? r.ri : r.ri + 1)) * r.d[0]
+                    : (tj - (r.d[1] > 0 ? r.rj : r.rj + 1)) * r.d[1];
+            const s = Math.max(0, Math.min(RAMP_LEN, s0));
+            return L[r.hi] + (L[r.lo] - L[r.hi]) * (s / RAMP_LEN);
+        },
+        /** 칸 단위 바닥 높이 (적·건물·이펙트를 땅에 붙일 때). 비탈은 통로를 따라 매끈하게 */
         heightAt(x, z) {
-            const fi = (x + half) / T - 0.5;
-            const fj = (z + half) / T - 0.5;
-            const i = Math.max(0, Math.min(N - 2, Math.floor(fi)));
-            const j = Math.max(0, Math.min(N - 2, Math.floor(fj)));
-            const tx = clamp01(fi - i);
-            const tz = clamp01(fj - j);
-            const k = j * N + i;
-            const a = height[k] + (height[k + 1] - height[k]) * tx;
-            const b = height[k + N] + (height[k + N + 1] - height[k + N]) * tx;
-            return a + (b - a) * tz;
+            const k = this.cellAt(x, z);
+            if (k < 0) return L[1];
+            if (rampOf[k] >= 0) return this.rampHeightAt(rampOf[k], x, z);
+            return height[k];
         }
     };
     return field;

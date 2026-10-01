@@ -21,6 +21,7 @@ import {
     repairTower,
     repairGate,
     repairBase,
+    upgradeMining,
     reinforceGate,
     setRally,
     commandHero,
@@ -139,7 +140,8 @@ export class App {
             heroSkill: () => this.useHeroSkill(),
             gateRepair: (id) => this.gateCommand(repairGate, id),
             gateReinforce: (id) => this.gateCommand(reinforceGate, id),
-            baseRepair: () => this.repairBase()
+            baseRepair: () => this.repairBase(),
+            mineTech: () => this.upgradeMining()
         });
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
@@ -295,7 +297,7 @@ export class App {
             const s = this.state.paths[0];
             const from = new THREE.Vector3(s.xs[0] + 3, to.y, s.zs[0]);
             if (this.state.survival) {
-                // 살아남기: 넓은 맵을 RTS처럼 (명당 고르기부터)
+                // 살아남기: 넓은 맵을 RTS처럼 (둥지 곁 생존자 한 명에서 시작)
                 this.rig.skipIntro();
                 this.surv = new SurvivalUI(this);
             } else this.rig.playIntro(from, to, 3.2);
@@ -306,7 +308,7 @@ export class App {
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
                     : this.state.survival
-                      ? '살아남기 · 명당을 골라 본진을 세우고 동이 틀 때까지 버텨라'
+                      ? '살아남기 · 생존자로 고원을 찾아 본진을 짓고 동이 틀 때까지 버텨라'
                       : this.state.gates.length
                         ? '공성전 · 성문이 무너지면 길이 열린다'
                         : this.state.siege
@@ -452,8 +454,18 @@ export class App {
 
     repair(id) {
         if (this.mode !== 'playing') return;
+        // 살아남기: 생존자가 가서 고친다
+        if (this.surv) return this.surv.repair(findTower(this.state, id));
         const r = repairTower(this.state, id);
         if (!r.ok) this.hud.toast(r.reason, true);
+    }
+
+    /** 살아남기: 본진에서 채굴 기술을 올린다 */
+    upgradeMining() {
+        if (this.mode !== 'playing') return;
+        const r = upgradeMining(this.state);
+        if (!r.ok) this.hud.toast(r.reason, true);
+        else if (this.selectedBase) this.inspector.render(this.state, true);
     }
 
     /** 성문 수리·보강 */
@@ -474,6 +486,7 @@ export class App {
 
     repairBase() {
         if (this.mode !== 'playing') return;
+        if (this.surv && this.state.survival.base) return this.surv.repair(this.state.survival.base);
         const r = repairBase(this.state);
         if (!r.ok) this.hud.toast(r.reason, true);
         else if (this.selectedBase) this.inspector.render(this.state, true);
@@ -658,7 +671,7 @@ export class App {
                 this.inspector.rallyArmed = false;
                 return this.inspector.render(this.state, true);
             }
-            if (this.surv?.cancel()) return;
+            if (this.surv?.cancel(e)) return;
             this.closeMenus();
         });
         window.addEventListener('keydown', (e) => this.onKey(e));
@@ -747,7 +760,7 @@ export class App {
             if (t) this.selectTower(t);
             return;
         }
-        // 살아남기: 건설·명당 고르기·건물 고르기를 먼저
+        // 살아남기: 건설·건물 고르기를 먼저
         if (this.surv?.onClick(e)) return;
         const hit = this.pick(e.clientX, e.clientY);
         if (hit.unit) {
@@ -803,6 +816,7 @@ export class App {
         else if ((k === 'g' || k === 'G') && this.selectedGate) this.gateCommand(repairGate, this.selectedGate.id);
         else if ((k === 'g' || k === 'G') && this.selectedBase) this.repairBase();
         else if ((k === 'u' || k === 'U') && this.selectedGate) this.gateCommand(reinforceGate, this.selectedGate.id);
+        else if ((k === 'u' || k === 'U') && this.selectedBase) this.upgradeMining();
         else if ((k === 'g' || k === 'G') && this.selected && this.selected.hp != null) this.repair(this.selected.id);
         else if (/^[1-7]$/.test(k)) {
             const type = TOWER_ORDER[Number(k) - 1];
@@ -870,6 +884,7 @@ export class App {
         this.world.update(this.t, dt);
         if (this.mode === 'playing' || this.mode === 'paused') {
             this.hud.handle(events, this.state);
+            this.surv?.handle(events);
             this.noteSpawns(events);
             this.hud.update(
                 this.state,

@@ -10,6 +10,8 @@ import { createSurvivalTerrain } from './terrainMesh.js';
 import { createSurvivalProps } from './props.js';
 import { createNest } from './nest.js';
 import { createSurvivalBuildings } from './buildings.js';
+import { createWorker } from './worker.js';
+import { createBuildGrid } from './buildGrid.js';
 
 const NONE = () => ({ group: new THREE.Group(), pickables: [], update() {} });
 
@@ -59,6 +61,10 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
     scene.add(world.nest.group);
     world.buildings = createSurvivalBuildings(state, terrain);
     scene.add(world.buildings.group);
+    world.worker = createWorker(state, terrain);
+    scene.add(world.worker.group);
+    world.buildGrid = createBuildGrid(state, terrain);
+    scene.add(world.buildGrid.group);
 
     world.vegetation = { group: new THREE.Group() };
     world.lanterns = NONE();
@@ -68,10 +74,30 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
     world.portal = { group: world.nest.group };
     world.caves = null;
     world.veins = null;
-    // 본진(수정): 터를 고르기 전에는 숨겨 둔다
+    // 본진(수정): 생존자가 짓기 전에는 숨겨 둔다
     const core = (world.core = createCore(state, { core: { x: 0, z: 0 }, heightAt: () => 0 }));
     core.group.visible = false;
     core.group.scale.setScalar(1.35);
+    // 넓은 설원에서 수정의 둥근 빛 번짐이 건물을 덮지 않게 줄인다 (하늘로 솟는 빛은 없다)
+    core.group.traverse((o) => {
+        if (o.isSprite) {
+            o.scale.multiplyScalar(0.45);
+            o.material.color.setScalar(0.55);
+        } else if (o.isMesh && o.material.blending === THREE.AdditiveBlending) {
+            // 바닥 룬 고리는 은은하게, 수정 둘레에 떠 있는 고리는 없앤다
+            if (o.rotation.x !== -Math.PI / 2) o.visible = false;
+            else o.material.color.multiplyScalar(0.12);
+        }
+    });
+    // setHealth가 매 프레임 수정 빛과 점광원 세기를 다시 정하므로, 그 뒤에 줄인다
+    const lights = [];
+    core.group.traverse((o) => o.isPointLight && lights.push(o));
+    const setHealth = core.setHealth;
+    core.setHealth = (r) => {
+        setHealth(r);
+        for (const l of lights) l.intensity *= 0.3;
+        core.crystal.material.emissiveIntensity *= 0.4;
+    };
     scene.add(core.group);
     world.sockets = { group: new THREE.Group(), pickables: [], topY: () => 0, update() {} };
     world.ley = NONE();
@@ -94,6 +120,7 @@ function updateSurvivalWorld(world, t, dt) {
     world.props.update(t);
     world.nest.update(t, dt);
     world.buildings.update();
+    world.worker.update(t, dt);
     world.night.update(dt);
     // 밤 순환은 섬 크기에 맞춘 안개 거리를 쓴다: 넓은 맵에서는 카메라 거리만큼 밀어낸다
     const rig0 = world.rig;
@@ -103,7 +130,7 @@ function updateSurvivalWorld(world, t, dt) {
         fog.far = Math.max(fog.far, rig0.distance * 2.8);
     }
     world.range.update(t, dt);
-    // 본진: 세운 자리로 옮기고 보이게
+    // 본진: 세운 자리로 옮기고 보이게 (짓는 중이면 다 지은 만큼만 솟는다)
     const core = world.core;
     if (sv.base) {
         if (!core.group.visible || core.placedFor !== sv.base) {
@@ -113,6 +140,8 @@ function updateSurvivalWorld(world, t, dt) {
             core.group.position.set(sv.base.x, y, sv.base.z);
             core.top.set(sv.base.x, y + 1.6, sv.base.z);
         }
+        const bp = sv.base.build ? Math.max(0.1, sv.base.build.t / sv.base.build.T) : 1;
+        core.group.scale.set(1.35, 1.35 * bp, 1.35);
     } else core.group.visible = false;
     core.update(t);
     core.setHealth(state.lives / state.maxLives);

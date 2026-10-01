@@ -1,4 +1,4 @@
-/* 살아남기 전용 화면: 미니맵(왼쪽 아래), 건설 막대(오른쪽), 명당 고르기, 보스 경고 */
+/* 살아남기 전용 화면: 미니맵(왼쪽 아래), 생존자 카드(미니맵 옆), 건설 막대(오른쪽), 머리 위 표시·비탈 봉쇄 표시, 보스 경고 */
 
 .sv-ui {
     position: absolute;
@@ -150,78 +150,6 @@
     margin-top: 2px;
 }
 
-.sv-sites {
-    position: absolute;
-    right: 18px;
-    top: 92px;
-    width: 300px;
-    padding: 14px;
-    opacity: 0;
-    transform: translateX(16px);
-    pointer-events: none;
-    transition:
-        opacity 0.25s,
-        transform 0.3s var(--ease);
-}
-.sv-sites.show {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-}
-.sv-sites-title {
-    font-family: var(--display);
-    font-weight: 800;
-    font-size: 16px;
-    color: var(--gold-hi);
-}
-.sv-sites-sub,
-.sv-sites-foot {
-    font-size: 12px;
-    color: var(--muted);
-    margin: 6px 0 10px;
-    line-height: 1.45;
-}
-.sv-sites-foot {
-    margin: 10px 0 0;
-    font-size: 11px;
-    color: var(--faint);
-}
-.sv-sites-list {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-.sv-site {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 1px 8px;
-    padding: 7px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    background: rgba(0, 0, 0, 0.28);
-    color: var(--text);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-.sv-site:hover {
-    border-color: var(--line-strong);
-    background: rgba(255, 220, 140, 0.08);
-}
-.sv-site b {
-    font-size: 13.5px;
-}
-.sv-site span {
-    font-size: 11.5px;
-    color: var(--gold);
-    align-self: center;
-}
-.sv-site small {
-    grid-column: 1 / -1;
-    font-size: 11px;
-    color: var(--muted);
-}
-
 .sv-labels {
     position: absolute;
     inset: 0;
@@ -230,48 +158,156 @@
 .sv-labels.off {
     display: none;
 }
-.sv-site-tag {
+/* 생존자 머리 위: 체력바 + 짓는 진행 */
+.sv-wtag {
     position: absolute;
     left: 0;
     top: 0;
-    pointer-events: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--line-strong);
-    background: rgba(18, 12, 30, 0.82);
+    gap: 2px;
+    pointer-events: none;
+}
+.sv-wtag .bar {
+    display: block;
+    width: 34px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(8, 10, 18, 0.85);
+    box-shadow: 0 0 0 1px rgba(127, 224, 255, 0.55);
+    overflow: hidden;
+}
+.sv-wtag .bar b {
+    display: block;
+    height: 100%;
+    background: #7fe0ff;
+}
+.sv-wtag.hurt .bar b {
+    background: #ff8a5a;
+}
+.sv-wtag span {
+    font-size: 11px;
+    font-weight: 800;
+    color: #dff7ff;
+    text-shadow: 0 1px 3px #000;
+}
+.sv-wtag span:empty {
+    display: none;
+}
+
+/* 비탈 봉쇄 표시 */
+.sv-ramp {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.sv-ramp.sealed {
+    color: #d8ffe6;
+    background: rgba(16, 70, 40, 0.88);
+    border: 1px solid rgba(110, 255, 160, 0.75);
+}
+.sv-ramp.open {
+    color: #ffe2b8;
+    background: rgba(80, 40, 10, 0.85);
+    border: 1px solid rgba(255, 170, 70, 0.75);
+}
+
+/* 생존자 카드: 미니맵 오른쪽 */
+.sv-worker {
+    position: absolute;
+    left: 270px;
+    bottom: 18px;
+    display: grid;
+    grid-template-columns: 14px 34px 140px auto;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px 8px 8px;
     color: var(--text);
     font: inherit;
+    text-align: left;
     cursor: pointer;
-    white-space: nowrap;
-    box-shadow: var(--shadow);
 }
-.sv-site-tag::after {
-    content: '';
-    position: absolute;
-    bottom: -7px;
-    left: 50%;
-    width: 12px;
-    height: 12px;
-    background: inherit;
-    border-right: 1px solid var(--line-strong);
-    border-bottom: 1px solid var(--line-strong);
-    transform: translateX(-50%) rotate(45deg);
+.sv-worker .hk {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--faint);
 }
-.sv-site-tag b {
+.sv-worker .face {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 58%, #e8b48c 0 32%, transparent 33%),
+        radial-gradient(circle at 50% 50%, #f1ece2 0 46%, transparent 47%), #e0782c;
+    box-shadow: 0 0 0 2px rgba(127, 224, 255, 0.6);
+}
+.sv-worker .txt {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.1;
+}
+.sv-worker .txt b {
     font-size: 13px;
-    color: var(--gold-hi);
 }
-.sv-site-tag span {
-    font-size: 10.5px;
+.sv-worker .txt small {
+    font-size: 11px;
     color: var(--muted);
 }
-.sv-site-tag.hot,
-.sv-site-tag:hover {
-    border-color: #fff;
-    background: rgba(60, 40, 90, 0.92);
+.sv-worker .txt .bar {
+    display: block;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+.sv-worker .txt .bar b {
+    display: block;
+    height: 100%;
+    background: #7fe0ff;
+}
+.sv-worker.hurt .txt .bar b {
+    background: #ff8a5a;
+}
+.sv-worker.dead {
+    opacity: 0.7;
+}
+.sv-worker.dead .face {
+    filter: grayscale(1);
+}
+.sv-worker .q {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7fe0ff;
+}
+
+.sv-bt.hide {
+    display: none;
+}
+.sv-build.nobase .sv-bt[data-type='base'] {
+    border-color: #ffd27a;
+    box-shadow: 0 0 14px rgba(255, 210, 122, 0.35);
+}
+
+/* 알림 글자가 화면 한가운데 건물을 덮지 않게: 위쪽에 작게 */
+.sv-mode .banner {
+    top: 96px;
+}
+.sv-mode .banner .big {
+    font-size: 40px;
+}
+.sv-mode .banner .sub {
+    margin-top: 6px;
+    font-size: 14px;
 }
 
 .sv-warn {
@@ -316,6 +352,14 @@
     .sv-mini canvas {
         width: 150px !important;
         height: 150px !important;
+    }
+    .sv-worker {
+        left: 196px;
+        grid-template-columns: 30px 110px;
+    }
+    .sv-worker .hk,
+    .sv-worker .q {
+        display: none;
     }
     .hud.survival .skills {
         bottom: 200px;

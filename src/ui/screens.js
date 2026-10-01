@@ -40,7 +40,7 @@ function mapMeta(m) {
     if (m.survival) {
         const sv = m.survival;
         const veins = sv.veins.length + sv.sites.reduce((n, s) => n + s.veins.length, 0);
-        return `명당 ${sv.sites.length}곳 · 광맥 ${veins}곳 · `;
+        return `고원 ${sv.sites.length}곳 · 광맥 ${veins}곳 · `;
     }
     if (m.gates) return `성문 ${m.gates.length}곳 · `;
     return m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : '';

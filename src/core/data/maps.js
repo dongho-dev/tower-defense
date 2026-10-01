@@ -619,21 +619,22 @@ export const MAPS = {
         id: 'mountain',
         name: '얼어붙은 분지',
         en: 'Frozen Basin',
-        desc: '스타 96×96급 넓은 설원. 한가운데 둥지가 깨어나면 적이 쏟아진다. 절벽에 둘러싸인 명당을 골라 본진을 세우고, 방벽을 붙여 지어 길목을 막아라. 동이 틀 때까지 본진을 지키면 승리.',
+        desc: '스타 96×96급 넓은 설원, 처음엔 온통 어둠. 둥지 곁 생존자 한 명으로 절벽 위 고원을 찾아 본진을 짓고, 고원으로 오르는 비탈을 방벽으로 막아라. 동이 틀 때까지 본진을 지키면 승리.',
         difficulty: 3,
         theme: 'alpine',
         siegeOnly: true,
         genre: 'survival',
         // 영웅 없이 짓기·업그레이드·수리·확장만으로 버틴다
         noHero: true,
-        startGold: 420,
+        // 생존자가 하나씩 걸어가 짓는 만큼 처음 골드가 넉넉하다
+        startGold: 600,
         // 생명 = 본진 체력
         lives: 2000,
-        // 적이 무리 지어 오래 버틴다: 방벽으로 붙잡아 두고 녹이는 맵
-        hpMul: 3.5,
+        // 적이 무리 지어 오래 버틴다: 방벽으로 붙잡아 두고 녹이는 맵 (밸런스: tests/survival-probe.mjs)
+        hpMul: 2.45,
         speedMul: 1.15,
-        // 광산이 주 수입이라 처치 현상금은 적다
-        bountyMul: 0.55,
+        // 광산이 주 수입이라 처치 현상금은 적다 (그래도 잡으면 조금씩 들어온다)
+        bountyMul: 0.7,
         // 맵 전체 크기(반폭): 카메라·주변 연출이 쓴다
         island: { rx: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2, rz: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2 },
         view: { distance: 30 },

@@ -33,11 +33,24 @@ import {
     placeBase as placeSurvivalBase,
     footprintCenter,
     sizeOf,
-    updateFog
+    updateFog,
+    updateWorker,
+    pinBodies,
+    buildTimeOf
 } from './survival.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
-export { baseRepairCost, checkPlacement } from './survival.js';
+export {
+    baseRepairCost,
+    checkPlacement,
+    orderBuild,
+    orderMove,
+    orderRepair,
+    cancelOrders,
+    upgradeMining,
+    rampStates,
+    workerOrders
+} from './survival.js';
 export {
     repairGate,
     reinforceGate,
@@ -359,18 +372,19 @@ export function buildTower(state, socketId, type) {
 
 /**
  * 살아남기: 빈 땅에 자유롭게 짓는다. (i, j) = 건물의 왼쪽 위 타일. 방벽 1×1, 타워·광산 2×2.
- * 광산은 광맥(2×2)에 꼭 맞게만 지을 수 있다.
+ * 광산은 광맥(2×2)에 꼭 맞게만 지을 수 있다. 보통은 생존자가 가서 짓는다(orderBuild → opts.construct:
+ * 값은 주문할 때 이미 치렀고, 다 지을 때까지 tower.build가 붙는다). opts 없이 부르면 곧바로 선다 (테스트·AI용).
  */
-export function placeBuilding(state, type, i, j) {
+export function placeBuilding(state, type, i, j, opts = {}) {
     if (state.status !== 'playing') return { ok: false, reason: '게임이 끝났습니다.' };
     const sv = state.survival;
     const def = TOWERS[type];
     if (!sv || !def) return { ok: false, reason: '잘못된 명령입니다.' };
-    const chk = checkPlacement(state, type, i, j);
+    const chk = checkPlacement(state, type, i, j, { order: opts.order });
     if (!chk.ok) return { ok: false, reason: chk.reason };
     const cost = def.tiers[0].cost;
-    if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
-    state.gold -= cost;
+    if (!opts.paid && state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
+    if (!opts.paid) state.gold -= cost;
     const s = sizeOf(type);
     const c = footprintCenter(sv.field, i, j, s);
     const f = sv.field;
@@ -401,12 +415,16 @@ export function placeBuilding(state, type, i, j) {
     state.statsVersion++;
     state.stats.built++;
     tower.hp = tower.maxHp = maxHpOf(state, tower);
+    if (opts.construct) {
+        tower.build = { t: 0, T: buildTimeOf(type === 'wall' || type === 'mine' ? type : 'tower') };
+        tower.hp = Math.max(1, tower.maxHp * 0.15);
+    }
     updateFog(state, true);
     emit(state, { type: 'build', towerId: tower.id, tower: type, x: tower.x, z: tower.z, free: true });
-    return { ok: true, tower };
+    return { ok: true, tower, building: tower };
 }
 
-/** 살아남기: 본진을 세울 터를 고른다. 그때부터 밤 시계가 흐른다 */
+/** 살아남기: 본진을 곧바로 세운다 (테스트·AI용. 플레이어는 생존자에게 짓게 한다: orderBuild('base')) */
 export function placeBase(state, i, j) {
     if (!state.survival || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
     const r = placeSurvivalBase(state, i, j);
@@ -414,10 +432,40 @@ export function placeBase(state, i, j) {
     return r;
 }
 
+const _workerHooks = new WeakMap();
+/** 생존자가 짓기 시작하고·마치고·고칠 때 쓰는 함수들 (state마다 한 번 만든다) */
+function workerHooks(state) {
+    let h = _workerHooks.get(state);
+    if (!h) {
+        h = {
+            place: (type, i, j, order) => {
+                if (type === 'base') {
+                    const r = placeSurvivalBase(state, i, j, true, order.id);
+                    if (r.ok) emit(state, { type: 'baseStarted', x: r.base.x, z: r.base.z });
+                    return { ...r, building: r.base };
+                }
+                return placeBuilding(state, type, i, j, { construct: true, paid: true, order: order.id });
+            },
+            finish: (b) => {
+                if (b === state.survival.base) emit(state, { type: 'baseBuilt', x: b.x, z: b.z });
+                else {
+                    state.statsVersion++;
+                    emit(state, { type: 'built', towerId: b.id, tower: b.type, x: b.x, z: b.z });
+                }
+            },
+            // 수리비: 잃은 체력 비율 × 들인 값 × REPAIR_RATE (repairCost와 같은 셈)
+            repairCostPerHp: (t) => (t.spent * REPAIR_RATE) / t.maxHp
+        };
+        _workerHooks.set(state, h);
+    }
+    return h;
+}
+
 /** 레벨업 또는 분기 선택. 레벨 3에서는 branch('a'|'b')가 필요하다 */
 export function upgradeTower(state, towerId, branch = null) {
     const tower = findTower(state, towerId);
     if (!tower || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
+    if (tower.build) return { ok: false, reason: '아직 짓는 중입니다.' };
     const def = TOWERS[tower.type];
     let cost;
     if (tower.branch && tower.mastery >= MAX_MASTERY) return { ok: false, reason: '이미 최종 단계입니다.' };
@@ -455,7 +503,8 @@ export function upgradeTower(state, towerId, branch = null) {
 /** 공성전 타워 체력. 살아남기는 건물이 성벽 노릇을 하므로 더 튼튼하다 (map.survival.towerHp 배율) */
 function maxHpOf(state, tower) {
     // 방벽은 레벨마다 정해진 체력 (돌 → 다진 돌 → 쇠를 덧댄 벽)
-    if (TOWERS[tower.type].attack === 'wall') return TOWERS[tower.type].tiers[tower.tier - 1].hp;
+    if (TOWERS[tower.type].attack === 'wall')
+        return Math.round(TOWERS[tower.type].tiers[tower.tier - 1].hp * (state.map.survival?.wallHp ?? 1));
     return Math.round(towerMaxHp(tower) * (state.map.survival?.towerHp ?? 1));
 }
 
@@ -569,14 +618,14 @@ export function setTargeting(state, towerId, mode) {
 export function canCallWave(state) {
     if (state.status !== 'playing' || !hasMoreWaves(state)) return false;
     // 살아남기: 본진을 세우기 전에는 부를 수 없다
-    if (state.survival && !state.survival.started) return false;
+    if (state.survival && !state.survival.base) return false;
     if (state.waveIndex === 0) return true;
     return state.nextWaveIn != null;
 }
 
 export function callWave(state, force = false) {
     // force: 살아남기의 밤 시계가 정한 시각이 되면 앞 웨이브가 아직 나오는 중이어도 부른다
-    if (state.survival && !state.survival.started) return { ok: false, reason: '먼저 본진을 세우세요.' };
+    if (state.survival && !state.survival.base && !force) return { ok: false, reason: '먼저 본진을 세우세요.' };
     if (!(force && state.status === 'playing' && hasMoreWaves(state)) && !canCallWave(state))
         return { ok: false, reason: '아직 다음 웨이브를 부를 수 없습니다.' };
     let bonus = 0;
@@ -1126,6 +1175,8 @@ function updateTowers(state, dt) {
     if (auraPulse) state.auraTick += 0.25;
     for (const tower of state.towers) {
         const def = TOWERS[tower.type];
+        // 살아남기: 생존자가 아직 짓는 중인 건물은 쏘지 않는다
+        if (tower.build) continue;
         if (tower.stunT > 0) {
             tower.stunT -= dt;
             tower.targetId = null;
@@ -1457,10 +1508,14 @@ export function step(state, dt = TICK) {
     state.time += dt;
     for (const k in state.skills) state.skills[k].cd = Math.max(0, state.skills[k].cd - dt);
     if (state.survival) {
-        // 본진을 세우기 전에는 시계가 멈춰 있다 (터를 고르는 중)
-        if (state.survival.started) {
-            updateNight(state, dt);
-            if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+        const sv = state.survival;
+        updateNight(state, dt);
+        if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+        updateWorker(state, dt, workerHooks(state));
+        // 지킬 건물이 없어 생존자를 쫓는 동안은 흐름장을 자주 다시 구한다
+        if (sv.chaseWorker && (sv.flowT -= dt) <= 0) {
+            sv.flowT = 0.5;
+            sv.flowDirty = true;
         }
         updateFog(state, false, dt);
     } else if (state.nextWaveIn != null) {
@@ -1469,7 +1524,11 @@ export function step(state, dt = TICK) {
     }
     updateSpawners(state);
     updateEnemies(state, dt);
-    if (state.survival) separateEnemies(state, dt);
+    if (state.survival) {
+        separateEnemies(state, dt);
+        // 막힌 칸·절벽 너머로 밀려난 몸은 마지막 바른 자리로 (안전장치)
+        pinBodies(state);
+    }
     updateUnits(state, dt);
     updateTowers(state, dt);
     updateProjectiles(state, dt);
