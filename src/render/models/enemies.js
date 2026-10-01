@@ -1,6 +1,7 @@
 // 그림자 군세 모델: 흑요석 몸체 + 발광 눈·균열. 관절 피벗으로 절차적 보행 애니메이션.
 import * as THREE from 'three';
 import { materials, shadowAll } from './materials.js';
+import { markShared } from '../dispose.js';
 
 function limb(mat, len, r, pivotY) {
     const pivot = new THREE.Group();
@@ -281,7 +282,7 @@ function extraMats() {
             flatShading: true
         })
     };
-    return X;
+    return markShared(X);
 }
 
 /** 거상 골격을 재질만 바꿔 쓰는 보스 변형 */
@@ -909,7 +910,7 @@ let wardMat = null;
 function bossFx(v, e, t, dt) {
     if (e.def.shield) {
         if (!v.shieldMesh) {
-            shieldMat ??= [
+            shieldMat ??= markShared([
                 new THREE.MeshBasicMaterial({
                     color: new THREE.Color(0x7fd8ff),
                     transparent: true,
@@ -926,7 +927,7 @@ function bossFx(v, e, t, dt) {
                     depthWrite: false,
                     toneMapped: false
                 })
-            ];
+            ]);
             v.shieldMesh = new THREE.Group();
             const geo = new THREE.IcosahedronGeometry(1.3, 1);
             v.shieldMesh.add(new THREE.Mesh(geo, shieldMat[0]), new THREE.Mesh(geo, shieldMat[1]));
@@ -940,15 +941,17 @@ function bossFx(v, e, t, dt) {
     }
     if (e.def.ward) {
         if (!v.wardMesh) {
-            wardMat ??= new THREE.MeshBasicMaterial({
-                color: new THREE.Color(0xc8b0ff).multiplyScalar(2),
-                transparent: true,
-                opacity: 0.55,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                side: THREE.DoubleSide,
-                toneMapped: false
-            });
+            wardMat ??= markShared([
+                new THREE.MeshBasicMaterial({
+                    color: new THREE.Color(0xc8b0ff).multiplyScalar(2),
+                    transparent: true,
+                    opacity: 0.55,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    side: THREE.DoubleSide,
+                    toneMapped: false
+                })
+            ])[0];
             const g = new THREE.Group();
             for (let i = 0; i < 3; i++) {
                 const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1 + i * 0.15, 0.025, 4, 40), wardMat);
