@@ -10,6 +10,12 @@ import { mergeStaticParts, TOWER_MOVING } from './survival/mergeEnemy.js';
 const _v = new THREE.Vector3();
 export const ENEMY_SCALE = 1.5;
 
+/** 붐빌 때: 작은 장식을 감추고 그림자를 끈다 (on=false면 되돌림) */
+function crowdLod(v, on) {
+    for (const d of v.details || []) d.visible = !on;
+    for (const m of v.shadowMeshes || []) m.castShadow = !on;
+}
+
 export class EntityView {
     constructor(scene, world) {
         this.scene = scene;
@@ -170,11 +176,12 @@ export class EntityView {
     }
 
     syncEnemies(state, t, dt) {
-        // 살아남기 대공세: 적이 많으면 작은 장식(눈·뿔·무기 등)을 감춰 그리기 호출을 줄인다
-        const lod = !!state.survival && state.enemies.length > 45;
+        // 적이 몰리면 작은 장식(눈·뿔·무기 등)을 감추고 보스 아닌 적의 그림자를 꺼 그리기 호출을 줄인다
+        // (살아남기 대공세, 끝없는 밤 후반)
+        const lod = state.enemies.length > (state.survival ? 45 : 60);
         if (lod !== this.lod) {
             this.lod = lod;
-            for (const v of this.enemies.values()) for (const d of v.details || []) d.visible = !lod;
+            for (const v of this.enemies.values()) crowdLod(v, lod);
         }
         for (const e of state.enemies) {
             let v = this.enemies.get(e.id);
@@ -182,18 +189,21 @@ export class EntityView {
                 v = buildEnemyModel(e.type, e.elite);
                 v.root.userData.enemyId = e.id;
                 // 살아남기는 적이 수백 마리라 그림자 패스를 아낀다 (보스만 그림자)
-                if (state.survival && !e.def.boss) v.root.traverse((o) => (o.castShadow = false));
-                if (state.survival && !e.def.boss) {
-                    // 움직이지 않는 조각은 재질마다 한 메시로 (대공세 그리기 호출 줄이기)
-                    mergeStaticParts(v);
-                    // 남은 작은 장식 메시 (경계 구 반지름이 작은 것)
+                const shadow = !state.survival;
+                if (!shadow && !e.def.boss) v.root.traverse((o) => (o.castShadow = false));
+                if (!e.def.boss) {
+                    // 움직이지 않는 조각은 재질마다 한 메시로 (모든 모드: 적이 몰리면 그리기 호출이 적 수 × 17개로 늘었다)
+                    mergeStaticParts(v, undefined, shadow);
+                    // 남은 작은 장식 메시 (경계 구 반지름이 작은 것)와 그림자를 드리우는 메시
                     v.details = [];
+                    v.shadowMeshes = [];
                     v.root.traverse((o) => {
                         if (!o.isMesh) return;
+                        if (o.castShadow) v.shadowMeshes.push(o);
                         if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
                         if (o.geometry.boundingSphere.radius < 0.07) v.details.push(o);
                     });
-                    if (this.lod) for (const d of v.details) d.visible = false;
+                    if (this.lod) crowdLod(v, true);
                 }
                 v.root.scale.setScalar(e.scale * ENEMY_SCALE);
                 v.lastHp = e.hp;

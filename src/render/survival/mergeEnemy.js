@@ -1,5 +1,6 @@
-// 살아남기 대공세용: 모델 하나(적·타워)의 '움직이지 않는' 조각을 재질마다 한 메시로 합친다.
-// 다리·팔·날개·포탑처럼 애니메이션이 움직이는 조각은 그대로 둔다. 적 150마리·타워 수십 개에서 그리기 호출을 크게 줄인다.
+// 모델 하나(적·타워)의 '움직이지 않는' 조각을 재질마다 한 메시로 합친다. 처음엔 살아남기 대공세용이었고 지금은 모든 모드의 적에 쓴다.
+// 다리·팔·날개·포탑처럼 애니메이션이 움직이는 조각은 그대로 둔다. 적 150마리·타워 수십 개에서 그리기 호출을 크게 줄인다
+// (끝없는 밤 200마리에서 적 하나가 메시 17개 → 그리기 호출 6,800번, 프레임 45ms).
 // 재질 객체는 그대로 쓰므로 피격 섬광·둔화 색(flashMats)도 그대로 먹는다.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -25,7 +26,7 @@ const _inv = new THREE.Matrix4();
 const _m = new THREE.Matrix4();
 
 /** v.group 아래 정적인 메시를 재질마다 합친다 (keys = 움직이는 조각의 키). 합친 메시 수를 돌려준다 */
-export function mergeStaticParts(v, keys = ENEMY_MOVING) {
+export function mergeStaticParts(v, keys = ENEMY_MOVING, castShadow = false) {
     const group = v.group;
     const moving = new Set();
     for (const key of keys) {
@@ -64,7 +65,7 @@ export function mergeStaticParts(v, keys = ENEMY_MOVING) {
             o.geometry.dispose();
         }
         const mesh = new THREE.Mesh(g, mat);
-        mesh.castShadow = false;
+        mesh.castShadow = castShadow;
         group.add(mesh);
         merged++;
     }
