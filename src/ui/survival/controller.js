@@ -12,6 +12,7 @@ import { snapFootprint, sizeOf, formatClock, WORKER } from '../../core/survival.
 import { RAMP_LEN } from '../../core/snowfield.js';
 import { ICONS, TOWER_TINT } from '../icons.js';
 import { Minimap } from './minimap.js';
+import { keyOf } from '../keys.js';
 import './survival.css';
 
 /** 건설 막대 순서 (숫자 키 1~7) */
@@ -417,7 +418,7 @@ export class SurvivalUI {
     }
 
     onKey(e) {
-        const k = e.key;
+        const k = keyOf(e);
         if (k === 'Escape' && this.placing) {
             this.arm(null);
             return true;

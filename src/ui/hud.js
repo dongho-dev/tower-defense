@@ -587,6 +587,7 @@ export class Hud {
     }
 
     toast(msg, bad = false) {
+        if (bad) this.actions.deny?.();
         const t = h(`<div class="toast panel ${bad ? 'bad' : ''}"></div>`);
         t.textContent = msg;
         this.$.toasts.appendChild(t);

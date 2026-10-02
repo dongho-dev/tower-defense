@@ -154,6 +154,29 @@ export class Inspector {
         this.key = '';
         this.sellArm = 0;
         this.hoverOpt = null;
+        // 패널을 다시 그리면 버튼이 새 요소로 바뀐다. 커서 아래 버튼이 사라지면 브라우저가 누름을
+        // 떨어진 요소로 보내 click이 통째로 없어진다 (전투 중에는 처치 수·골드가 바뀔 때마다 다시 그린다).
+        // 그래서 커서가 패널 위에 있거나 누르는 동안은 통째로 다시 그리지 않고 버튼 상태만 고친다.
+        this.el.addEventListener('pointerenter', () => (this.hovering = true));
+        this.el.addEventListener('pointerleave', () => (this.hovering = false));
+        this.el.addEventListener('pointerdown', () => (this.pressing = true));
+        const release = () => (this.pressing = false);
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+        window.addEventListener('blur', release);
+    }
+
+    /** 다시 그리지 않고 바뀔 수 있는 버튼 상태(골드 부족, 스킬 대기)만 고친다 */
+    refresh(state) {
+        for (const b of this.el.querySelectorAll('[data-cost]'))
+            b.classList.toggle('poor', state.gold < Number(b.dataset.cost));
+        const hs = this.mode === 'hero' && this.el.querySelector('[data-hskill]');
+        if (hs) {
+            const u = this.target;
+            hs.classList.toggle('poor', u.skillCd > 0 || u.dead);
+            const c = hs.querySelector('.c');
+            if (c) c.textContent = u.skillCd > 0 ? Math.ceil(u.skillCd) + '초' : '준비';
+        }
     }
 
     get open() {
@@ -167,6 +190,7 @@ export class Inspector {
         this.key = '';
         this.sellArm = 0;
         this.hoverOpt = null;
+        this.hovering = false;
     }
 
     show() {
@@ -199,6 +223,10 @@ export class Inspector {
         let shownDps = curDps;
         let prev = null;
         let desc = tower.branch ? def.branches[tower.branch].desc : def.role;
+        // 커서를 버튼에 둔 채 강화하면 hoverOpt가 남는다. 이미 지난 단계(최고 레벨 다음 등)는 미리보기 대상이 아니다
+        const stale = this.hoverOpt;
+        if (stale && !upgradeOptions(tower).some((o) => o.kind === stale.kind && (o.key || '') === stale.key))
+            this.hoverOpt = null;
         const h = this.hoverOpt;
         if (h) {
             const change =
@@ -240,7 +268,7 @@ export class Inspector {
                       : `각성 ${tower.mastery + 1}`;
             const hk = o.kind === 'branch' ? o.key.toUpperCase() : 'U';
             const poor = state.gold < o.cost;
-            return `<button class="ip-btn up ${poor ? 'poor' : ''}" data-opt="${o.kind}:${o.key || ''}"><span class="hk">${hk}</span><span class="l">${label}</span><span class="c">${ICONS.gold}${o.cost}</span></button>`;
+            return `<button class="ip-btn up ${poor ? 'poor' : ''}" data-opt="${o.kind}:${o.key || ''}" data-cost="${o.cost}"><span class="hk">${hk}</span><span class="l">${label}</span><span class="c">${ICONS.gold}${o.cost}</span></button>`;
         };
         const maxed = !opts.length;
         const info = resonanceInfo(state, tower);
@@ -268,7 +296,7 @@ export class Inspector {
                 <div class="ip-row">
                     ${canTarget ? `<button class="ip-btn small" data-target title="조준 우선순위">${ICONS.target}<span>${TARGET_LABEL[tower.targeting]}</span></button>` : ''}
                     ${def.attack === 'barracks' ? `<button class="ip-btn small ${this.rallyArmed ? 'armed' : ''}" data-rally title="집결지 옮기기 (R) · 사거리 안 길 위를 누르세요">${ICONS.rally}<span>집결지</span></button>` : ''}
-                    ${tower.hp != null ? `<button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="수리 (G)">${ICONS.repair}<span>${rc ? `수리 ${rc}` : '온전함'}</span></button>` : ''}
+                    ${tower.hp != null ? `<button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair ${rc ? `data-cost="${rc}"` : ''} title="수리 (G)">${ICONS.repair}<span>${rc ? `수리 ${rc}` : '온전함'}</span></button>` : ''}
                     <button class="ip-btn small sell ${this.sellArm ? 'armed' : ''}" data-sell>${ICONS.sell}<span>${this.sellArm ? `확인 · +${sellValue(tower)}` : `판매 +${sellValue(tower)}`}</span></button>
                 </div>
                 <div class="ip-foot">처치 ${tower.kills} · 누적 피해 ${Math.round(tower.damage)}</div>
@@ -280,6 +308,8 @@ export class Inspector {
             const [kind, key] = b.dataset.opt.split(':');
             b.onclick = () => this.actions.upgrade(tower.id, kind === 'branch' ? key : null);
             b.onpointerenter = () => {
+                // 다시 그린 새 버튼에도 pointerenter가 온다. 같은 버튼이면 또 그리지 않는다 (매 프레임 다시 그리는 고리)
+                if (this.hoverOpt?.kind === kind && this.hoverOpt.key === key) return;
                 this.hoverOpt = { kind, key };
                 const p = previewStats(
                     state,
@@ -529,6 +559,8 @@ export class Inspector {
     // ---------- 공통 ----------
     render(state, force = false) {
         if (!this.mode) return;
+        // 처음 열 때(key 비움)와 강제 갱신은 그대로 그린다
+        if (!force && this.key && (this.hovering || this.pressing)) return this.refresh(state);
         let key;
         if (this.mode === 'tower') {
             const t = this.target;

@@ -1,5 +1,6 @@
 // 전술 카메라: 고정 기울기, 드래그 이동, 휠 줌, 부드러운 감쇠, 흔들림, 인트로 비행.
 import * as THREE from 'three';
+import { keyOf } from '../ui/keys.js';
 
 const PITCH = THREE.MathUtils.degToRad(52);
 
@@ -80,8 +81,9 @@ export class CameraRig {
             { passive: false }
         );
         dom.addEventListener('contextmenu', (e) => e.preventDefault());
-        window.addEventListener('keydown', (e) => this.keys.add(e.key.toLowerCase()));
-        window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+        // 한글 입력 상태에서도 WASD가 먹도록 자판 위치로 읽는다
+        window.addEventListener('keydown', (e) => this.keys.add(keyOf(e).toLowerCase()));
+        window.addEventListener('keyup', (e) => this.keys.delete(keyOf(e).toLowerCase()));
     }
 
     clampGoal() {

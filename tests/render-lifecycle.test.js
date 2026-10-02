@@ -80,7 +80,8 @@ for (const [name, dispose] of [
         dispose(scene);
         assert.equal(buffers.size, 0);
         assert.equal(bindings.size, 0);
-        assert.equal(materialDisposals, name === 'scene' ? 1 : 0);
+        // 공유 재질은 장면을 버릴 때도 남긴다: 다음 맵에서 셰이더를 다시 컴파일하느라 멈추지 않게
+        assert.equal(materialDisposals, 0);
     });
 }
 

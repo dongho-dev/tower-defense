@@ -76,6 +76,9 @@ test('저장소 접근 실패와 잘못된 JSON은 새 저장으로 폴백한다
     assert.equal(SAVE_KEY, 'lastlight.v2');
 });
 
+/** 미리 굽기 뒤의 입장(enterMap)은 Promise로 이어지므로 마이크로태스크를 비운다 */
+const flush = () => new Promise((r) => setImmediate(r));
+
 function transitionApp(t) {
     const timers = [];
     t.mock.method(globalThis, 'setTimeout', (callback) => {
@@ -110,6 +113,10 @@ function transitionApp(t) {
         rtdView: { reset: noop },
         endSurvivalUI: noop,
         closeMenus: noop,
+        // 셰이더 미리 굽기는 GPU 없이 바로 끝난 것으로 본다 (입장은 그다음 마이크로태스크)
+        warming: false,
+        warmWorld: t.mock.fn(() => Promise.resolve()),
+        errors: { report: (where, e) => assert.fail(`${where}: ${e?.stack || e}`) },
         persist: noop,
         buildWorld: t.mock.fn(() => {
             app.world = { state: app.state };
@@ -146,14 +153,16 @@ test('빠르게 전장을 다시 고르면 마지막 전장과 난이도만 시�
     assert.equal(app.buildWorld.mock.callCount(), 1);
 });
 
-test('이전 공성전의 지연 안내가 다음 일반 전투에 나타나지 않는다', (t) => {
+test('이전 공성전의 지연 안내가 다음 일반 전투에 나타나지 않는다', async (t) => {
     const { app, timers } = transitionApp(t);
     app.startMap('fortress');
     timers.shift()();
+    await flush();
     const oldHint = timers.shift();
     assert.equal(typeof oldHint, 'function');
     app.startMap('dusk');
     timers.shift()();
+    await flush();
     oldHint();
     assert.equal(app.state.mapId, 'dusk');
     assert.equal(app.hud.showHint.mock.callCount(), 0);
