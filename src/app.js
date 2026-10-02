@@ -46,6 +46,9 @@ import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 import { SurvivalUI } from './ui/survival/controller.js';
 import { loadSave, SAVE_KEY } from './save.js';
+import { summon, upgradeOdds, luckySummon, mergeTower, craftMythic, rtdSell, moveTower } from './core/randomtd.js';
+import { RtdUi } from './ui/rtd.js';
+import { RtdView } from './render/rtdView.js';
 
 export class App {
     constructor() {
@@ -107,7 +110,16 @@ export class App {
             gateRepair: (id) => this.gateCommand(repairGate, id),
             gateReinforce: (id) => this.gateCommand(reinforceGate, id),
             baseRepair: () => this.repairBase(),
-            mineTech: () => this.upgradeMining()
+            mineTech: () => this.upgradeMining(),
+            merge: (id) => this.rtdCommand(mergeTower, id),
+            move: (id) => this.armMove(id)
+        });
+        // 랜덤 디펜스: 필드 몹 수·소환 도크·신화 레시피
+        this.rtdUi = new RtdUi(this.uiRoot, {
+            summon: () => this.rtdCommand(summon),
+            upgradeOdds: () => this.rtdCommand(upgradeOdds),
+            luck: () => this.rtdCommand(luckySummon),
+            craft: (id) => this.rtdCommand(craftMythic, id)
         });
         this.screens = new Screens(this.uiRoot, {
             toSelect: (opts) => this.toSelect(opts),
@@ -171,6 +183,7 @@ export class App {
             this.renderer.quality
         );
         this.overlay = new Overlay(this.overlayCanvas, this.rig.camera, this.entities);
+        this.rtdView = new RtdView(this.world.scene, this.world, this.effects, this.entities);
         this.worldMap = this.state.mapId;
         this.worldQuality = this.renderer.qualityName;
         if (this.overlay && this.effects && this.hud) this.onResize();
@@ -191,6 +204,7 @@ export class App {
         this.endSurvivalUI();
         this.mode = 'title';
         this.hud.setVisible(false);
+        this.rtdUi.setVisible(false);
         this.closeMenus();
         this.coach?.destroy();
         this.rig.orbit = true;
@@ -225,6 +239,7 @@ export class App {
         this.endSurvivalUI();
         this.mode = 'select';
         this.hud.setVisible(false);
+        this.rtdUi.setVisible(false);
         this.closeMenus();
         this.coach?.destroy();
         this.rig.orbit = true;
@@ -251,6 +266,7 @@ export class App {
                 this.world.state = this.state;
                 this.entities.reset();
                 this.effects.reset();
+                this.rtdView.reset();
             }
             this.mode = 'playing';
             this.loop.paused = false;
@@ -278,24 +294,27 @@ export class App {
             } else this.rig.playIntro(from, to, 3.2);
             this.fade.classList.remove('on');
             this.hud.reset(this.state);
+            this.rtdUi.reset(this.state, this.hud);
             this.hud.showBanner(
                 this.state.map.name,
                 this.state.endless
                     ? '끝없는 밤 · 얼마나 버틸 수 있는가'
-                    : this.state.survival
-                      ? '살아남기 · 생존자로 고원을 찾아 본진을 짓고 동이 틀 때까지 버텨라'
-                      : this.state.gates.length
-                        ? '공성전 · 성문이 무너지면 길이 열린다'
-                        : this.state.siege
-                          ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
-                          : this.state.difficulty === 'hero'
-                            ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
-                            : '마지막 빛을 지켜라'
+                    : this.state.rtd
+                      ? '랜덤 디펜스 · 소환하고 합성해 필드가 넘치지 않게'
+                      : this.state.survival
+                        ? '살아남기 · 생존자로 고원을 찾아 본진을 짓고 동이 틀 때까지 버텨라'
+                        : this.state.gates.length
+                          ? '공성전 · 성문이 무너지면 길이 열린다'
+                          : this.state.siege
+                            ? '공성전 · 영웅을 움직이고 무너지는 성벽을 지켜라'
+                            : this.state.difficulty === 'hero'
+                              ? '영웅 · 단 한 번의 실수도 허락되지 않는다'
+                              : '마지막 빛을 지켜라'
             );
             this.coach?.destroy();
-            // 첫 판 안내(소켓 누르기)는 소켓이 있는 맵에서만
+            // 첫 판 안내(소켓 누르기)는 소켓에 직접 짓는 맵에서만
             this.coach =
-                this.save.tutorialDone || this.state.survival
+                this.save.tutorialDone || this.state.survival || this.state.rtd
                     ? null
                     : new Coach(this.uiRoot, () => {
                           this.save.tutorialDone = true;
@@ -310,11 +329,13 @@ export class App {
                         token === this.startMapToken &&
                         this.mode === 'playing' &&
                         this.hud.showHint(
-                            this.state.survival
-                                ? '정해진 길이 없습니다. 적은 산기슭 <b>동굴</b>(보랏빛으로 타오르는 곳)에서 나와 <b>가장 가까운 건물</b>부터 부숩니다. 금빛 <b>광맥</b>에 광산을 지으면 15초마다 골드를 캡니다 · 위험한 터일수록 많이. 부서진 건물은 <b>G</b>, 본진(수정)은 눌러서 수리하세요. <b>본진</b>이 무너지면 패배, <b>동이 틀 때까지</b> 버티면 승리.'
-                                : gates
-                                  ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
-                                  : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
+                            this.state.rtd
+                                ? '<b>소환(Q)</b>하면 무작위 타워가 칸에 섭니다. 같은 타워는 한 칸에 셋까지 쌓이고, 셋이 모이면 <b>합성(E)</b>해 한 등급 위로. 적은 고리 길을 끝없이 돌고, 필드에 <b>100마리</b>가 넘으면 집니다. 10웨이브마다 보스는 <b>30초</b> 안에.'
+                                : this.state.survival
+                                  ? '정해진 길이 없습니다. 적은 산기슭 <b>동굴</b>(보랏빛으로 타오르는 곳)에서 나와 <b>가장 가까운 건물</b>부터 부숩니다. 금빛 <b>광맥</b>에 광산을 지으면 15초마다 골드를 캡니다 · 위험한 터일수록 많이. 부서진 건물은 <b>G</b>, 본진(수정)은 눌러서 수리하세요. <b>본진</b>이 무너지면 패배, <b>동이 틀 때까지</b> 버티면 승리.'
+                                  : gates
+                                    ? '적은 <b>성문</b> 앞에서 멈춰 문을 부숩니다. 성문을 눌러 <b>수리(G)</b>·<b>보강(U)</b>하세요. 문이 무너지면 적이 곧장 수정으로 달려옵니다. <b>H</b>로 영웅을 골라 위급한 문으로 보내세요.'
+                                    : '적이 길가의 타워를 공격합니다. <b>H</b>로 영웅을 고르고 땅을 눌러 길목으로 보내세요. <b>병영(7)</b>은 적을 붙잡고, 다친 타워는 <b>G</b>로 수리합니다.',
                             12000
                         ),
                     3800
@@ -424,8 +445,31 @@ export class App {
     }
 
     sell(id) {
+        if (this.state.rtd) {
+            // 쌓인 타워는 하나씩 팔린다 (남아 있으면 선택 유지)
+            const r = rtdSell(this.state, id);
+            if (r.ok && !r.left) this.closeMenus();
+            return;
+        }
         const r = sellTower(this.state, id);
         if (r.ok) this.closeMenus();
+    }
+
+    /** 랜덤 디펜스 명령: 소환·확률 강화·행운 소환·합성·신화 */
+    rtdCommand(fn, ...args) {
+        if (this.mode !== 'playing' || !this.state.rtd) return;
+        this.audio.unlock();
+        const r = fn(this.state, ...args);
+        if (!r.ok) return this.hud.toast(r.reason, true);
+        if (fn === mergeTower || fn === craftMythic) this.selectTower(r.tower);
+    }
+
+    /** 옮기기 모드: 다음 칸 클릭으로 옮기거나 자리를 바꾼다 */
+    armMove(id) {
+        this.moveFor = this.moveFor === id ? null : id;
+        this.inspector.moveArmed = !!this.moveFor;
+        this.inspector.render(this.state, true);
+        if (this.moveFor) this.hud.toast('옮길 칸을 누르세요 · 우클릭 취소');
     }
 
     repair(id) {
@@ -623,6 +667,8 @@ export class App {
         this.hud.heroSelected = false;
         this.rallyFor = null;
         this.inspector.rallyArmed = false;
+        this.moveFor = null;
+        this.inspector.moveArmed = false;
         this.world.showRange(null);
     }
 
@@ -642,9 +688,11 @@ export class App {
             e.preventDefault();
             // 영웅을 고른 상태면 우클릭으로 이동 (RTS 방식)
             if (this.heroSelected && !this.rig.dragging) return this.moveHero(e.clientX, e.clientY);
-            if (this.rallyFor) {
+            if (this.rallyFor || this.moveFor) {
                 this.rallyFor = null;
                 this.inspector.rallyArmed = false;
+                this.moveFor = null;
+                this.inspector.moveArmed = false;
                 return this.inspector.render(this.state, true);
             }
             if (this.surv?.cancel(e)) return;
@@ -739,6 +787,14 @@ export class App {
         // 살아남기: 건설·건물 고르기를 먼저
         if (this.surv?.onClick(e)) return;
         const hit = this.pick(e.clientX, e.clientY);
+        // 랜덤 디펜스: 옮기기 모드면 누른 칸으로 옮긴다
+        if (this.moveFor && (hit.socket || hit.tower)) {
+            const r = moveTower(this.state, this.moveFor, hit.socket ? hit.socket.id : hit.tower.socketId);
+            this.moveFor = null;
+            this.inspector.moveArmed = false;
+            if (!r.ok) this.hud.toast(r.reason, true);
+            else return this.selectTower(r.tower);
+        }
         if (hit.unit) {
             if (hit.unit.kind === 'hero') return this.heroSelected ? this.closeMenus() : this.selectHero();
             const owner = findTower(this.state, hit.unit.ownerId);
@@ -759,7 +815,8 @@ export class App {
             this.selectEnemy(hit.enemy);
         } else if (hit.socket) {
             this.closeMenus();
-            this.radial.openBuild(hit.socket, this.state);
+            // 랜덤 디펜스는 칸에 직접 짓지 않는다 (소환하면 빈 칸에 선다)
+            if (!this.state.rtd) this.radial.openBuild(hit.socket, this.state);
         } else {
             this.closeMenus();
         }
@@ -778,6 +835,7 @@ export class App {
         if (this.mode !== 'playing') return;
         this.audio.unlock();
         if (this.surv?.onKey(e)) return;
+        if (this.state.rtd) return this.rtdKey(k, e);
         if (k === ' ') {
             e.preventDefault();
             this.callWave();
@@ -809,6 +867,22 @@ export class App {
         }
     }
 
+    /** 랜덤 디펜스 단축키: Q 소환, W 행운 소환, E 합성, R 옮기기, T 신화 레시피, Space 첫 웨이브, F 배속 */
+    rtdKey(k, e) {
+        const key = k.toLowerCase();
+        const sel = this.selected;
+        if (key === 'q') this.rtdCommand(summon);
+        else if (key === 'w') this.rtdCommand(luckySummon);
+        else if (key === 'e' && sel) this.rtdCommand(mergeTower, sel.id);
+        else if (key === 'r' && sel) this.armMove(sel.id);
+        else if (key === 't') this.rtdUi.toggleRecipes();
+        else if (key === 'f') this.toggleSpeed();
+        else if (k === ' ') {
+            e.preventDefault();
+            this.callWave();
+        } else if ((k === 'Delete' || k === 'Backspace') && sel) this.inspector.trySell(sel, this.state);
+    }
+
     updateHover() {
         if (!this.pointer.dirty || this.mode !== 'playing') return;
         this.pointer.dirty = false;
@@ -818,7 +892,7 @@ export class App {
         this.hover.enemy = hit.enemy || null;
         this.world.hoverSocket = hit.socket ? hit.socket.id : hit.tower ? hit.tower.socketId : null;
         this.renderer.renderer.domElement.style.cursor =
-            this.targeting || this.rallyFor
+            this.targeting || this.rallyFor || this.moveFor
                 ? 'crosshair'
                 : hit.socket || hit.tower || hit.unit || hit.gate || hit.base
                   ? 'pointer'
@@ -853,14 +927,18 @@ export class App {
         this.updateHover();
         this.entities.update(this.state, events, this.t, simDt || (this.mode === 'playing' ? 0 : dt * 0.3));
         this.effects.handle(events, this.state);
+        this.rtdView.handle(events);
         this.effects.update(simDt || dt * 0.4, this.t, this.state);
         this.audio.handle(events, this.state);
         this.surv?.update(dt);
         this.rig.update(dt);
         this.world.update(this.t, dt);
+        this.rtdView.update(this.t, this.state);
         if (this.mode === 'playing' || this.mode === 'paused') {
             this.hud.handle(events, this.state);
             this.surv?.handle(events);
+            this.rtdUi.handle(events, this.state, this.hud, this.overlay, this.audio.enabled ? this.audio : null);
+            this.rtdUi.update(this.state);
             this.noteSpawns(events);
             this.hud.update(
                 this.state,
@@ -880,6 +958,8 @@ export class App {
             this.hover.enemy?.id,
             this.selectedEnemy?.id
         );
+        if (this.mode === 'playing' || this.mode === 'paused')
+            this.rtdUi.drawOverlay(this.overlay, this.state, this.entities);
         // 메뉴 앵커
         if (this.radial.open) {
             const target = this.radial.target;

@@ -38,6 +38,8 @@ import {
     pinBodies,
     buildTimeOf
 } from './survival.js';
+import { initRtd, updateRtd, applyGrade, noteSpawn, rtdStars } from './randomtd.js';
+import { rtdWaves } from './data/randomtd.js';
 
 export { setRally, commandHero, heroSkill, HERO } from './units.js';
 export {
@@ -131,7 +133,8 @@ export function createGame(mapId = 'dusk', opts = {}) {
         lives,
         maxLives: lives,
         time: 0,
-        waves: WAVES[map.waves].slice(),
+        // 랜덤 타워 디펜스는 전용 40웨이브
+        waves: (map.rtd ? rtdWaves(hpScale) : WAVES[map.waves]).slice(),
         waveIndex: 0,
         spawners: [],
         nextWaveIn: null,
@@ -148,6 +151,7 @@ export function createGame(mapId = 'dusk', opts = {}) {
         survival: null
     };
     if (map.survival) state.survival = createSurvival(map, state);
+    if (map.rtd) initRtd(state, opts);
     if (state.endless) ensureWaves(state);
     if (state.siege && !map.noHero) createHero(state);
     state.gates = createGates(state);
@@ -169,8 +173,8 @@ export function hasMoreWaves(state) {
 
 /** 승리 직후 끝없는 밤으로 이어 간다 */
 export function continueEndless(state) {
-    // 살아남기는 동이 트면 끝난다
-    if (state.status !== 'won' || state.endless || state.survival) return { ok: false };
+    // 살아남기는 동이 트면, 랜덤 디펜스는 마지막 보스를 잡으면 끝난다
+    if (state.status !== 'won' || state.endless || state.survival || state.rtd) return { ok: false };
     state.status = 'playing';
     state.endless = true;
     ensureWaves(state);
@@ -307,6 +311,8 @@ export function towerStats(state, tower) {
         else if (src.stat === 'bounty') s.bountyMult += src.value;
         else if (src.stat === 'pinned') s.pinned += src.value;
     }
+    // 랜덤 디펜스: 등급 배율
+    if (tower.grade != null) applyGrade(s, tower);
     state.statsCache.set(key, { v: state.statsVersion, s });
     return s;
 }
@@ -328,6 +334,8 @@ export function canAfford(state, cost) {
 
 export function buildTower(state, socketId, type) {
     if (state.status !== 'playing') return { ok: false, reason: '게임이 끝났습니다.' };
+    // 랜덤 디펜스는 소환으로만 타워를 얻는다
+    if (state.rtd) return { ok: false, reason: '이 전장에서는 소환으로 타워를 얻습니다.' };
     const socket = state.sockets[socketId];
     const def = TOWERS[type];
     if (!socket || !def) return { ok: false, reason: '잘못된 명령입니다.' };
@@ -466,6 +474,8 @@ export function upgradeTower(state, towerId, branch = null) {
     const tower = findTower(state, towerId);
     if (!tower || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
     if (tower.build) return { ok: false, reason: '아직 짓는 중입니다.' };
+    // 랜덤 디펜스 타워는 합성으로만 강해진다
+    if (tower.grade != null) return { ok: false, reason: '합성으로 등급을 올리세요.' };
     const def = TOWERS[tower.type];
     let cost;
     if (tower.branch && tower.mastery >= MAX_MASTERY) return { ok: false, reason: '이미 최종 단계입니다.' };
@@ -619,6 +629,8 @@ export function canCallWave(state) {
     if (state.status !== 'playing' || !hasMoreWaves(state)) return false;
     // 살아남기: 본진을 세우기 전에는 부를 수 없다
     if (state.survival && !state.survival.base) return false;
+    // 랜덤 디펜스: 웨이브는 시간마다 저절로 온다 (첫 웨이브만 앞당길 수 있다)
+    if (state.rtd) return state.waveIndex === 0;
     if (state.waveIndex === 0) return true;
     return state.nextWaveIn != null;
 }
@@ -628,6 +640,11 @@ export function callWave(state, force = false) {
     if (state.survival && !state.survival.base && !force) return { ok: false, reason: '먼저 본진을 세우세요.' };
     if (!(force && state.status === 'playing' && hasMoreWaves(state)) && !canCallWave(state))
         return { ok: false, reason: '아직 다음 웨이브를 부를 수 없습니다.' };
+    // 랜덤 디펜스: 준비 시간을 건너뛰면 다음 틱에 타이머가 웨이브를 부른다(보상·이자 포함)
+    if (state.rtd && !force) {
+        state.nextWaveIn = 0;
+        return { ok: true, bonus: 0 };
+    }
     let bonus = 0;
     if (state.nextWaveIn != null && state.nextWaveIn > 0.5) {
         bonus = Math.floor(state.nextWaveIn * EARLY_BONUS_PER_SEC);
@@ -638,8 +655,9 @@ export function callWave(state, force = false) {
     // 살아남기: 일찍 부르면 밤 시계가 그 웨이브 시각까지 앞당겨진다
     if (state.survival) state.survival.clock = Math.max(state.survival.clock, state.waves[waveNo - 1].at || 0);
     // 살아남기는 광산이 시간마다 캐고(payMines), 저절로 고쳐지지 않는다 (수리는 골드로)
+    // 랜덤 디펜스 타워는 공격받지 않아 웨이브 수리도 없다
     if (waveNo > 1 && !state.survival) payIncome(state);
-    if (state.siege && !state.survival)
+    if (state.siege && !state.survival && !state.rtd)
         for (const t of state.towers) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * WAVE_REPAIR);
     waveRepairGates(state);
     if (state.endless) ensureWaves(state);
@@ -675,6 +693,7 @@ export function castSkill(state, id, x = 0, z = 0) {
     const skill = SKILLS[id];
     const st = state.skills[id];
     if (!skill || state.status !== 'playing') return { ok: false, reason: '잘못된 명령입니다.' };
+    if (state.rtd) return { ok: false, reason: '이 전장에서는 쓸 수 없습니다.' };
     if (st.cd > 0) return { ok: false, reason: '재사용 대기 중입니다.' };
     if (state.waveIndex === 0) return { ok: false, reason: '첫 웨이브 이후에 쓸 수 있습니다.' };
     st.cd = skill.cooldown;
@@ -717,9 +736,10 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         scale: elite ? ELITE.scale : 1,
         hp,
         maxHp: hp,
-        speed: def.speed * (state.map.speedMul || 1),
-        // 살아남기는 광산이 주 수입이라 현상금이 적다 (map.bountyMul)
-        bounty: Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul * (state.map.bountyMul ?? 1)),
+        speed: def.speed * (state.map.speedMul || 1) * (grp.speedMul || 1),
+        // 살아남기는 광산이 주 수입이라 현상금이 적다 (map.bountyMul). 랜덤 디펜스는 웨이브가 현상금을 정한다 (grp.bounty)
+        bounty:
+            grp.bounty ?? Math.round(def.bounty * (elite ? ELITE.bounty : 1) * bountyMul * (state.map.bountyMul ?? 1)),
         lives: def.lives * (elite ? ELITE.lives : 1),
         radius: def.radius * (elite ? ELITE.scale : 1),
         pathIndex,
@@ -762,6 +782,7 @@ function spawnEnemy(state, grp, waveNo, at = null) {
         e.cave = p.cave ?? null;
     } else placeEnemy(state, e);
     state.enemies.push(e);
+    if (state.rtd) noteSpawn(state, e);
     emit(state, { type: 'spawn', id, enemy: e.type, elite, x: e.x, z: e.z, minion: !!at });
 }
 
@@ -802,7 +823,7 @@ function updateSpawners(state) {
     state.spawners = state.spawners.filter((sp) => sp.spawned < sp.group.count);
     // 최신 웨이브의 스폰이 모두 끝나면 다음 웨이브 카운트다운 시작 (살아남기는 밤 시계가 정한다)
     if (before > 0 && state.spawners.length === 0 && hasMoreWaves(state) && state.nextWaveIn == null) {
-        if (!state.survival) state.nextWaveIn = WAVE_GAP;
+        if (!state.survival && !state.rtd) state.nextWaveIn = WAVE_GAP;
         emit(state, { type: 'waveSpawned', wave: state.waveIndex });
     }
 }
@@ -860,7 +881,8 @@ function updateEnemies(state, dt) {
             const limit = gate ? gateLimit(state, e) : Infinity;
             e.d = Math.min(e.d + sp * dt, limit);
             placeEnemy(state, e);
-            if (e.d >= state.paths[e.pathIndex].length) {
+            // 고리 길(랜덤 디펜스)은 끝이 없다: 계속 돈다
+            if (e.d >= state.paths[e.pathIndex].length && !state.paths[e.pathIndex].loop) {
                 leak(state, e);
                 continue;
             }
@@ -870,7 +892,7 @@ function updateEnemies(state, dt) {
                 gateAttack(state, e, gate.gate, dt);
             } else {
                 e.gateId = null;
-                if (state.siege && e.atk > 0 && e.burrowT <= 0) siegeAttack(state, e, dt);
+                if (state.siege && !state.rtd && e.atk > 0 && e.burrowT <= 0) siegeAttack(state, e, dt);
             }
         }
         if (def.heal) {
@@ -881,6 +903,8 @@ function updateEnemies(state, dt) {
                 let healed = 0;
                 for (const o of state.enemies) {
                     if (!o.alive || (o.x - e.x) ** 2 + (o.z - e.z) ** 2 > r2) continue;
+                    // 랜덤 디펜스: 남은 치유사가 고리를 돌며 보스를 계속 살려 내지 못하게
+                    if (state.rtd && o.def.boss) continue;
                     const before = o.hp;
                     o.hp = Math.min(o.maxHp, o.hp + o.maxHp * e.def.heal.amount);
                     if (o.hp > before) healed++;
@@ -929,7 +953,9 @@ function abilities(state, e, dt) {
             const z0 = e.z;
             if (state.survival) blinkAlong(state, e, def.blink.dist);
             else {
-                const len = state.paths[e.pathIndex].length;
+                const path = state.paths[e.pathIndex];
+                // 고리 길(랜덤 디펜스)은 끝이 없다
+                const len = path.loop ? Infinity : path.length;
                 // 서 있는 성문은 넘지 못한다
                 e.d = Math.min(len - 0.4, gateLimit(state, e), e.d + def.blink.dist);
                 placeEnemy(state, e);
@@ -1140,6 +1166,7 @@ function onDeath(state, e, opts) {
         const r2 = def.pollen.radius ** 2;
         for (const o of state.enemies) {
             if (!o.alive || o === e || (o.x - e.x) ** 2 + (o.z - e.z) ** 2 > r2) continue;
+            if (state.rtd && o.def.boss) continue;
             o.hp = Math.min(o.maxHp, o.hp + o.maxHp * def.pollen.amount);
         }
         emit(state, { type: 'pollen', id: e.id, x: e.x, z: e.z, r: def.pollen.radius });
@@ -1166,6 +1193,8 @@ function acquireTargets(state, tower, range, count) {
     if (tower.targeting === 'strong') list.sort((a, b) => b.e.hp - a.e.hp || b.e.d - a.e.d);
     else if (tower.targeting === 'close') list.sort((a, b) => a.d2 - b.d2);
     else list.sort((a, b) => b.e.d - a.e.d);
+    // 랜덤 디펜스: 보스(제한 시간)가 사거리에 들어오면 먼저 노린다
+    if (state.rtd) list.sort((a, b) => (b.e.def.boss ? 1 : 0) - (a.e.def.boss ? 1 : 0));
     return list.slice(0, count).map((o) => o.e);
 }
 
@@ -1521,7 +1550,8 @@ export function step(state, dt = TICK) {
             sv.flowDirty = true;
         }
         updateFog(state, false, dt);
-    } else if (state.nextWaveIn != null) {
+    } else if (state.rtd) updateRtd(state, dt, callWave);
+    else if (state.nextWaveIn != null) {
         state.nextWaveIn -= dt;
         if (state.nextWaveIn <= 0) callWave(state);
     }
@@ -1543,6 +1573,7 @@ export function step(state, dt = TICK) {
         state.status === 'playing' &&
         !state.endless &&
         !state.survival &&
+        !state.rtd &&
         state.waveIndex >= state.waves.length &&
         !state.spawners.length &&
         !state.spawnQueue.length &&
@@ -1587,6 +1618,7 @@ function dawnBreaks(state) {
 }
 
 export function starsFor(state) {
+    if (state.rtd) return rtdStars(state);
     const ratio = state.lives / state.maxLives;
     return ratio >= 0.9 ? 3 : ratio >= 0.5 ? 2 : 1;
 }

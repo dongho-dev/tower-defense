@@ -19,6 +19,7 @@ import {
 } from '../core/game.js';
 import { enemyTraits } from '../core/data/enemies.js';
 import { nextMineTech, mineTechMul } from '../core/survival.js';
+import { rtdTowerHtml, bindRtdTower } from './rtd.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
 
@@ -544,7 +545,11 @@ export class Inspector {
                 JSON.stringify(this.hoverOpt),
                 t.hp != null && Math.ceil(t.hp / 5),
                 t.stunT > 0,
-                this.rallyArmed
+                this.rallyArmed,
+                // 랜덤 디펜스: 쌓인 수·등급·옮기기
+                t.count,
+                t.grade,
+                this.moveArmed
             ].join('|');
         } else if (this.mode === 'enemy') {
             const e = this.target;
@@ -599,7 +604,10 @@ export class Inspector {
         if (!force && key === this.key) return;
         this.key = key;
         this.el.dataset.mode = this.mode;
-        if (this.mode === 'tower') {
+        if (this.mode === 'tower' && state.rtd) {
+            this.el.innerHTML = rtdTowerHtml(this, this.target, state);
+            bindRtdTower(this, this.target, state);
+        } else if (this.mode === 'tower') {
             this.el.innerHTML = this.towerHtml(this.target, state);
             this.bindTower(this.target, state);
         } else if (this.mode === 'gate') {

@@ -106,6 +106,8 @@ function transitionApp(t) {
         loop: {},
         hud: { setVisible: noop, reset: noop, showBanner: noop, showHint: t.mock.fn() },
         screens: { clear: noop, title: noop, select: noop },
+        rtdUi: { setVisible: noop, reset: noop },
+        rtdView: { reset: noop },
         endSurvivalUI: noop,
         closeMenus: noop,
         persist: noop,

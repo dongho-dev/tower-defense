@@ -51,6 +51,8 @@ export function buildPath(control) {
 
 /** 경로 거리 d에서의 위치와 진행 방향(단위 벡터) */
 export function samplePath(path, d, out = {}) {
+    // 고리 길(loop)은 한 바퀴 길이로 감는다
+    if (path.loop) d = ((d % path.length) + path.length) % path.length;
     const f = Math.max(0, Math.min(path.length, d)) / path.step;
     const i = Math.min(path.count - 2, Math.floor(f));
     const t = Math.min(1, f - i);
