@@ -1674,6 +1674,31 @@ svg {
     color: #c9f5d2;
     border-color: rgba(120, 210, 150, 0.6);
 }
+/* 기본 모드가 아닌 모드의 베타 표시 */
+.beta {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+    vertical-align: 2px;
+    color: #ffd9a0;
+    background: rgba(255, 180, 90, 0.12);
+    border: 1px solid rgba(255, 200, 120, 0.55);
+    text-transform: none;
+}
+.beta-note {
+    color: #ffd9a0;
+    opacity: 0.85;
+}
+.mode-tag .t.beta {
+    padding: 2px 9px;
+    color: #ffd9a0;
+    border-color: rgba(255, 200, 120, 0.55);
+}
 .mode-tag .t.endless {
     color: #e5d8ff;
     border-color: rgba(166, 140, 255, 0.7);

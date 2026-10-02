@@ -15,12 +15,21 @@ export function recordOf(save, mapId, diff, mode = 'campaign') {
     return save.records?.[mapId]?.[recordKey(diff, mode)] || { stars: 0, best: 0 };
 }
 
+/** 기본 모드(전투) 말고는 아직 다듬는 중이라 베타로 표시한다 */
+export const BETA = '<span class="beta">베타</span>';
+const BETA_NOTE = '<br><span class="beta-note">베타 · 밸런스와 기능을 다듬는 중입니다</span>';
+
 const MODES = {
     campaign: { label: '전투 · 20 웨이브', desc: '' },
-    endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
+    endless: {
+        label: '끝없는 밤',
+        desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' + BETA_NOTE
+    },
     siege: {
         label: '공성전',
-        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 넓은 설원에서 명당을 골라 본진을 세우고, 빈 땅 어디든 방벽·타워를 붙여 지어 길목을 막으며 동이 틀 때까지 버팁니다<br><b>랜덤 디펜스</b> · 골드로 무작위 타워를 소환하고 같은 타워 셋을 합성해 등급을 올립니다. 필드에 적이 100마리를 넘으면 패배'
+        desc:
+            '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 넓은 설원에서 명당을 골라 본진을 세우고, 빈 땅 어디든 방벽·타워를 붙여 지어 길목을 막으며 동이 틀 때까지 버팁니다<br><b>랜덤 디펜스</b> · 골드로 무작위 타워를 소환하고 같은 타워 셋을 합성해 등급을 올립니다. 필드에 적이 100마리를 넘으면 패배' +
+            BETA_NOTE
     }
 };
 
@@ -103,7 +112,7 @@ export class Screens {
             ['select', '전투 개시', summary.hasProgress ? '이어서 도전하기' : '마지막 빛을 지켜라'],
             [
                 'endless',
-                '끝없는 밤',
+                '끝없는 밤' + BETA,
                 summary.bestWave ? `최고 기록 ${summary.bestWave} 웨이브` : '빛이 꺼질 때까지 버텨라'
             ],
             ['settings', '설정', '그래픽 · 소리 · 화면 흔들림']
@@ -173,7 +182,7 @@ export class Screens {
             <h2>전장 선택</h2>
             <div class="select-opts">
                 <div class="opt-group"><div class="opt-lbl">난이도</div><div class="seg big" data-diff>${DIFFICULTY_ORDER.map((d) => `<button data-v="${d}" class="d-${d}">${d === 'hero' ? ICONS.crown : ''}${DIFFICULTY[d].name}</button>`).join('')}</div></div>
-                <div class="opt-group"><div class="opt-lbl">모드</div><div class="seg big" data-mode><button data-v="campaign">${MODES.campaign.label}</button><button data-v="endless" class="m-endless">${ICONS.moon}${MODES.endless.label}</button><button data-v="siege" class="m-siege">${ICONS.shield}${MODES.siege.label}</button></div></div>
+                <div class="opt-group"><div class="opt-lbl">모드</div><div class="seg big" data-mode><button data-v="campaign">${MODES.campaign.label}</button><button data-v="endless" class="m-endless">${ICONS.moon}${MODES.endless.label}${BETA}</button><button data-v="siege" class="m-siege">${ICONS.shield}${MODES.siege.label}${BETA}</button></div></div>
             </div>
             <div class="opt-desc" data-opt-desc></div>
             <div class="maps">${cards}</div>
