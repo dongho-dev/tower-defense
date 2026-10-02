@@ -513,6 +513,7 @@ export function buildArena(world, scene, state, th, quality) {
     world.core = {
         group: new THREE.Group(),
         top: new THREE.Vector3(0, -40, 0),
+        pickables: [],
         setHealth() {},
         update() {}
     };
