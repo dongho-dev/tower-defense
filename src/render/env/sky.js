@@ -90,9 +90,13 @@ export function createSky(renderer, theme) {
     // 같은 하늘로 환경맵을 굽는다 (금속 반사·간접광)
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envScene = new THREE.Scene();
-    envScene.add(skyDome(sunDirection(THREE.MathUtils.degToRad(10)), theme.sky));
+    const dome = skyDome(sunDirection(THREE.MathUtils.degToRad(10)), theme.sky);
+    envScene.add(dome);
     const env = pmrem.fromScene(envScene, 0.02).texture;
     pmrem.dispose();
+    // 굽기용 하늘은 한 번 쓰고 버린다 (맵을 바꿀 때마다 GPU에 남지 않게)
+    dome.geometry.dispose();
+    dome.material.dispose();
     return { sky, env };
 }
 
