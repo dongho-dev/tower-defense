@@ -390,6 +390,8 @@ export class Hud {
         // 보스 체력
         const bosses = state.enemies.filter((e) => e.def.boss);
         this.$.boss.classList.toggle('show', bosses.length > 0);
+        // 보스바가 위쪽 가운데를 차지하면 알림·배너를 그 아래로 내린다
+        this.el.classList.toggle('boss-on', bosses.length > 0);
         if (bosses.length) {
             const hp = bosses.reduce((n, b) => n + Math.max(0, b.hp), 0);
             const max = bosses.reduce((n, b) => n + b.maxHp, 0);
@@ -565,6 +567,7 @@ export class Hud {
         this.$.intro.classList.remove('show');
         void this.$.intro.offsetWidth;
         this.$.intro.classList.add('show');
+        this.stackLeft();
         clearTimeout(this.introT);
         this.introT = setTimeout(() => this.$.intro.classList.remove('show'), 8000);
     }
@@ -582,8 +585,18 @@ export class Hud {
     showHint(text, ms = 7000) {
         this.$.hint.innerHTML = `<b>전술 조언</b> · ${text}`;
         this.$.hint.classList.add('show');
+        this.stackLeft();
         clearTimeout(this.hintT);
-        this.hintT = setTimeout(() => this.$.hint.classList.remove('show'), ms);
+        this.hintT = setTimeout(() => {
+            this.$.hint.classList.remove('show');
+            this.stackLeft();
+        }, ms);
+    }
+
+    /** 왼쪽 위 안내 창이 떠 있으면 적 소개 카드를 그 아래로 내린다 (둘이 같은 자리를 쓴다) */
+    stackLeft() {
+        const hint = this.$.hint;
+        this.$.intro.style.top = hint.classList.contains('show') ? `${hint.offsetTop + hint.offsetHeight + 10}px` : '';
     }
 
     toast(msg, bad = false) {

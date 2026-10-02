@@ -818,16 +818,23 @@ svg {
 .hint-box.show {
     opacity: 1;
 }
+.hud.boss-on:not(.rtd) .toasts {
+    top: 142px;
+}
+.hud.boss-on:not(.rtd) .banner {
+    top: calc(13% + 70px);
+}
 .hint-box b {
     color: var(--gold-hi);
 }
 
 /* ---------- 보스 체력 ---------- */
+/* 위쪽 자원 줄 아래, 왼쪽 위 카드 열(약 340px)과 겹치지 않는 폭 */
 .boss-bar {
     position: absolute;
-    top: 22px;
+    top: 88px;
     left: 50%;
-    width: min(560px, 50vw);
+    width: clamp(260px, calc(100vw - 720px), 560px);
     transform: translateX(-50%);
     text-align: center;
     display: none;
@@ -2327,6 +2334,7 @@ svg {
     position: absolute;
     left: 22px;
     top: 104px;
+    transition: top 0.3s var(--ease);
     width: 320px;
     padding: 14px 16px;
     opacity: 0;
@@ -2384,6 +2392,15 @@ svg {
     font-size: 13px;
     line-height: 1.5;
     color: #d8ccb6;
+}
+/* 낮은 화면: 안내 창 아래로 내려가도 왼쪽 스킬 버튼을 가리지 않게 설명 문단(내성 줄과 겹치는 내용)을 뺀다 */
+@media (max-height: 800px) {
+    .enemy-intro p {
+        display: none;
+    }
+    .enemy-intro .tip {
+        margin-top: 10px;
+    }
 }
 .enemy-intro .tip {
     font-size: 12.5px;
