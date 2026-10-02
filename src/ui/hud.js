@@ -156,6 +156,7 @@ export class Hud {
         if (state.endless) tags.push(`<span class="t endless">${ICONS.moon}끝없는 밤</span>`);
         if (state.siege) tags.push(`<span class="t siege">${ICONS.shield}공성전</span>`);
         if (state.survival) tags.push(`<span class="t survival">${ICONS.moon}살아남기</span>`);
+        if (state.endless || state.siege) tags.push('<span class="t beta">베타</span>');
         this.$.dawnBox.style.display = state.survival ? '' : 'none';
         // 살아남기의 생명은 본진(수정) 체력
         this.$.lifeBox.querySelector('[data-life-lbl]').textContent = state.survival ? '본진' : '생명';
