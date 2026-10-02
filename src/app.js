@@ -48,6 +48,7 @@ import { Overlay } from './ui/overlay.js';
 import { Hud } from './ui/hud.js';
 import { Radial } from './ui/radial.js';
 import { Inspector } from './ui/panel.js';
+import { keyOf } from './ui/keys.js';
 import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 
@@ -822,7 +823,7 @@ export class App {
 
     onKey(e) {
         if (e.repeat) return;
-        const k = e.key;
+        const k = keyOf(e);
         if (k === 'Escape') {
             if (this.mode === 'paused') return this.resume();
             if (this.mode !== 'playing') return;
@@ -847,12 +848,16 @@ export class App {
             const type = TOWER_ORDER[Number(k) - 1];
             const socket = this.radial.mode === 'build' ? this.radial.target : this.hover.socket;
             if (type && socket && socket.towerId == null) this.build(socket.id, type);
-        } else if ((k === 'u' || k === 'U') && this.selected) {
-            const o = upgradeOptions(this.selected)[0];
-            if (o && o.kind !== 'branch') this.upgrade(this.selected.id, null);
-        } else if ((k === 'a' || k === 'b' || k === 'A' || k === 'B') && this.selected) {
-            if (upgradeOptions(this.selected).some((o) => o.kind === 'branch'))
-                this.upgrade(this.selected.id, k.toLowerCase());
+        } else if (k === 'u' || k === 'a' || k === 'b') {
+            // 패널을 열지 않았어도 커서 아래 타워를 강화한다
+            const t = this.selected || this.hover.tower;
+            if (!t) return;
+            const opts = upgradeOptions(t);
+            const branch = opts.some((o) => o.kind === 'branch');
+            if (!opts.length) this.hud.toast('더 강화할 수 없습니다', true);
+            else if (k === 'u' && branch) this.hud.toast('갈래를 고르세요: A 또는 B', true);
+            else if (k !== 'u' && !branch) this.hud.toast('U로 강화하세요', true);
+            else this.upgrade(t.id, k === 'u' ? null : k);
         } else if ((k === 'Delete' || k === 'Backspace') && this.selected) {
             this.inspector.trySell(this.selected, this.state);
         }
