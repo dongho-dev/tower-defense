@@ -141,3 +141,24 @@ test('오래 플레이해도 장면 개체 수는 화면 속 개체 수를 따�
     const per = samples.map((s) => (s.objs - 50) / Math.max(1, s.live));
     assert.ok(per.at(-1) < per[1] * 1.6 + 5, JSON.stringify(samples));
 });
+
+test('죽음 이벤트를 놓친 적의 모델도 쓰러뜨려 치운다 (시체가 남지 않음)', () => {
+    const scene = new THREE.Scene();
+    const view = new EntityView(scene, stubWorld());
+    const state = createGame('dusk');
+    state.gold = 9999;
+    callWave(state);
+    for (let i = 0; i < 400 && state.enemies.length < 3; i++) {
+        step(state, TICK);
+        view.update(state, drainEvents(state), i * TICK, TICK);
+    }
+    assert.ok(state.enemies.length >= 3);
+    const gone = state.enemies.splice(0, 2);
+    // 예외로 건너뛴 프레임처럼 이벤트 없이 상태에서만 빠진다
+    view.update(state, [], 0, TICK);
+    for (const e of gone) assert.equal(view.enemies.has(e.id), false);
+    for (let i = 0; i < 60; i++) view.update(state, [], 0, TICK);
+    assert.equal(view.dying.length, 0);
+    assert.equal(view.enemies.size, state.enemies.length);
+    assert.equal(view.root.children.length, view.enemies.size + view.towers.size + view.units.size);
+});

@@ -27,6 +27,18 @@ const _t = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _view = new THREE.Vector3();
 
+/** 리본 재질 (미리 굽기도 같은 설정을 쓴다) */
+export function ribbonMaterial() {
+    return new THREE.MeshBasicMaterial({
+        map: lineTexture(),
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+    });
+}
+
 class Ribbon {
     constructor(scene) {
         const geo = new THREE.BufferGeometry();
@@ -44,14 +56,7 @@ class Ribbon {
         }
         geo.setIndex(idx);
         geo.setDrawRange(0, 0);
-        this.mat = new THREE.MeshBasicMaterial({
-            map: lineTexture(),
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            toneMapped: false
-        });
+        this.mat = ribbonMaterial();
         this.mesh = new THREE.Mesh(geo, this.mat);
         this.mesh.frustumCulled = false;
         this.mesh.renderOrder = 25;

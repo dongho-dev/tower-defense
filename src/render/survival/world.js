@@ -74,9 +74,8 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
     world.portal = { group: world.nest.group };
     world.caves = null;
     world.veins = null;
-    // 본진(수정): 생존자가 짓기 전에는 숨겨 둔다
+    // 본진(수정): 생존자가 짓기 전에는 숨겨 둔다 (점광원은 아래 showCore 참고)
     const core = (world.core = createCore(state, { core: { x: 0, z: 0 }, heightAt: () => 0 }));
-    core.group.visible = false;
     core.group.scale.setScalar(1.35);
     // 넓은 설원에서 수정의 둥근 빛 번짐이 건물을 덮지 않게 줄인다 (하늘로 솟는 빛은 없다)
     core.group.traverse((o) => {
@@ -90,8 +89,11 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
         }
     });
     // setHealth가 매 프레임 수정 빛과 점광원 세기를 다시 정하므로, 그 뒤에 줄인다
-    const lights = [];
+    const lights = (core.lights = []);
     core.group.traverse((o) => o.isPointLight && lights.push(o));
+    // 원래 보이던 모델 부품만 켜고 끈다 (집기 원통·없앤 고리는 계속 숨김)
+    core.parts = core.group.children.filter((o) => !o.isLight && o.visible);
+    showCore(core, false);
     const setHealth = core.setHealth;
     core.setHealth = (r) => {
         setHealth(r);
@@ -113,6 +115,17 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
 
 const _focus = new THREE.Vector3();
 
+/**
+ * 본진 모델을 보이거나 숨긴다. 점광원은 늘 장면에 두고 세기만 0으로 한다: 숨긴 조명은 조명 수에서 빠지는데,
+ * 조명 수가 바뀌면 모든 재질의 셰이더를 다시 컴파일한다 (본진을 짓는 순간 3~4초 정지, 미리 구운 적 셰이더도 무효가 돼
+ * 새 적이 나올 때마다 또 멈췄다).
+ */
+function showCore(core, on) {
+    if (core.shown === on) return;
+    core.shown = on;
+    for (const o of core.parts) o.visible = on;
+}
+
 function updateSurvivalWorld(world, t, dt) {
     const state = world.state;
     const sv = state.survival;
@@ -133,18 +146,19 @@ function updateSurvivalWorld(world, t, dt) {
     // 본진: 세운 자리로 옮기고 보이게 (짓는 중이면 다 지은 만큼만 솟는다)
     const core = world.core;
     if (sv.base) {
-        if (!core.group.visible || core.placedFor !== sv.base) {
+        if (!core.shown || core.placedFor !== sv.base) {
             core.placedFor = sv.base;
-            core.group.visible = true;
+            showCore(core, true);
             const y = world.buildings.baseTop();
             core.group.position.set(sv.base.x, y, sv.base.z);
             core.top.set(sv.base.x, y + 1.6, sv.base.z);
         }
         const bp = sv.base.build ? Math.max(0.1, sv.base.build.t / sv.base.build.T) : 1;
         core.group.scale.set(1.35, 1.35 * bp, 1.35);
-    } else core.group.visible = false;
+    } else showCore(core, false);
     core.update(t);
     core.setHealth(state.lives / state.maxLives);
+    if (!core.shown) for (const l of core.lights) l.intensity = 0;
     // 그림자: 카메라가 보는 곳 둘레만 (넓은 맵 전체를 한 장에 담으면 흐려진다)
     const rig = world.rig;
     if (rig) {

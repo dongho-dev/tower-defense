@@ -38,7 +38,7 @@ import { World } from './render/World.js';
 import { disposeScene } from './render/dispose.js';
 import { precompile } from './render/warmup.js';
 import { frameDt, planSteps, ErrorGate } from './core/loop.js';
-import { DiagLog, errorInfo, mountDiagPanel } from './diag.js';
+import { DiagLog, errorInfo, gpuInfo, mountDiagPanel } from './diag.js';
 
 /** 이보다 긴 프레임 정지는 진단 기록에 남긴다 (ms) */
 const STALL_MS = 1000;
@@ -85,6 +85,9 @@ export class App {
 
         this.state = createGame(params.get('map') || 'dusk');
         this.buildWorld();
+        // 첫 화면도 셰이더를 먼저 굽는다: 안 구우면 첫 렌더에서 30여 개를 그 자리에서 컴파일하느라 5~6초 멈춘다
+        this.warmedOnce = true;
+        this.warmWorld();
         this.audio = new Audio({ mode: () => this.mode, camera: () => this.rig.camera });
         this.audio.enabled = this.save.settings.sound;
         this.rig.shakeEnabled = this.save.settings.shake;
@@ -181,7 +184,7 @@ export class App {
         this.t = 0;
         this.acc = 0;
         requestAnimationFrame((now) => this.frame(now));
-        setTimeout(() => this.fade.classList.remove('on'), 150);
+        setTimeout(() => this.liftFade(), 150);
 
         if (params.has('demo')) this.devDemo(params);
         else if (params.has('play')) {
@@ -226,12 +229,15 @@ export class App {
     warmWorld() {
         const token = (this.warmToken = (this.warmToken || 0) + 1);
         this.warming = true;
+        const t0 = performance.now();
+        const p0 = this.programCount();
         this.warmPromise = precompile(
             this.renderer.renderer,
             this.world.scene,
             this.rig.camera,
             this.renderer.composer.readBuffer
         )
+            .then((r) => this.guard('진단', () => this.noteWarm(r, performance.now() - t0, this.programCount() - p0)))
             .catch((e) => this.errors.report('셰이더 미리 굽기', e))
             .finally(() => {
                 if (this.warmToken === token) this.warming = false;
@@ -316,7 +322,7 @@ export class App {
     // ---------- 화면 흐름 ----------
     toTitle() {
         this.startMapToken = (this.startMapToken || 0) + 1;
-        this.fade?.classList.remove('on');
+        this.liftFade();
         this.endSurvivalUI();
         this.mode = 'title';
         this.hud.setVisible(false);
@@ -329,6 +335,13 @@ export class App {
         this.rig.setPitch(18);
         this.rig.shift = window.innerWidth > 900 ? 0.2 : 0;
         this.screens.title(this.progressSummary());
+    }
+
+    /** 검은 화면을 걷는다. 셰이더를 굽는 중이면 다 구운 뒤에 (그 사이 맵을 고르면 맵 시작이 알아서 걷는다) */
+    liftFade() {
+        if (!this.warming) return this.fade?.classList.remove('on');
+        const token = this.startMapToken;
+        this.warmPromise.then(() => token === this.startMapToken && this.fade.classList.remove('on'));
     }
 
     progressSummary() {
@@ -346,7 +359,7 @@ export class App {
 
     toSelect(opts = {}) {
         this.startMapToken = (this.startMapToken || 0) + 1;
-        this.fade?.classList.remove('on');
+        this.liftFade();
         if (opts.endless) {
             this.save.lastEndless = true;
             this.persist();
@@ -379,8 +392,10 @@ export class App {
             // 살아남기 월드는 판의 상태(안개·건물)를 붙잡고 있으므로 판마다 새로 짓는다
             const rebuilt =
                 this.worldMap !== mapId || !!this.state.survival || this.worldQuality !== this.renderer.qualityName;
+            const b0 = performance.now();
             if (rebuilt) this.buildWorld();
-            else {
+            this.buildMs = performance.now() - b0;
+            if (!rebuilt) {
                 this.world.state = this.state;
                 this.entities.reset();
                 this.effects.reset();
@@ -1056,13 +1071,48 @@ export class App {
         const dt = frameDt(now, this.last);
         this.last = now;
         this.t += dt;
+        // 구간별 시간: 다음 프레임이 정지로 기록되면 우리 코드 탓인지 함께 남긴다
+        const t0 = performance.now();
         const events = this.guard('시뮬레이션', () => this.simulate(dt)) || [];
+        const t1 = performance.now();
         this.guard('진단', () => this.noteFirsts(events, now));
         this.guard('장면 갱신', () => this.updateView(events, dt));
+        const t2 = performance.now();
         if (this.mode === 'playing' || this.mode === 'paused') this.guard('HUD', () => this.updateHud(events));
         this.guard('오버레이', () => this.updateOverlay(dt));
+        const t3 = performance.now();
+        const p0 = this.programCount();
         // 셰이더를 굽는 중이거나 컨텍스트를 잃었으면 WebGL 렌더를 건너뛴다
         if (!this.warming && !this.glLost) this.guard('렌더', () => this.draw());
+        const t4 = performance.now();
+        this.lastWork = {
+            sim: Math.round(t1 - t0),
+            view: Math.round(t2 - t1),
+            ui: Math.round(t3 - t2),
+            draw: Math.round(t4 - t3),
+            progs: this.programCount() - p0
+        };
+    }
+
+    /** 지금까지 만든 셰이더 프로그램 수 */
+    programCount() {
+        return this.renderer?.renderer?.info?.programs?.length ?? 0;
+    }
+
+    /** 맵 준비 기록: 맵 짓기·셰이더 굽기 시간과 (세션 처음 한 번) GPU 정보 */
+    noteWarm(r, ms, progs) {
+        const st = this.state;
+        this.diag.add('warm', {
+            map: st.map?.name ?? st.mapId,
+            build: Math.round(this.buildMs || 0),
+            ms: Math.round(ms),
+            sync: Math.round(r?.syncMs || 0),
+            progs,
+            timedOut: !!r?.timedOut,
+            ...(this.gpuNoted ? {} : gpuInfo(this.renderer.renderer))
+        });
+        this.gpuNoted = true;
+        this.buildMs = 0;
     }
 
     /** 이번 세션에서 처음 나온 적·타워 종류 (정지 원인을 좁히는 단서) */
@@ -1087,9 +1137,11 @@ export class App {
             ms: Math.round(ms),
             map: st.map?.name ?? st.mapId,
             mode: this.mode,
+            warming: this.warming || undefined,
             wave: st.waveIndex,
             enemies: st.enemies.length,
-            recent: this.recentFirsts.filter((r) => now - r.at <= RECENT_FIRST_MS + ms).map((r) => r.key)
+            recent: this.recentFirsts.filter((r) => now - r.at <= RECENT_FIRST_MS + ms).map((r) => r.key),
+            work: this.lastWork
         });
     }
 

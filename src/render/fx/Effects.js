@@ -1,7 +1,7 @@
 // 이벤트 → 이펙트 연출. 파티클·번개·충격파·지면 데칼·동적 광원·유성·빙결.
 import * as THREE from 'three';
 import { ParticleSystem } from './Particles.js';
-import { Ribbons } from './Ribbons.js';
+import { Ribbons, ribbonMaterial } from './Ribbons.js';
 import { disposeObject } from '../dispose.js';
 import { glowSprite, puffSprite } from '../util/textures.js';
 import { TOWERS } from '../../core/data/towers.js';
@@ -74,6 +74,55 @@ function drop(...objs) {
         o.removeFromParent();
         disposeObject(o);
     }
+}
+
+// ---------- 전투 중 처음 만드는 재질 ----------
+// 셰이더 미리 굽기(warmup.js)가 같은 설정으로 한 벌씩 컴파일해 두도록 여기 모은다. 이펙트 재질을 새로 만들면 여기에 넣을 것:
+// 빠지면 처음 쓰는 순간 그 자리에서 컴파일하느라 0.5~1.3초 멈춘다 (유성 바위·빙결 껍질·그을음 자국이 그랬다).
+const FX_MATS = {
+    ring: () =>
+        new THREE.MeshBasicMaterial({
+            map: ringTexture(),
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+        }),
+    scorch: () => new THREE.MeshBasicMaterial({ map: scorchTexture(), transparent: true, depthWrite: false }),
+    glow: () =>
+        new THREE.MeshBasicMaterial({
+            map: glowSprite(),
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+        }),
+    meteor: () =>
+        new THREE.MeshStandardMaterial({
+            color: 0x2a1a12,
+            emissive: 0xff5a10,
+            emissiveIntensity: 3,
+            flatShading: true
+        }),
+    shell: () =>
+        new THREE.MeshStandardMaterial({
+            color: 0xbfefff,
+            emissive: 0x2a8fd0,
+            emissiveIntensity: 0.8,
+            roughness: 0.05,
+            transparent: true,
+            opacity: 0.55,
+            flatShading: true
+        })
+};
+
+/** 미리 굽기용: 이펙트 재질을 한 벌씩 입힌 메시 (장면에는 넣지 않는다) */
+export function fxWarmupMeshes() {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    return [
+        ...Object.values(FX_MATS).map((make) => new THREE.Mesh(geo, make())),
+        new THREE.Mesh(geo, ribbonMaterial())
+    ];
 }
 
 export class Effects {
@@ -156,16 +205,7 @@ export class Effects {
     ring(p, radius, color, life = 0.45, width = 1, y = 0.06) {
         let r = this.rings.find((x) => !x.mesh.visible);
         if (!r) {
-            const mesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(2, 2),
-                new THREE.MeshBasicMaterial({
-                    map: ringTexture(),
-                    transparent: true,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                    toneMapped: false
-                })
-            );
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), FX_MATS.ring());
             mesh.rotation.x = -Math.PI / 2;
             mesh.renderOrder = 18;
             this.scene.add(mesh);
@@ -181,16 +221,7 @@ export class Effects {
     }
 
     decal(p, radius, kind, life) {
-        const mat =
-            kind === 'scorch'
-                ? new THREE.MeshBasicMaterial({ map: scorchTexture(), transparent: true, depthWrite: false })
-                : new THREE.MeshBasicMaterial({
-                      map: glowSprite(),
-                      transparent: true,
-                      blending: THREE.AdditiveBlending,
-                      depthWrite: false,
-                      toneMapped: false
-                  });
+        const mat = kind === 'scorch' ? FX_MATS.scorch() : FX_MATS.glow();
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), mat);
         mesh.rotation.x = -Math.PI / 2;
         mesh.rotation.z = Math.random() * 6;
@@ -604,32 +635,16 @@ export class Effects {
     on_meteorCast(ev) {
         const target = this.groundPoint(ev.x, ev.z, 0);
         const from = new THREE.Vector3(target.x - 9, target.y + 22, target.z + 3);
-        const rock = new THREE.Mesh(
-            new THREE.DodecahedronGeometry(0.55, 0),
-            new THREE.MeshStandardMaterial({
-                color: 0x2a1a12,
-                emissive: 0xff5a10,
-                emissiveIntensity: 3,
-                flatShading: true
-            })
-        );
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), FX_MATS.meteor());
         this.scene.add(rock);
         const warn = this.decalLive(target, ev.r, '#ff5a20');
         this.meteors.push({ rock, from, target, t: 0, T: ev.delay, warn });
     }
 
     decalLive(p, radius, color) {
-        const mesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(radius * 2, radius * 2),
-            new THREE.MeshBasicMaterial({
-                map: ringTexture(),
-                color: new THREE.Color(color).multiplyScalar(3),
-                transparent: true,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                toneMapped: false
-            })
-        );
+        const mat = FX_MATS.ring();
+        mat.color.set(color).multiplyScalar(3);
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), mat);
         mesh.rotation.x = -Math.PI / 2;
         mesh.position.set(p.x, p.y + 0.05, p.z);
         this.scene.add(mesh);
@@ -1343,18 +1358,7 @@ export class Effects {
             frozen.add(e.id);
             let shell = this.shells.get(e.id);
             if (!shell) {
-                shell = new THREE.Mesh(
-                    new THREE.IcosahedronGeometry(0.5, 0),
-                    new THREE.MeshStandardMaterial({
-                        color: 0xbfefff,
-                        emissive: 0x2a8fd0,
-                        emissiveIntensity: 0.8,
-                        roughness: 0.05,
-                        transparent: true,
-                        opacity: 0.55,
-                        flatShading: true
-                    })
-                );
+                shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), FX_MATS.shell());
                 this.scene.add(shell);
                 this.shells.set(e.id, shell);
             }

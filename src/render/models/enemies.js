@@ -909,28 +909,52 @@ export function animateEnemy(v, e, t, dt) {
 
 let shieldMat = null;
 let wardMat = null;
+
+function shieldMats() {
+    return (shieldMat ??= markShared([
+        new THREE.MeshBasicMaterial({
+            color: new THREE.Color(0x7fd8ff),
+            transparent: true,
+            opacity: 0.08,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        }),
+        new THREE.MeshBasicMaterial({
+            color: new THREE.Color(0xbfefff).multiplyScalar(1.8),
+            wireframe: true,
+            transparent: true,
+            opacity: 0.35,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+        })
+    ]));
+}
+
+function wardMats() {
+    return (wardMat ??= markShared([
+        new THREE.MeshBasicMaterial({
+            color: new THREE.Color(0xc8b0ff).multiplyScalar(2),
+            transparent: true,
+            opacity: 0.55,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false
+        })
+    ])[0]);
+}
+
+/** 미리 굽기용: 보스 상태 표시 재질 (보스가 처음 나올 때 컴파일하느라 멈추지 않게) */
+export function bossFxMaterials() {
+    return [...shieldMats(), wardMats()];
+}
+
 /** 보스 상태 표시: 얼음 보호막 구체, 바람 장막 고리 */
 function bossFx(v, e, t, dt) {
     if (e.def.shield) {
         if (!v.shieldMesh) {
-            shieldMat ??= markShared([
-                new THREE.MeshBasicMaterial({
-                    color: new THREE.Color(0x7fd8ff),
-                    transparent: true,
-                    opacity: 0.08,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false
-                }),
-                new THREE.MeshBasicMaterial({
-                    color: new THREE.Color(0xbfefff).multiplyScalar(1.8),
-                    wireframe: true,
-                    transparent: true,
-                    opacity: 0.35,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                    toneMapped: false
-                })
-            ]);
+            shieldMats();
             v.shieldMesh = new THREE.Group();
             const geo = new THREE.IcosahedronGeometry(1.3, 1);
             v.shieldMesh.add(new THREE.Mesh(geo, shieldMat[0]), new THREE.Mesh(geo, shieldMat[1]));
@@ -944,17 +968,7 @@ function bossFx(v, e, t, dt) {
     }
     if (e.def.ward) {
         if (!v.wardMesh) {
-            wardMat ??= markShared([
-                new THREE.MeshBasicMaterial({
-                    color: new THREE.Color(0xc8b0ff).multiplyScalar(2),
-                    transparent: true,
-                    opacity: 0.55,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                    side: THREE.DoubleSide,
-                    toneMapped: false
-                })
-            ])[0];
+            wardMats();
             const g = new THREE.Group();
             for (let i = 0; i < 3; i++) {
                 const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1 + i * 0.15, 0.025, 4, 40), wardMat);

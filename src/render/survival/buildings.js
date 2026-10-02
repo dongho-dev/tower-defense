@@ -108,7 +108,7 @@ export function createSurvivalBuildings(state, terrain) {
     // 배치 고스트: 칸마다 초록/빨강 사각형 + 반투명 덩어리
     const ghostMat = new THREE.MeshBasicMaterial({
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.4,
         depthWrite: false,
         vertexColors: false
     });
@@ -119,7 +119,7 @@ export function createSurvivalBuildings(state, terrain) {
     ghostQuads.frustumCulled = false;
     ghostQuads.renderOrder = 5;
     ghostQuads.setColorAt(0, new THREE.Color());
-    const blockMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.28, depthWrite: false });
+    const blockMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.2, depthWrite: false });
     const ghostBlocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), blockMat, MAX_GHOST);
     ghostBlocks.count = 0;
     ghostBlocks.frustumCulled = false;

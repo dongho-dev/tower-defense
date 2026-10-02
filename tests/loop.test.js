@@ -83,6 +83,30 @@ test('DiagLog: 최근 30건 링버퍼로 저장하고 다시 읽는다', () => {
     assert.equal(new DiagLog(store).items.length, 0);
 });
 
+test('진단 요약: 정지 직전 프레임 시간과 맵 준비 기록을 보여 준다', () => {
+    const work = { sim: 2, view: 3, ui: 1, draw: 1400, progs: 2 };
+    assert.match(
+        describe({ kind: 'stall', ms: 1450, map: '황혼', wave: 4, enemies: 3, work }),
+        /직전 프레임 1406ms\(시뮬 2, 장면 3, UI 1, 그리기 1400, 새 셰이더 2\)/
+    );
+    assert.match(describe({ kind: 'stall', ms: 7300, map: '황혼', wave: 0, mode: 'loading' }), /0웨이브\(맵 준비 중\)/);
+    const warm = {
+        kind: 'warm',
+        map: '황혼',
+        build: 300,
+        ms: 7000,
+        sync: 6500,
+        progs: 40,
+        gpu: 'ANGLE (Intel)',
+        parallel: false
+    };
+    assert.match(
+        describe(warm),
+        /맵 준비 황혼 · 짓기 300ms · 셰이더 7000ms\(막힘 6500ms, 새 40개\) · GPU ANGLE \(Intel\) · 병렬 컴파일 없음/
+    );
+    assert.doesNotMatch(describe({ ...warm, parallel: true }), /병렬/);
+});
+
 test('DiagLog: 저장소가 없거나 깨져도 던지지 않는다', () => {
     const broken = {
         getItem: () => '{not json',

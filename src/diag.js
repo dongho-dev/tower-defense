@@ -67,6 +67,25 @@ export function errorInfo(err, lines = 4) {
     return { msg, stack };
 }
 
+/** GPU 이름과 병렬 셰이더 컴파일 지원 여부 (맵 진입이 PC마다 몇 배씩 다른 원인을 가리기 위해) */
+export function gpuInfo(renderer) {
+    try {
+        const gl = renderer.getContext();
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        const gpu = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER)).slice(0, 120);
+        return { gpu, parallel: !!gl.getExtension('KHR_parallel_shader_compile') };
+    } catch {
+        return {};
+    }
+}
+
+/** 정지 직전 프레임에서 우리 코드가 쓴 시간. 정지보다 훨씬 짧으면 브라우저·GPU 쪽에서 멈춘 것 */
+function workText(w) {
+    if (!w) return '';
+    const total = w.sim + w.view + w.ui + w.draw;
+    return ` · 직전 프레임 ${total}ms(시뮬 ${w.sim}, 장면 ${w.view}, UI ${w.ui}, 그리기 ${w.draw}, 새 셰이더 ${w.progs})`;
+}
+
 /** 한 줄 요약 (화면 목록용) */
 export function describe(e) {
     const time = e.at ? e.at.slice(11, 19) : '';
@@ -74,9 +93,13 @@ export function describe(e) {
         case 'error':
             return `${time} 오류 [${e.where}] ${e.msg}`;
         case 'stall':
-            return `${time} 정지 ${e.ms}ms · ${e.map ?? '-'} ${e.wave ?? '-'}웨이브 · 적 ${e.enemies ?? 0}${
+            return `${time} 정지 ${e.ms}ms · ${e.map ?? '-'} ${e.wave ?? '-'}웨이브${e.mode === 'loading' || e.warming ? '(맵 준비 중)' : ''} · 적 ${e.enemies ?? 0}${
                 e.recent && e.recent.length ? ' · 직전 처음: ' + e.recent.join(', ') : ''
-            }`;
+            }${workText(e.work)}`;
+        case 'warm':
+            return `${time} 맵 준비 ${e.map ?? '-'} · 짓기 ${e.build ?? 0}ms · 셰이더 ${e.ms}ms(막힘 ${e.sync ?? 0}ms, 새 ${e.progs ?? 0}개)${
+                e.timedOut ? ' · 시간 초과' : ''
+            }${e.gpu ? ` · GPU ${e.gpu}${e.parallel ? '' : ' · 병렬 컴파일 없음'}` : ''}`;
         case 'contextlost':
             return `${time} WebGL 컨텍스트 손실 · ${e.map ?? '-'} ${e.wave ?? '-'}웨이브`;
         case 'contextrestored':
