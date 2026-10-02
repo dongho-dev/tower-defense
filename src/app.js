@@ -85,6 +85,9 @@ export class App {
 
         this.state = createGame(params.get('map') || 'dusk');
         this.buildWorld();
+        // 첫 화면도 셰이더를 먼저 굽는다: 안 구우면 첫 렌더에서 30여 개를 그 자리에서 컴파일하느라 5~6초 멈춘다
+        this.warmedOnce = true;
+        this.warmWorld();
         this.audio = new Audio({ mode: () => this.mode, camera: () => this.rig.camera });
         this.audio.enabled = this.save.settings.sound;
         this.rig.shakeEnabled = this.save.settings.shake;
@@ -181,7 +184,7 @@ export class App {
         this.t = 0;
         this.acc = 0;
         requestAnimationFrame((now) => this.frame(now));
-        setTimeout(() => this.fade.classList.remove('on'), 150);
+        setTimeout(() => this.liftFade(), 150);
 
         if (params.has('demo')) this.devDemo(params);
         else if (params.has('play')) {
@@ -319,7 +322,7 @@ export class App {
     // ---------- 화면 흐름 ----------
     toTitle() {
         this.startMapToken = (this.startMapToken || 0) + 1;
-        this.fade?.classList.remove('on');
+        this.liftFade();
         this.endSurvivalUI();
         this.mode = 'title';
         this.hud.setVisible(false);
@@ -332,6 +335,13 @@ export class App {
         this.rig.setPitch(18);
         this.rig.shift = window.innerWidth > 900 ? 0.2 : 0;
         this.screens.title(this.progressSummary());
+    }
+
+    /** 검은 화면을 걷는다. 셰이더를 굽는 중이면 다 구운 뒤에 (그 사이 맵을 고르면 맵 시작이 알아서 걷는다) */
+    liftFade() {
+        if (!this.warming) return this.fade?.classList.remove('on');
+        const token = this.startMapToken;
+        this.warmPromise.then(() => token === this.startMapToken && this.fade.classList.remove('on'));
     }
 
     progressSummary() {
@@ -349,7 +359,7 @@ export class App {
 
     toSelect(opts = {}) {
         this.startMapToken = (this.startMapToken || 0) + 1;
-        this.fade?.classList.remove('on');
+        this.liftFade();
         if (opts.endless) {
             this.save.lastEndless = true;
             this.persist();
@@ -1127,6 +1137,7 @@ export class App {
             ms: Math.round(ms),
             map: st.map?.name ?? st.mapId,
             mode: this.mode,
+            warming: this.warming || undefined,
             wave: st.waveIndex,
             enemies: st.enemies.length,
             recent: this.recentFirsts.filter((r) => now - r.at <= RECENT_FIRST_MS + ms).map((r) => r.key),

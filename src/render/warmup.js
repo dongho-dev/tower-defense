@@ -4,15 +4,16 @@
 import * as THREE from 'three';
 import { ENEMIES } from '../core/data/enemies.js';
 import { TOWER_ORDER, TOWERS, MAX_TIER } from '../core/data/towers.js';
-import { buildEnemyModel } from './models/enemies.js';
 import { buildTowerModel } from './models/towers.js';
 import { buildUnitModel } from './models/units.js';
+import { buildEnemyModel, bossFxMaterials } from './models/enemies.js';
+import { fxWarmupMeshes } from './fx/Effects.js';
 
 // 미리 굽기 모델은 한 번만 만들어 계속 붙잡아 둔다: 재질이 살아 있어야 셰이더 프로그램도 해제되지 않고,
 // 다음 맵에서는 이미 있는 프로그램을 그대로 찾아 쓴다. 장면에 넣지 않으므로 geometry는 GPU에 올라가지 않는다.
 let held = null;
 
-/** 게임에 나올 수 있는 적·타워·병사·영웅 모델을 한 벌씩 (장면에는 넣지 않는다) */
+/** 게임에 나올 수 있는 적·타워·병사·영웅 모델과 전투 중 처음 만드는 이펙트 재질을 한 벌씩 (장면에는 넣지 않는다) */
 export function buildWarmupGroup() {
     const g = new THREE.Group();
     for (const type of Object.keys(ENEMIES)) g.add(buildEnemyModel(type, false).root);
@@ -23,36 +24,46 @@ export function buildWarmupGroup() {
     }
     for (const variant of ['base', 'a', 'b']) g.add(buildUnitModel('soldier', variant).root);
     g.add(buildUnitModel('hero').root);
+    for (const m of fxWarmupMeshes()) g.add(m);
+    const geo = new THREE.PlaneGeometry(1, 1);
+    for (const m of bossFxMaterials()) g.add(new THREE.Mesh(geo, m));
     return g;
 }
 
 /**
  * 장면과 미리 굽기 모델의 셰이더를 병렬로 컴파일한다. 끝나면(또는 timeoutMs가 지나면) resolve.
  * 실제 화면은 후처리 렌더 타깃에 그리므로(톤매핑·색공간이 셰이더 키에 들어간다) 같은 타깃을 걸고 컴파일한다.
- * 프로그램 생성 단계는 동기라 약 1~2초 막히지만 맵 전환의 검은 화면 뒤에서 한 번만 일어난다.
+ * 프로그램 생성 단계는 동기라 약 0.1~0.3초 막히지만 맵 전환의 검은 화면 뒤에서 한 번만 일어난다.
  * (모델을 몇 개씩 나눠 프레임 사이에 넘기면 GPU 쪽 대기가 여러 번으로 쪼개져 오히려 정지가 늘었다.)
+ * three의 compileAsync는 쓰지 않는다: 기다리는 사이 재질이 해제되면(굽는 중에 다른 맵을 고를 때) 타이머 안에서
+ * 'isReady' 예외를 던지고 끝나지 않아, 맵 진입이 시간 초과(10초)까지 멈췄다. 준비 여부를 직접 보고 해제된 재질은 건너뛴다.
  * 진단용으로 { syncMs: 동기로 막힌 시간, timedOut } 을 돌려준다.
  */
 export async function precompile(renderer, scene, camera, target = null, timeoutMs = 10000) {
-    if (!renderer.compileAsync) return null;
+    if (!renderer.compile || !renderer.properties) return null;
     const t0 = performance.now();
     const extra = (held ??= buildWarmupGroup());
     const prev = renderer.getRenderTarget();
-    let jobs;
+    let pending;
     try {
         renderer.setRenderTarget(target);
-        jobs = Promise.all([renderer.compileAsync(scene, camera), renderer.compileAsync(extra, camera, scene)]);
+        pending = new Set([...renderer.compile(scene, camera), ...renderer.compile(extra, camera, scene)]);
     } finally {
         renderer.setRenderTarget(prev);
     }
     const syncMs = performance.now() - t0;
-    let timer;
     let timedOut = false;
-    const timeout = new Promise((res) => (timer = setTimeout(() => res((timedOut = true)), timeoutMs)));
-    try {
-        await Promise.race([jobs, timeout]);
-    } finally {
-        clearTimeout(timer);
+    for (;;) {
+        for (const m of pending) {
+            const program = renderer.properties.get(m).currentProgram;
+            if (!program || program.isReady()) pending.delete(m);
+        }
+        if (!pending.size) break;
+        if (performance.now() - t0 > timeoutMs) {
+            timedOut = true;
+            break;
+        }
+        await new Promise((r) => setTimeout(r, 10));
     }
     return { syncMs, timedOut };
 }

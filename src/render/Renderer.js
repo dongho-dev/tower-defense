@@ -57,7 +57,9 @@ export class Renderer {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.9;
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // PCFSoftShadowMap은 폐기돼 three가 첫 그림자 렌더에서 PCFShadowMap으로 바꾼다. 그 순간 셰이더 키가 바뀌어
+        // 미리 구운 셰이더가 모두 무효가 되고 첫 화면에서 30여 개를 다시 컴파일했다(3~4초 정지). 처음부터 PCF로 둔다.
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
         container.appendChild(this.renderer.domElement);
         this.setQuality(qualityName);
     }

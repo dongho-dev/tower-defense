@@ -93,7 +93,7 @@ export function describe(e) {
         case 'error':
             return `${time} 오류 [${e.where}] ${e.msg}`;
         case 'stall':
-            return `${time} 정지 ${e.ms}ms · ${e.map ?? '-'} ${e.wave ?? '-'}웨이브${e.mode === 'loading' ? '(맵 준비 중)' : ''} · 적 ${e.enemies ?? 0}${
+            return `${time} 정지 ${e.ms}ms · ${e.map ?? '-'} ${e.wave ?? '-'}웨이브${e.mode === 'loading' || e.warming ? '(맵 준비 중)' : ''} · 적 ${e.enemies ?? 0}${
                 e.recent && e.recent.length ? ' · 직전 처음: ' + e.recent.join(', ') : ''
             }${workText(e.work)}`;
         case 'warm':
