@@ -31,9 +31,11 @@ export function buildWarmupGroup() {
  * 실제 화면은 후처리 렌더 타깃에 그리므로(톤매핑·색공간이 셰이더 키에 들어간다) 같은 타깃을 걸고 컴파일한다.
  * 프로그램 생성 단계는 동기라 약 1~2초 막히지만 맵 전환의 검은 화면 뒤에서 한 번만 일어난다.
  * (모델을 몇 개씩 나눠 프레임 사이에 넘기면 GPU 쪽 대기가 여러 번으로 쪼개져 오히려 정지가 늘었다.)
+ * 진단용으로 { syncMs: 동기로 막힌 시간, timedOut } 을 돌려준다.
  */
 export async function precompile(renderer, scene, camera, target = null, timeoutMs = 10000) {
-    if (!renderer.compileAsync) return;
+    if (!renderer.compileAsync) return null;
+    const t0 = performance.now();
     const extra = (held ??= buildWarmupGroup());
     const prev = renderer.getRenderTarget();
     let jobs;
@@ -43,11 +45,14 @@ export async function precompile(renderer, scene, camera, target = null, timeout
     } finally {
         renderer.setRenderTarget(prev);
     }
+    const syncMs = performance.now() - t0;
     let timer;
-    const timeout = new Promise((res) => (timer = setTimeout(res, timeoutMs)));
+    let timedOut = false;
+    const timeout = new Promise((res) => (timer = setTimeout(() => res((timedOut = true)), timeoutMs)));
     try {
         await Promise.race([jobs, timeout]);
     } finally {
         clearTimeout(timer);
     }
+    return { syncMs, timedOut };
 }
