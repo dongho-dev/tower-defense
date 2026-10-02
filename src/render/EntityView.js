@@ -227,6 +227,16 @@ export class EntityView {
             v.root.scale.setScalar(sk);
             animateEnemy(v, e, t, dt);
         }
+        // 죽음·통과 이벤트 없이 상태에서 빠진 적(예외로 건너뛴 프레임의 이벤트 등)도 쓰러뜨려 치운다.
+        // 이벤트에만 기대면 그런 적의 모델은 그 자리에 영영 남는다
+        if (this.enemies.size > state.enemies.length) {
+            const live = new Set(state.enemies.map((e) => e.id));
+            for (const [id, v] of this.enemies) {
+                if (live.has(id)) continue;
+                this.enemies.delete(id);
+                this.dying.push({ v, t: 0, leak: false });
+            }
+        }
     }
 
     /** 병사·영웅: 죽으면 쓰러졌다 사라지고, 부활하면 다시 솟아난다 */
