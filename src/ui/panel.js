@@ -12,11 +12,30 @@ import {
     upgradeOptions,
     previewStats,
     repairCost,
+    gateRepairCost,
+    gateReinforceOption,
+    baseRepairCost,
     HERO
 } from '../core/game.js';
 import { enemyTraits } from '../core/data/enemies.js';
+import { nextMineTech, mineTechMul } from '../core/survival.js';
+import { rtdTowerHtml, bindRtdTower } from './rtd.js';
 
 const TARGET_LABEL = { first: '선두', strong: '최강', close: '근접' };
+
+/** 살아남기: 탐험해서 찾은 광맥 수 */
+function foundVeins(state) {
+    const sv = state.survival;
+    return sv.field.veins.filter((v) => sv.fog.explored[v.j * sv.field.N + v.i]).length;
+}
+
+/** 살아남기: 광맥 위 광산이면 수입 배율과 캐는 간격 */
+function veinInfo(state, tower) {
+    const sv = state.survival;
+    if (!sv) return {};
+    const v = tower.veinId != null ? sv.field.veins[tower.veinId] : null;
+    return { __vein: v || { yield: 1 }, __pay: sv.payEvery };
+}
 
 const fmt = (v) => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
 
@@ -30,6 +49,13 @@ function diff(a, b, better = 'up') {
 
 function statsRow(s, dps, prev) {
     const def = s.__def;
+    if (def.attack === 'wall') {
+        const hp = def.tiers[(s.__tier || 1) - 1].hp;
+        return `<div class="ip-stats">
+            <div><b>${hp}</b><span>체력</span></div>
+            <div><b>1×1</b><span>칸</span></div>
+        </div>`;
+    }
     if (def.attack === 'barracks') {
         return `<div class="ip-stats">
             <div><b>${s.soldiers}${diff(s.soldiers, prev?.soldiers)}</b><span>병사</span></div>
@@ -38,8 +64,12 @@ function statsRow(s, dps, prev) {
         </div>`;
     }
     if (def.attack === 'none') {
+        // 살아남기: 광맥 수입 배율을 곱해 몇 초마다 캐는지 보여 준다
+        const k = s.__vein ? (s.__vein.yield ?? 1) : 1;
+        const inc = Math.round(s.income * k);
+        const was = prev?.income != null ? Math.round(prev.income * k) : null;
         return `<div class="ip-stats">
-            <div><b>${s.income}${diff(s.income, prev?.income)}</b><span>웨이브당 골드</span></div>
+            <div><b>${inc}${diff(inc, was)}</b><span>${s.__pay ? `${s.__pay}초마다 골드` : '웨이브당 골드'}</span></div>
             <div><b>+${Math.round((s.__resValue || def.resonance.value) * 100)}%</b><span>풍요 공명</span></div>
         </div>`;
     }
@@ -186,6 +216,8 @@ export class Inspector {
         const cur = towerStats(state, tower);
         cur.__def = def;
         cur.__resValue = tower.branch ? def.branches[tower.branch].resonanceValue : null;
+        Object.assign(cur, veinInfo(state, tower));
+        cur.__tier = tower.tier;
         const curDps = estimateDps(state, tower);
         let shown = cur;
         let shownDps = curDps;
@@ -207,6 +239,8 @@ export class Inspector {
             shown = p.stats;
             shown.__def = def;
             shown.__resValue = h.kind === 'branch' ? def.branches[h.key].resonanceValue : cur.__resValue;
+            Object.assign(shown, veinInfo(state, tower));
+            shown.__tier = h.kind === 'tier' ? tower.tier + 1 : tower.tier;
             shownDps = p.dps;
             prev = {
                 dps: curDps,
@@ -239,7 +273,7 @@ export class Inspector {
         const maxed = !opts.length;
         const info = resonanceInfo(state, tower);
         info.value = cur.__resValue || def.resonance.value;
-        const canTarget = def.attack !== 'none' && def.attack !== 'barracks' && !cur.aura;
+        const canTarget = def.attack !== 'none' && def.attack !== 'barracks' && def.attack !== 'wall' && !cur.aura;
         const rc = repairCost(tower);
         const hpBlock =
             tower.hp != null
@@ -256,7 +290,7 @@ export class Inspector {
                 ${hpBlock}
                 <div class="tag-row">${stun}${tags(shown, def)}</div>
             </div>
-            ${resonanceBlock(info, tower.type)}
+            ${tower.socketId == null ? '' : resonanceBlock(info, tower.type)}
             <div class="ip-actions">
                 ${maxed ? '<div class="maxed">최종 단계</div>' : opts.map(optBtn).join('')}
                 <div class="ip-row">
@@ -344,7 +378,7 @@ export class Inspector {
     buildHtml(socket, type, state) {
         const def = TOWERS[type];
         const p = previewStats(state, { type, tier: 1, branch: null, mastery: 0, socketId: socket.id }, {});
-        const s = { ...p.stats, __def: def };
+        const s = { ...p.stats, __def: def, ...(state.survival ? {} : veinInfo(state, socket)) };
         const dps = p.dps;
         const info = resonancePreview(state, socket.id, type);
         const cost = def.tiers[0].cost;
@@ -403,6 +437,91 @@ export class Inspector {
             <div class="ip-tip"><b>공략</b>${d.tip || d.desc}</div>`;
     }
 
+    // ---------- 성문 ----------
+    showGate(gate, state) {
+        this.mode = 'gate';
+        this.target = gate;
+        this.key = '';
+        this.render(state);
+        this.show();
+    }
+
+    gateHtml(g, state) {
+        const r = Math.max(0, g.hp / g.maxHp);
+        const rc = gateRepairCost(g);
+        const opt = gateReinforceOption(g);
+        const at = state.enemies.filter((e) => e.gateId === g.id).length;
+        const tags = [];
+        if (g.broken) tags.push('<span class="tag warn">무너짐 · 길이 열렸다</span>');
+        else if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
+        if (g.level) tags.push(`<span class="tag good">보강 ${g.level}단계</span>`);
+        tags.push('<span class="tag">지상 적을 막음</span>', '<span class="tag warn">비행 적은 넘어감</span>');
+        const repairLabel = g.broken ? `재건 ${rc}` : rc ? `수리 ${rc}` : '온전함';
+        return `<div class="ip-head" style="--tint:#e6c58c">
+                <i class="ico">${ICONS.shield}</i>
+                <div><div class="name">${g.name}</div><div class="sub">성문 · 보강 ${g.level}/2</div></div>
+            </div>
+            <div class="ip-main">
+                <div class="ip-desc">${g.broken ? '문이 부서져 적이 그대로 지나간다. 문 자리가 비면 다시 세울 수 있다.' : '지상 적은 이 문 앞에서 멈춰 문을 부순다. 웨이브가 시작될 때마다 조금씩 저절로 고쳐진다.'}</div>
+                <div class="ip-thp ${g.broken || r < 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${g.broken ? '무너짐' : `${Math.ceil(g.hp)} / ${g.maxHp}`}</b></div>
+                <div class="tag-row">${tags.join('')}</div>
+            </div>
+            <div class="ip-actions">
+                ${opt ? `<button class="ip-btn up ${state.gold < opt.cost || g.broken ? 'poor' : ''}" data-reinforce><span class="hk">U</span><span class="l">보강 ${g.level + 1}단계 · 체력 +${Math.round(g.baseHp * opt.hp)}</span><span class="c">${ICONS.gold}${opt.cost}</span></button>` : '<div class="maxed">최대 보강</div>'}
+                <div class="ip-row">
+                    <button class="ip-btn small repair ${!rc ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="${g.broken ? '재건' : '수리'} (G)">${ICONS.repair}<span>${repairLabel}</span></button>
+                </div>
+                <div class="ip-foot">${g.broken ? `재건하면 체력 절반으로 다시 선다` : '수리비는 잃은 체력에 비례'}</div>
+            </div>`;
+    }
+
+    // ---------- 본진 (살아남기) ----------
+    showBase(state) {
+        this.mode = 'base';
+        this.target = state.survival.base;
+        this.key = '';
+        this.render(state);
+        this.show();
+    }
+
+    baseHtml(state) {
+        const r = Math.max(0, state.lives / state.maxLives);
+        const rc = baseRepairCost(state);
+        const at = state.enemies.filter((e) => e.atkTargetId === 'base').length;
+        const mines = state.towers.filter((t) => t.type === 'mine').length;
+        const veins = state.survival.field.veins.length;
+        const sv = state.survival;
+        const b = sv.base;
+        const building = !!b.build;
+        const tech = nextMineTech(sv);
+        const techMul = Math.round((mineTechMul(sv) - 1) * 100);
+        const tags = [];
+        if (at) tags.push(`<span class="tag warn">공격받는 중 · 적 ${at}</span>`);
+        tags.push(`<span class="tag good">광산 ${mines} · 찾은 광맥 ${foundVeins(state)}/${veins}</span>`);
+        if (techMul) tags.push(`<span class="tag good">채굴 기술 ${sv.mineTech}단계 · 수입 +${techMul}%</span>`);
+        tags.push('<span class="tag">무너지면 패배</span>');
+        return `<div class="ip-head" style="--tint:#ffd27a">
+                <i class="ico">${ICONS.shield}</i>
+                <div><div class="name">본진 · 마지막 빛</div><div class="sub">${building ? `짓는 중 ${Math.round((b.build.t / b.build.T) * 100)}% · 생존자가 곁에 있어야 올라간다` : '고원에 세운 수정 성소 · 생존자가 여기서 다시 일어난다'}</div></div>
+            </div>
+            <div class="ip-main">
+                <div class="ip-desc">적은 가장 가까운 건물을 노리고, 길을 막은 방벽은 부수고 들어온다. 저절로 고쳐지지 않는다.</div>
+                <div class="ip-thp ${r < 0.35 ? 'low' : ''}"><div class="bar"><i style="width:${r * 100}%"></i></div><b>${Math.ceil(state.lives)} / ${state.maxLives}</b></div>
+                <div class="tag-row">${tags.join('')}</div>
+            </div>
+            <div class="ip-actions">
+                ${
+                    tech
+                        ? `<button class="ip-btn up ${state.gold < tech.cost || building ? 'poor' : ''}" data-mine><span class="hk">U</span><span class="l">채굴 기술 ${sv.mineTech + 1}단계 · 광산 수입 +${Math.round((tech.mul - 1) * 100)}%</span><span class="c">${ICONS.gold}${tech.cost}</span></button>`
+                        : '<div class="maxed">채굴 기술 최고 단계</div>'
+                }
+                <div class="ip-row">
+                    <button class="ip-btn small repair ${!rc || building ? 'off' : state.gold < rc ? 'poor' : ''}" data-repair title="생존자가 가서 수리 (G)">${ICONS.repair}<span>${building ? '짓는 중' : rc ? `수리 ${rc}` : '온전함'}</span></button>
+                </div>
+                <div class="ip-foot">수리는 생존자가 가서 한다 · 체력 1당 0.4 골드</div>
+            </div>`;
+    }
+
     // ---------- 영웅 ----------
     showHero(u, state) {
         this.mode = 'hero';
@@ -458,7 +577,11 @@ export class Inspector {
                 JSON.stringify(this.hoverOpt),
                 t.hp != null && Math.ceil(t.hp / 5),
                 t.stunT > 0,
-                this.rallyArmed
+                this.rallyArmed,
+                // 랜덤 디펜스: 쌓인 수·등급·옮기기
+                t.count,
+                t.grade,
+                this.moveArmed
             ].join('|');
         } else if (this.mode === 'enemy') {
             const e = this.target;
@@ -472,6 +595,26 @@ export class Inspector {
                 e.burrowT > 0,
                 e.enraged,
                 e.blockedBy
+            ].join('|');
+        } else if (this.mode === 'gate') {
+            const g = this.target;
+            key = [
+                g.id,
+                g.broken,
+                g.level,
+                Math.ceil(g.hp / 10),
+                Math.floor(state.gold / 5),
+                state.enemies.filter((e) => e.gateId === g.id).length
+            ].join('|');
+        } else if (this.mode === 'base') {
+            const b = state.survival.base;
+            key = [
+                state.survival.mineTech,
+                b?.build ? Math.round(b.build.t) : -1,
+                Math.ceil(state.lives / 5),
+                Math.floor(state.gold / 5),
+                state.enemies.filter((e) => e.atkTargetId === 'base').length,
+                state.towers.length
             ].join('|');
         } else if (this.mode === 'hero') {
             const u = this.target;
@@ -493,9 +636,25 @@ export class Inspector {
         if (!force && key === this.key) return;
         this.key = key;
         this.el.dataset.mode = this.mode;
-        if (this.mode === 'tower') {
+        if (this.mode === 'tower' && state.rtd) {
+            this.el.innerHTML = rtdTowerHtml(this, this.target, state);
+            bindRtdTower(this, this.target, state);
+        } else if (this.mode === 'tower') {
             this.el.innerHTML = this.towerHtml(this.target, state);
             this.bindTower(this.target, state);
+        } else if (this.mode === 'gate') {
+            const g = this.target;
+            this.el.innerHTML = this.gateHtml(g, state);
+            const rp = this.el.querySelector('[data-repair]');
+            if (rp) rp.onclick = () => this.actions.gateRepair(g.id);
+            const rf = this.el.querySelector('[data-reinforce]');
+            if (rf) rf.onclick = () => this.actions.gateReinforce(g.id);
+        } else if (this.mode === 'base') {
+            this.el.innerHTML = this.baseHtml(state);
+            const rp = this.el.querySelector('[data-repair]');
+            if (rp) rp.onclick = () => this.actions.baseRepair();
+            const mt = this.el.querySelector('[data-mine]');
+            if (mt) mt.onclick = () => this.actions.mineTech?.();
         } else if (this.mode === 'enemy') this.el.innerHTML = this.enemyHtml(this.target);
         else if (this.mode === 'hero') {
             this.el.innerHTML = this.heroHtml(this.target);
@@ -509,6 +668,8 @@ export class Inspector {
         if (this.mode === 'tower' && !state.towers.includes(this.target)) return this.actions.closed();
         if (this.mode === 'enemy' && !this.target.alive) return this.actions.closed();
         if (this.mode === 'hero' && state.hero !== this.target) return this.actions.closed();
+        if (this.mode === 'gate' && !state.gates.includes(this.target)) return this.actions.closed();
+        if (this.mode === 'base' && state.survival?.base !== this.target) return this.actions.closed();
         this.render(state);
     }
 }

@@ -634,6 +634,7 @@ export class Audio {
                     this.play('siege_hit', ev.x, ev.z);
                     break;
                 case 'towerDestroyed':
+                case 'gateBroken':
                     this.play('collapse', ev.x, ev.z);
                     break;
                 case 'repair':

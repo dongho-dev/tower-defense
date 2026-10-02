@@ -373,6 +373,213 @@ WAVES.cinder = campaignWaves(1, 'swarm');
 WAVES.bloom = campaignWaves(2, 'spectral');
 WAVES.stormreach = campaignWaves(2, 'armored');
 
+// 성채 방어(공성전 전용): path 0 = 북문, 1 = 동문, 2 = 남문, 3 = 서문.
+// 매 웨이브 주공 방향이 바뀌어서 어느 성문을 보강할지 고르게 만든다.
+const GN = { path: 0 };
+const GE = { path: 1 };
+const GS = { path: 2 };
+const GW = { path: 3 };
+WAVES.fortress = [
+    {
+        groups: [g('grunt', 8, 1.1, 0, GW)],
+        hint: '적은 성문 앞에서 멈춰 문을 부순다. 문이 버티는 동안 성벽 위 타워로 쓰러뜨리세요.'
+    },
+    { groups: [g('grunt', 8, 1.0, 0, GN), g('stalker', 5, 0.7, 4, GW)] },
+    { groups: [g('grunt', 10, 0.9, 0, GE), g('grunt', 6, 0.9, 3, GS), g('stalker', 6, 0.6, 6, GW)] },
+    {
+        groups: [g('ironclad', 3, 2.4, 0, GN), g('grunt', 10, 0.7, 2, GN), g('stalker', 8, 0.5, 4, GS)],
+        hint: '흑철 기사가 북문을 두드린다. 성문을 눌러 보강하거나 수리할 수 있어요.'
+    },
+    {
+        groups: [g('wraith', 6, 0.9, 0, GE), g('grunt', 12, 0.6, 2, GW)],
+        hint: '망령은 날아서 성벽을 넘습니다. 성 안쪽에도 궁수탑이 필요해요.'
+    },
+    { groups: [g('stalker', 14, 0.4, 0, GS), g('ironclad', 4, 1.8, 4, GE), g('grunt', 8, 0.7, 6, GN)] },
+    {
+        groups: [
+            g('grunt', 14, 0.55, 0, GW),
+            g('hexcaller', 2, 4, 4, GW),
+            g('wraith', 6, 0.8, 6, GN),
+            g('ironclad', 3, 2, 3, GS)
+        ]
+    },
+    {
+        groups: [
+            g('ironclad', 6, 1.4, 0, GE),
+            g('hexcaller', 2, 4, 3, GE),
+            g('stalker', 10, 0.4, 5, GN),
+            g('grunt', 10, 0.6, 7, GS)
+        ]
+    },
+    { groups: [g('wraith', 10, 0.7, 0, GS), g('grunt', 16, 0.45, 2, GN), g('stalker', 10, 0.4, 5, GW)] },
+    {
+        groups: [
+            g('ironclad', 2, 4, 0, { ...GW, elite: true }),
+            g('ironclad', 5, 1.6, 2, GW),
+            g('hexcaller', 3, 3, 4, GN),
+            g('grunt', 12, 0.6, 5, GE)
+        ],
+        hint: '정예 흑철 기사가 서문으로 온다. 서문을 보강해 두세요.'
+    },
+    { groups: [g('stalker', 18, 0.3, 0, GE), g('wraith', 8, 0.7, 4, GN), g('grunt', 14, 0.5, 6, GS)] },
+    {
+        groups: [
+            g('grunt', 20, 0.35, 0, GN),
+            g('ironclad', 6, 1.4, 4, GS),
+            g('hexcaller', 3, 3, 6, GW),
+            g('stalker', 12, 0.35, 8, GE)
+        ]
+    },
+    { groups: [g('wraith', 14, 0.5, 0, GW), g('hexcaller', 4, 2.5, 3, GE), g('ironclad', 8, 1.1, 5, GE)] },
+    {
+        groups: [
+            g('ironclad', 10, 0.9, 0, GN),
+            g('stalker', 14, 0.35, 4, GS),
+            g('grunt', 14, 0.45, 6, GW),
+            g('ironclad', 4, 1.8, 8, GE)
+        ],
+        hint: '네 성문을 한꺼번에 친다. 가장 약한 문부터 수리하세요.'
+    },
+    {
+        groups: [
+            g('wraith', 3, 3, 0, { ...GS, elite: true }),
+            g('grunt', 20, 0.4, 2, GE),
+            g('wraith', 10, 0.6, 6, GN),
+            g('stalker', 12, 0.35, 8, GW)
+        ]
+    },
+    {
+        groups: [
+            g('grunt', 16, 0.4, 0, GN),
+            g('stalker', 14, 0.3, 3, GE),
+            g('ironclad', 8, 1.1, 5, GS),
+            g('hexcaller', 4, 2.5, 7, GW),
+            g('grunt', 12, 0.45, 9, GW)
+        ]
+    },
+    {
+        groups: [
+            g('ironclad', 12, 0.8, 0, GW),
+            g('hexcaller', 5, 2, 3, GW),
+            g('ironclad', 6, 1.4, 6, GN),
+            g('stalker', 16, 0.3, 6, GS)
+        ]
+    },
+    {
+        groups: [
+            g('wraith', 18, 0.42, 0, GE),
+            g('ironclad', 3, 3.5, 6, { ...GN, elite: true }),
+            g('grunt', 16, 0.4, 4, GS)
+        ]
+    },
+    {
+        groups: [
+            g('stalker', 18, 0.3, 0, GN),
+            g('grunt', 18, 0.35, 3, GS),
+            g('ironclad', 10, 0.9, 6, GE),
+            g('wraith', 12, 0.5, 9, GW),
+            g('hexcaller', 5, 2, 10, GE)
+        ]
+    },
+    {
+        groups: [
+            g('grunt', 14, 0.5, 0, GN),
+            g('ironclad', 6, 1.4, 3, GE),
+            g('colossus', 1, 1, 9, GW),
+            g('hexcaller', 4, 3, 10, GW),
+            g('wraith', 10, 0.6, 14, GS),
+            g('ironclad', 6, 1.4, 16, GS)
+        ],
+        hint: '공허의 거상이 서문으로 온다. 거상은 성문을 두 배 가까이 세게 친다!'
+    }
+];
+
+// 얼어붙은 분지(살아남기): 판이 시작되면 밤 시계가 흐르고, at = 시계(초)에 웨이브가 저절로 온다.
+// 적은 모두 맵 한가운데 둥지에서 쏟아진다. 첫 습격까지 110초는 생존자가 고원을 찾아 본진을 짓는 시간,
+// 930초(15분 30초)에 동이 튼다. 6:30 · 10:30 · 14:30에 빙하 거신(보스)이 나온다 (HUD가 30초 전부터 경고한다).
+const NEST = {};
+const BOSS = (hpMul) => ({ hpMul });
+
+WAVES.mountain = [
+    {
+        at: 110,
+        groups: [g('grunt', 8, 0.8, 0, NEST)],
+        hint: '둥지가 깨어났다! 적은 가장 가까운 건물을 노린다. 비탈(입구)을 방벽으로 막고 그 뒤에 타워를 세우세요.'
+    },
+    { at: 150, groups: [g('grunt', 10, 0.7, 0, NEST), g('stalker', 4, 0.5, 4, NEST)] },
+    {
+        at: 190,
+        groups: [g('grunt', 12, 0.6, 0, NEST), g('stalker', 6, 0.5, 3, NEST), g('rimeguard', 2, 2, 6, NEST)],
+        hint: '길이 막혔거나 너무 돌아가야 하면 적은 방벽부터 부순다. 다친 벽은 G로 수리하세요.'
+    },
+    {
+        at: 230,
+        groups: [g('harpy', 6, 0.6, 0, NEST), g('grunt', 12, 0.6, 2, NEST)],
+        hint: '하피는 하늘을 날아 벽을 넘는다. 본진 둘레에도 타워를 두세요.'
+    },
+    { at: 270, groups: [g('grunt', 16, 0.5, 0, NEST), g('rimeguard', 3, 1.5, 3, NEST), g('hexcaller', 2, 3, 6, NEST)] },
+    { at: 310, groups: [g('stalker', 18, 0.3, 0, NEST), g('yeti', 2, 3, 4, NEST)] },
+    { at: 350, groups: [g('grunt', 20, 0.45, 0, NEST), g('rimeguard', 6, 1.2, 3, NEST), g('harpy', 8, 0.6, 6, NEST)] },
+    {
+        at: 390,
+        groups: [g('glacier', 1, 1, 0, BOSS(0.4)), g('grunt', 16, 0.5, 2, NEST), g('rimeguard', 4, 1.4, 6, NEST)],
+        hint: '빙하 거신이 깨어났다. 체력이 엄청나다 · 방벽 여러 겹으로 붙잡아 두고 화력을 모으세요.'
+    },
+    { at: 430, groups: [g('yeti', 5, 1.6, 0, NEST), g('hexcaller', 3, 2.5, 3, NEST), g('grunt', 20, 0.45, 4, NEST)] },
+    {
+        at: 470,
+        groups: [g('harpy', 14, 0.45, 0, NEST), g('wraith', 6, 1, 3, NEST), g('stalker', 16, 0.35, 5, NEST)],
+        hint: '하늘이 새까맣다. 외딴 광산을 먼저 노린다.'
+    },
+    {
+        at: 510,
+        groups: [g('rimeguard', 10, 0.9, 0, NEST), g('ironclad', 6, 1.4, 3, NEST), g('grunt', 24, 0.4, 5, NEST)]
+    },
+    {
+        at: 550,
+        groups: [g('yeti', 8, 1.2, 0, NEST), g('yeti', 1, 1, 6, { elite: true }), g('stalker', 24, 0.3, 3, NEST)]
+    },
+    { at: 590, groups: [g('grunt', 30, 0.35, 0, NEST), g('hexcaller', 4, 2.5, 3, NEST), g('harpy', 12, 0.5, 6, NEST)] },
+    {
+        at: 630,
+        groups: [g('glacier', 1, 1, 0, BOSS(0.7)), g('yeti', 6, 1.5, 3, NEST), g('rimeguard', 8, 1, 6, NEST)],
+        hint: '두 번째 빙하 거신. 벽이 무너지기 전에 수리하고, 서리로 묶어 두세요.'
+    },
+    {
+        at: 670,
+        groups: [g('rimeguard', 14, 0.7, 0, NEST), g('wraith', 10, 0.8, 3, NEST), g('grunt', 30, 0.35, 5, NEST)]
+    },
+    { at: 710, groups: [g('stalker', 40, 0.2, 0, NEST), g('yeti', 6, 1.4, 4, NEST)] },
+    { at: 750, groups: [g('ironclad', 12, 0.9, 0, NEST), g('hexcaller', 5, 2, 3, NEST), g('harpy', 16, 0.4, 5, NEST)] },
+    {
+        at: 790,
+        groups: [g('grunt', 40, 0.3, 0, NEST), g('rimeguard', 14, 0.7, 3, NEST), g('yeti', 8, 1.2, 6, NEST)]
+    },
+    {
+        at: 830,
+        groups: [
+            g('wraith', 16, 0.6, 0, NEST),
+            g('harpy', 16, 0.5, 2, NEST),
+            g('yeti', 8, 1.2, 4, NEST),
+            g('ironclad', 8, 1.2, 6, NEST)
+        ]
+    },
+    {
+        at: 870,
+        // 동이 틀 때까지 끊이지 않고 몰려온다 (60초)
+        groups: [
+            g('glacier', 1, 1, 0, NEST),
+            g('grunt', 50, 1.0, 1, NEST),
+            g('stalker', 36, 1.4, 2, NEST),
+            g('rimeguard', 16, 3.4, 4, NEST),
+            g('yeti', 10, 5, 6, NEST),
+            g('harpy', 20, 2.6, 8, NEST),
+            g('hexcaller', 6, 8, 10, NEST)
+        ],
+        hint: '마지막 대공세! 동이 틀 때까지 본진을 지키면 승리한다.'
+    }
+];
+
 // ---------- 맵 컨셉: 전용 적과 보스 ----------
 // mix: [바꿀 적, 전용 적, 처음 섞이는 웨이브, 비율]. 전용 적 수는 체력 합이 비슷하도록 맞춘다.
 export const THEMES = {
@@ -403,6 +610,22 @@ export const THEMES = {
         mix: [
             ['grunt', 'bloomer', 3, 0.35],
             ['ironclad', 'burrower', 5, 0.5]
+        ]
+    },
+    // 성채 방어: 성문을 터뜨리는 자폭병과 빙결에 버티는 서리 갑주병이 공성 부대를 이룬다
+    fortress: {
+        mix: [
+            ['stalker', 'cinderling', 4, 0.4],
+            ['ironclad', 'rimeguard', 7, 0.35]
+        ]
+    },
+    // 눈마루 고개: 산의 주인 빙하 거신, 눈사태 거인·서리 갑주병, 바위산 하피
+    mountain: {
+        boss: 'glacier',
+        mix: [
+            ['wraith', 'harpy', 5, 0.45],
+            ['ironclad', 'rimeguard', 7, 0.35],
+            ['grunt', 'yeti', 9, 0.25]
         ]
     },
     stormreach: {

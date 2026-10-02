@@ -1,8 +1,11 @@
 // GPU 자원 해제 도우미. 장면에서 remove만 하면 geometry 버퍼가 GPU에 남아 오래 플레이할수록 쌓인다.
 
+// userData는 Material.clone()에도 복제된다. 공유 여부는 원본 객체에만 귀속한다.
+const sharedMaterials = new WeakSet();
+
 /** 모델 캐시가 여러 개체에 나눠 주는 재질: 개체를 지울 때 해제하지 않는다 */
 export function markShared(mats) {
-    for (const m of Array.isArray(mats) ? mats : Object.values(mats)) if (m?.isMaterial) m.userData.shared = true;
+    for (const m of Array.isArray(mats) ? mats : Object.values(mats)) if (m?.isMaterial) sharedMaterials.add(m);
     return mats;
 }
 
@@ -13,8 +16,10 @@ function materialsOf(o) {
 /** 개체 하나(적·타워·유닛 모델, 이펙트 메시)를 지울 때: geometry와 개체 전용 재질만 해제 */
 export function disposeObject(root) {
     root.traverse((o) => {
+        // 인스턴스 행렬·색 버퍼는 geometry가 아니라 메시의 dispose 이벤트로 해제된다.
+        if (o.isInstancedMesh) o.dispose();
         o.geometry?.dispose();
-        for (const m of materialsOf(o)) if (!m.userData.shared) m.dispose();
+        for (const m of materialsOf(o)) if (!sharedMaterials.has(m)) m.dispose();
     });
 }
 
@@ -34,9 +39,10 @@ export function disposeScene(scene) {
         }
     };
     scene.traverse((o) => {
+        if (o.isInstancedMesh) o.dispose();
         o.geometry?.dispose();
         for (const m of materialsOf(o)) {
-            if (seen.has(m) || m.userData.shared) continue;
+            if (seen.has(m) || sharedMaterials.has(m)) continue;
             seen.add(m);
             for (const v of Object.values(m)) tex(v);
             if (m.uniforms) for (const u of Object.values(m.uniforms)) tex(u?.value);
@@ -46,4 +52,6 @@ export function disposeScene(scene) {
     });
     tex(scene.background);
     tex(scene.environment);
+    // 셰이더 uniform으로만 쓰여 재질 속성에 없는 텍스처 (살아남기 탐험 안개 등)
+    for (const v of scene.userData.disposables || []) tex(v);
 }

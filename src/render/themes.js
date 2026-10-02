@@ -168,6 +168,87 @@ export const THEMES = {
         roof: '#1a3a5a',
         banner: '#1a8aa0',
         road: '#c8e0e8'
+    },
+    // 성채 방어: 가을 저녁, 사암 성벽과 남색 지붕
+    citadel: {
+        sky: { zenith: '#1c1838', upper: '#57406e', horizon: '#f4ae6a', below: '#9a6658', sunGlow: '#ffd890' },
+        cloud: { lit: '#ffe8c4', mid: '#eab08a', shadow: '#9a7488', deep: '#56486e', horizon: '#e09a70' },
+        fog: '#c08a7a',
+        sun: { color: '#ffb46a', intensity: 3.0 },
+        hemi: { sky: '#a094e0', ground: '#5a4428', intensity: 0.8 },
+        rim: { color: '#9a8cff', intensity: 0.85 },
+        env: 0.65,
+        ground: { grassA: '#56702c', grassB: '#86903a', dry: '#b08a48', dirt: '#86643e', rim: '#93836a' },
+        cliff: { soil: '#4e3828', bands: ['#a88e6c', '#86725a', '#b49c7c', '#6e5e4c', '#9a8468'], deep: '#30281f' },
+        veg: {
+            broad: ['#c8762a', '#d99a3a', '#b8522a', '#8a9a36', '#6a8a30', '#e0b04a'],
+            pine: ['#2f5a36', '#3a6438'],
+            broadRatio: 0.7,
+            trees: 130,
+            grass: ['#5e7a2c', '#768a34', '#8e8a3a', '#6a7a30'],
+            grassDensity: 0.95,
+            flowers: ['#ffe0a0', '#ff9a4a', '#ffd24a', '#e05a3a'],
+            snow: false,
+            dead: false,
+            crystals: null,
+            rock: '#a69680'
+        },
+        wall: '#cdb28c',
+        roof: '#2e4472',
+        banner: '#a82a2c',
+        road: '#f2dfc4'
+    },
+    // 눈마루 고개(살아남기): 해 질 녘 높은 산. 회갈색 바위 지층, 눈 덮인 봉우리, 침엽수
+    alpine: {
+        sky: { zenith: '#121a3a', upper: '#36457e', horizon: '#e9967a', below: '#5a4a72', sunGlow: '#ffb27a' },
+        cloud: { lit: '#ffe0c8', mid: '#c49aa8', shadow: '#6a6a92', deep: '#33385e', horizon: '#c88a88' },
+        fog: '#7e7a9e',
+        sun: { color: '#ffb488', intensity: 2.7 },
+        hemi: { sky: '#a0b0f0', ground: '#4a4040', intensity: 0.85 },
+        rim: { color: '#9ab0ff', intensity: 0.95 },
+        env: 0.55,
+        ground: { grassA: '#4c6e34', grassB: '#71864a', dry: '#8e8456', dirt: '#7e6248', rim: '#7c746c' },
+        cliff: { soil: '#3e3430', bands: ['#8c8278', '#6e665e', '#9a9084', '#5e5852', '#80776c'], deep: '#26222a' },
+        snow: '#eef2fa',
+        veg: {
+            broad: ['#4a6e3a', '#5a7a3e', '#8a7a3a', '#9a5a32'],
+            pine: ['#2a4a38', '#30563e', '#264436', '#365c40'],
+            broadRatio: 0.22,
+            trees: 170,
+            grass: ['#46663a', '#557040', '#62783e', '#4a6438'],
+            grassDensity: 0.8,
+            flowers: ['#f4f0ff', '#b8a8ff', '#ffe08a'],
+            snow: false,
+            dead: false,
+            crystals: null,
+            rock: '#8e8a88'
+        },
+        wall: '#a89c8c',
+        roof: '#2e3e66',
+        banner: '#6a3a2a',
+        road: '#d8d0c8'
+    }
+};
+
+/** 살아남기의 밤 순환: 가장 깊은 밤과 동틀 녘 색. 테마 기본색 → 밤 → 새벽으로 섞는다 */
+export const NIGHT_CYCLE = {
+    night: {
+        sky: { zenith: '#03040e', upper: '#0a0f2a', horizon: '#1e2450', below: '#120f24', sunGlow: '#34448a' },
+        cloud: { lit: '#4a5a88', mid: '#2e3866', shadow: '#1a2044', deep: '#0c1028', horizon: '#262c58' },
+        fog: '#141a36',
+        sun: { color: '#8aa4ff', intensity: 1.0 },
+        hemi: { sky: '#4a5ab0', ground: '#141018', intensity: 0.46 },
+        rim: { color: '#6a7cff', intensity: 0.75 },
+        env: 0.22
+    },
+    dawn: {
+        sky: { zenith: '#2a3a78', upper: '#7a6aa8', horizon: '#ffc89a', below: '#d08a8a', sunGlow: '#fff0c0' },
+        cloud: { lit: '#fff2dc', mid: '#ffc0a8', shadow: '#b08ab0', deep: '#6a5a98', horizon: '#ffb090' },
+        fog: '#e0a8a0',
+        sun: { color: '#ffd8a0', intensity: 3.2 },
+        hemi: { sky: '#b0b8ff', ground: '#6a4a3a', intensity: 0.9 },
+        rim: { color: '#ffd0a0', intensity: 0.8 },
+        env: 0.7
     }
 };
 

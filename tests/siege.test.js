@@ -119,13 +119,14 @@ test('공성전이 아니면 타워 체력과 영웅이 없다', () => {
 });
 
 test('공성전: 적이 가까운 타워를 공격하고, 체력이 다하면 무너진다', () => {
-    const st = createGame('dusk', { gold: 5000, siege: true });
-    const t = buildTower(st, 4, 'ranger').tower;
+    // 성채 방어 13번 소켓: 북문 바깥 전초
+    const st = createGame('fortress', { gold: 5000 });
+    const t = buildTower(st, 13, 'ranger').tower;
     assert.ok(t.hp > 0 && t.hp === t.maxHp);
     st.hero.dead = true;
     st.hero.respawnT = 999;
-    const d = pathDNear(st, t.x, t.z);
-    const e = spawnEnemyAt(st, 'ironclad', d - 0.5);
+    const p = nearestPathPoint(st, t.x, t.z);
+    const e = spawnEnemyAt(st, 'ironclad', p.d - 0.5, { path: p.pathIndex });
     e.hp = e.maxHp = 1e6;
     e.speed = 0.01;
     run(st, 3);
@@ -133,12 +134,12 @@ test('공성전: 적이 가까운 타워를 공격하고, 체력이 다하면 �
     t.hp = 1;
     run(st, 2);
     assert.equal(st.towers.includes(t), false, '무너진 타워는 사라진다');
-    assert.equal(st.sockets[4].towerId, null);
+    assert.equal(st.sockets[13].towerId, null);
     assert.ok(drainEvents(st).some((ev) => ev.type === 'towerDestroyed'));
 });
 
 test('공성전: 수리 비용과 수리, 웨이브 시작 시 일부 회복', () => {
-    const st = createGame('dusk', { gold: 5000, siege: true });
+    const st = createGame('fortress', { gold: 5000 });
     const t = buildTower(st, 4, 'ranger').tower;
     assert.equal(repairCost(t), 0);
     t.hp = t.maxHp / 2;
@@ -157,21 +158,21 @@ test('공성전: 수리 비용과 수리, 웨이브 시작 시 일부 회복', (
 });
 
 test('영웅: 이동 명령, 처치 경험치와 레벨업, 기술', () => {
-    const st = createGame('dusk', { gold: 1000, siege: true });
+    const st = createGame('fortress', { gold: 1000 });
     const h = st.hero;
     assert.ok(h && h.kind === 'hero' && h.level === 1);
-    const p = nearestPathPoint(st, 0, 0);
+    const p = nearestPathPoint(st, 2.5, -7);
     assert.equal(commandHero(st, p.x, p.z).ok, true);
     run(st, 12);
     assert.ok(Math.hypot(h.x - p.x, h.z - p.z) < 0.2, '목표 지점에 도착');
     h.xp = HERO.xpPerLevel - 0.5;
-    const e = spawnEnemyAt(st, 'grunt', p.d - 0.6);
+    const e = spawnEnemyAt(st, 'grunt', p.d - 0.6, { path: p.pathIndex });
     e.hp = 5;
     run(st, 3);
     assert.equal(e.alive, false);
     assert.equal(h.level, 2);
     assert.equal(h.maxHp, HERO.hp(2));
-    const e2 = spawnEnemyAt(st, 'ironclad', p.d);
+    const e2 = spawnEnemyAt(st, 'ironclad', p.d, { path: p.pathIndex });
     e2.hp = e2.maxHp = 1e6;
     st.waveIndex = 1;
     assert.equal(heroSkill(st).ok, true);

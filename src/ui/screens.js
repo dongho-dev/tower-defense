@@ -3,6 +3,7 @@ import { ICONS } from './icons.js';
 import { MAPS } from '../core/data/maps.js';
 import { ENEMIES, enemyTraits } from '../core/data/enemies.js';
 import { DIFFICULTY, DIFFICULTY_ORDER } from '../core/data/difficulty.js';
+import { formatClock } from '../core/survival.js';
 
 /** 저장 데이터에서 맵·난이도 기록 */
 /** 기록 키: 공성전은 난이도별로 따로 */
@@ -19,9 +20,32 @@ const MODES = {
     endless: { label: '끝없는 밤', desc: '<b>끝없는 밤</b> · 웨이브가 끝없이 이어지고, 버틴 웨이브 수가 기록됩니다' },
     siege: {
         label: '공성전',
-        desc: '<b>공성전</b> · 적이 타워를 공격해 무너뜨립니다. <b>영웅</b>을 움직이고 <b>병영</b>으로 길목을 막고, 무너지기 전에 수리하세요. 기록은 따로 남습니다'
+        desc: '<b>공성전</b> · 전용 전장에서 싸웁니다. 적은 지나가며 타워를 공격하니, 무너지기 전에 수리하세요.<br><b>디펜스</b> · 성문 앞에서 멈춘 적을 막고, 영웅을 움직여 위급한 문을 지킵니다 · <b>살아남기</b> · 넓은 설원에서 명당을 골라 본진을 세우고, 빈 땅 어디든 방벽·타워를 붙여 지어 길목을 막으며 동이 틀 때까지 버팁니다<br><b>랜덤 디펜스</b> · 골드로 무작위 타워를 소환하고 같은 타워 셋을 합성해 등급을 올립니다. 필드에 적이 100마리를 넘으면 패배'
     }
 };
+
+/** 공성전 전용 맵의 장르 (스타 유즈맵처럼) */
+export const GENRES = {
+    defense: { label: '디펜스', icon: 'shield' },
+    survival: { label: '살아남기', icon: 'moon' }
+};
+
+const genreBadge = (m) =>
+    m.genre && GENRES[m.genre]
+        ? `<span class="genre g-${m.genre}">${ICONS[GENRES[m.genre].icon]}${GENRES[m.genre].label}</span>`
+        : '';
+
+/** 맵 카드 아래 한 줄: 길 갈래·성문·사방 습격 */
+function mapMeta(m) {
+    if (m.rtd) return '랜덤 소환·합성 · ';
+    if (m.survival) {
+        const sv = m.survival;
+        const veins = sv.veins.length + sv.sites.reduce((n, s) => n + s.veins.length, 0);
+        return `고원 ${sv.sites.length}곳 · 광맥 ${veins}곳 · `;
+    }
+    if (m.gates) return `성문 ${m.gates.length}곳 · `;
+    return m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : '';
+}
 
 const starRow = (n) => [1, 2, 3].map((i) => `<i class="${i <= n ? 'on' : ''}">${ICONS.star}</i>`).join('');
 
@@ -37,8 +61,16 @@ const THUMB_FALLBACK = {
     void: 'linear-gradient(160deg,#b0306a 0%,#2a0b3a 55%,#07030f 100%)',
     ember: 'linear-gradient(160deg,#ff7a3a 0%,#5a1a12 55%,#1a0a0a 100%)',
     dawn: 'linear-gradient(160deg,#ffc8b0 0%,#6a8ad0 55%,#2a3a7a 100%)',
-    storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)'
+    storm: 'linear-gradient(160deg,#5aa0b0 0%,#1a3048 55%,#060c18 100%)',
+    citadel: 'linear-gradient(160deg,#f4ae6a 0%,#57406e 55%,#1c1838 100%)',
+    alpine: 'linear-gradient(160deg,#e9967a 0%,#36457e 50%,#121a3a 100%)',
+    fate: 'linear-gradient(160deg,#ffd2a0 0%,#5c7ec0 45%,#2f5a2a 100%)'
 };
+
+/** 공성전 모드에는 공성전 전용 맵만, 다른 모드에는 일반 맵만 보인다 */
+export function mapsForMode(mode) {
+    return Object.values(MAPS).filter((m) => !!m.siegeOnly === (mode === 'siege'));
+}
 
 export class Screens {
     constructor(root, actions) {
@@ -130,10 +162,10 @@ export class Screens {
             .map((m) => {
                 const bg = thumbs[m.id] ? `url(${thumbs[m.id]})` : THUMB_FALLBACK[m.theme || 'dusk'];
                 return `<button class="map-card panel ornate" data-map="${m.id}">
-                    <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"><span class="crown" title="영웅 난이도 정복">${ICONS.crown}</span></div>
+                    <div class="thumb" data-thumb="${m.id}" style="background-image:${bg}"><span class="crown" title="영웅 난이도 정복">${ICONS.crown}</span>${genreBadge(m)}</div>
                     <div class="body"><div class="name">${m.name}</div><div class="en">${m.en}</div>
                     <div class="desc">${m.desc}</div>
-                    <div class="meta"><span>${m.paths.length > 1 ? `균열 ${m.paths.length}곳 · ` : ''}<span data-len></span> · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="rec" data-rec></span></div></div>
+                    <div class="meta"><span>${mapMeta(m)}<span data-len></span> · 난이도 ${'◆'.repeat(m.difficulty)}${'◇'.repeat(3 - m.difficulty)}</span><span class="rec" data-rec></span></div></div>
                 </button>`;
             })
             .join('');
@@ -154,14 +186,26 @@ export class Screens {
             el.querySelector('[data-opt-desc]').innerHTML =
                 `<b>${DIFFICULTY[diff].name}</b> · ${DIFFICULTY[diff].desc}` +
                 (MODES[mode].desc ? '<br>' + MODES[mode].desc : '');
+            const shown = new Set(mapsForMode(mode).map((m) => m.id));
             for (const card of el.querySelectorAll('[data-map]')) {
                 const id = card.dataset.map;
+                card.hidden = !shown.has(id);
                 const rec = recordOf(save, id, diff, mode);
-                card.querySelector('[data-len]').textContent = endless ? '∞ 웨이브' : '20 웨이브';
+                const sv = MAPS[id].survival;
+                card.querySelector('[data-len]').textContent = endless
+                    ? '∞ 웨이브'
+                    : sv
+                      ? `동틀 때까지 ${Math.round((sv.dawn || 600) / 60)}분`
+                      : MAPS[id].rtd
+                        ? '40 웨이브'
+                        : '20 웨이브';
                 card.querySelector('[data-rec]').innerHTML = endless
                     ? `<span class="best">${ICONS.moon}<b>${rec.best || '—'}</b>${rec.best ? ' 웨이브' : ''}</span>`
                     : `<span class="stars">${starRow(rec.stars)}</span>`;
-                card.classList.toggle('hero-cleared', recordOf(save, id, 'hero').stars > 0);
+                card.classList.toggle(
+                    'hero-cleared',
+                    recordOf(save, id, 'hero', mode === 'siege' ? mode : 'campaign').stars > 0
+                );
                 card.classList.toggle('endless', endless);
                 card.classList.toggle('siege', mode === 'siege');
             }
@@ -195,7 +239,7 @@ export class Screens {
         );
         el.querySelector('[data-back]').onclick = () => this.actions.toTitle();
         this.mount(el);
-        el.querySelector('[data-map]').focus({ preventScroll: true });
+        el.querySelector('[data-map]:not([hidden])')?.focus({ preventScroll: true });
         return el;
     }
 
@@ -297,15 +341,28 @@ export class Screens {
         const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
         const diff = DIFFICULTY[state.difficulty];
         const endless = state.endless;
-        const title = endless ? '밤이 끝났다' : won ? '승리' : '패배';
+        const sv = state.survival;
+        const title = endless ? '밤이 끝났다' : won ? (sv ? '동이 텄다' : '승리') : '패배';
+        const R = state.rtd;
         const sub = endless
             ? `끝없는 밤에서 ${survived} 웨이브를 버텨 냈다`
-            : won
-              ? '마지막 빛이 지켜졌다'
-              : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
-        const offerEndless = won && !endless;
+            : R
+              ? won
+                  ? `마지막 보스를 쓰러뜨렸다 · 필드 최대 ${R.peak}마리`
+                  : R.lostBy === 'boss'
+                    ? `웨이브 ${state.waveIndex} 보스를 제한 시간 안에 잡지 못했다`
+                    : `웨이브 ${state.waveIndex}에서 필드가 ${R.limit}마리를 넘었다`
+              : sv
+                ? won
+                    ? '기나긴 밤을 짓고, 캐고, 고치며 버텨 냈다'
+                    : `동트기 ${formatClock(sv.dawn - sv.clock)} 전, 본진이 무너졌다`
+                : won
+                  ? '마지막 빛이 지켜졌다'
+                  : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
+        // 살아남기는 동이 트면 끝난다 (끝없는 밤으로 잇지 않는다)
+        const offerEndless = won && !endless && !sv && !R;
         const el = h(`<div class="screen dim"><div class="modal panel ornate results" style="min-width:520px">
-            <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}${state.siege ? ' · 공성전' : ''}</div>
+            <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}${state.siege ? ' · 공성전' : ''}${state.map.genre ? ' · ' + GENRES[state.map.genre].label : ''}</div>
             <h2 style="margin-bottom:6px;${won || endless ? '' : 'color:#ffb0b0'}">${title}</h2>
             <div style="color:var(--muted);font-size:14px">${sub}</div>
             ${
@@ -317,13 +374,19 @@ export class Screens {
             }
             <div class="result-grid">
                 <div class="stat"><b>${state.stats.kills}</b><span>처치</span></div>
-                <div class="stat"><b>${state.lives}/${state.maxLives}</b><span>남은 생명</span></div>
-                <div class="stat"><b>${state.stats.goldEarned + state.stats.earlyBonus}</b><span>획득 골드</span></div>
-                <div class="stat"><b>${time}</b><span>전투 시간</span></div>
                 ${
-                    state.siege
-                        ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>무너진 타워</span></div><div class="stat"><b>Lv ${state.hero ? state.hero.level : 1}</b><span>영웅 레벨</span></div>`
-                        : ''
+                    R
+                        ? `<div class="stat"><b>${R.peak}/${R.limit}</b><span>필드 최대</span></div>`
+                        : `<div class="stat"><b>${Math.ceil(state.lives)}/${state.maxLives}</b><span>${sv ? '본진 체력' : '남은 생명'}</span></div>`
+                }
+                <div class="stat"><b>${state.stats.goldEarned + state.stats.earlyBonus}</b><span>획득 골드</span></div>
+                ${sv ? '' : `<div class="stat"><b>${time}</b><span>전투 시간</span></div>`}
+                ${
+                    R
+                        ? `<div class="stat"><b>${R.summons}</b><span>소환</span></div><div class="stat"><b>${R.merges}</b><span>합성</span></div><div class="stat"><b>${R.myths}</b><span>신화</span></div>`
+                        : state.siege
+                          ? `<div class="stat"><b>${state.stats.lost || 0}</b><span>${sv ? '무너진 건물' : '무너진 타워'}</span></div>${state.hero ? `<div class="stat"><b>Lv ${state.hero.level}</b><span>영웅 레벨</span></div>` : ''}${sv ? `<div class="stat"><b>${formatClock(sv.clock)}</b><span>버틴 시간</span></div><div class="stat"><b>${state.stats.mined || 0}</b><span>캔 골드</span></div>` : ''}${state.gates.length ? `<div class="stat"><b>${state.stats.gatesLost || 0}</b><span>무너진 성문</span></div>` : ''}`
+                          : ''
                 }
             </div>
             ${offerEndless ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">${diff.name} 최고 기록 · 별 ${record.stars}개</div>` : ''}

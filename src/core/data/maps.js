@@ -1,5 +1,13 @@
 // 맵 정의. 좌표는 지면 (x, z), +z가 화면 아래(카메라 쪽).
 // sockets: [x, z], links: 공명 레이 라인으로 연결되는 소켓 인덱스 쌍.
+// 공성전 전용 맵(siegeOnly)은 genre로 장르를 밝힌다: 'defense'(디펜스) | 'survival'(살아남기).
+// rtd: 랜덤 타워 디펜스(고리 길·소환·합성, src/core/randomtd.js).
+import { survivalPaths } from '../survival.js';
+import { SNOW_BASIN } from './snowbasin.js';
+import { loopTrack, arenaCells } from './randomtd.js';
+
+// 랜덤 디펜스 맵: 칸 격자를 감싼 사각 고리 길 (data/randomtd.js 참고)
+const ARENA_GRID = arenaCells();
 
 export const MAPS = {
     dusk: {
@@ -502,5 +510,168 @@ export const MAPS = {
             [16, 17]
         ],
         waves: 'stormreach'
+    },
+    fortress: {
+        id: 'fortress',
+        name: '성채 방어',
+        en: 'Citadel Siege',
+        desc: '사방 네 갈래 길이 성벽의 네 성문에서 끝난다. 성문이 버티는 동안 적은 멈춰 서서 문을 부순다. 어느 문을 보강할지 정하라.',
+        difficulty: 2,
+        theme: 'citadel',
+        siegeOnly: true,
+        genre: 'defense',
+        startGold: 380,
+        lives: 20,
+        hpMul: 0.8,
+        island: { rx: 17, rz: 12.2 },
+        // 섬이 커서 시작 카메라를 조금 뒤로
+        view: { distance: 37 },
+        // 성채: 수정(0, 0)을 둘러싼 사각 성벽. hx·hz = 성벽 중심선의 반폭
+        fortress: { hx: 5.4, hz: 4.0 },
+        // 성문: 성벽과 길이 만나는 자리. 길 위로 붙여서 경로 거리로 바꾼다
+        gates: [
+            { at: [0, -4.0], name: '북문' },
+            { at: [5.4, 0], name: '동문' },
+            { at: [0, 4.0], name: '남문' },
+            { at: [-5.4, 0], name: '서문' }
+        ],
+        hero: [0, -1.6],
+        paths: [
+            [
+                [6.6, -11.0],
+                [5.2, -8.4],
+                [2.4, -7.0],
+                [0.4, -6.0],
+                [0, -4.0],
+                [0, -1.8],
+                [0, 0]
+            ],
+            [
+                [16.2, 3.0],
+                [13.2, 3.8],
+                [10.8, 2.0],
+                [10.4, -1.6],
+                [8.2, -2.0],
+                [6.9, 0],
+                [5.4, 0],
+                [2.6, 0],
+                [0, 0]
+            ],
+            [
+                [5.0, 11.4],
+                [4.6, 8.6],
+                [2.2, 7.2],
+                [0.4, 6.0],
+                [0, 4.0],
+                [0, 1.8],
+                [0, 0]
+            ],
+            [
+                [-16.4, -1.2],
+                [-12.6, -0.4],
+                [-9.4, 0.6],
+                [-7.4, 0],
+                [-5.4, 0],
+                [-2.6, 0],
+                [0, 0]
+            ]
+        ],
+        sockets: [
+            [-1.4, -2.8],
+            [1.4, -2.8],
+            [4.1, -1.4],
+            [4.1, 1.4],
+            [1.4, 2.8],
+            [-1.4, 2.8],
+            [-4.1, 1.4],
+            [-4.1, -1.4],
+            [-5.4, -4.0],
+            [5.4, -4.0],
+            [5.4, 4.0],
+            [-5.4, 4.0],
+            [-3.2, -5.8],
+            [3.0, -5.6],
+            [3.4, -9.6],
+            [7.6, -3.6],
+            [9.0, 1.4],
+            [12.4, 0.6],
+            [11.0, 5.6],
+            [3.0, 5.6],
+            [-3.2, 5.8],
+            [6.2, 6.6],
+            [-7.6, -2.4],
+            [-7.6, 2.4],
+            [-10.2, -2.6]
+        ],
+        links: [
+            [0, 1],
+            [2, 3],
+            [4, 5],
+            [6, 7],
+            [9, 13],
+            [9, 15],
+            [10, 19],
+            [10, 21],
+            [8, 22],
+            [11, 23],
+            [8, 12],
+            [11, 20],
+            [22, 24]
+        ],
+        waves: 'fortress'
+    },
+    mountain: {
+        id: 'mountain',
+        name: '얼어붙은 분지',
+        en: 'Frozen Basin',
+        desc: '스타 96×96급 넓은 설원, 처음엔 온통 어둠. 둥지 곁 생존자 한 명으로 절벽 위 고원을 찾아 본진을 짓고, 고원으로 오르는 비탈을 방벽으로 막아라. 동이 틀 때까지 본진을 지키면 승리.',
+        difficulty: 3,
+        theme: 'alpine',
+        siegeOnly: true,
+        genre: 'survival',
+        // 영웅 없이 짓기·업그레이드·수리·확장만으로 버틴다
+        noHero: true,
+        // 생존자가 하나씩 걸어가 짓는 만큼 처음 골드가 넉넉하다
+        startGold: 600,
+        // 생명 = 본진 체력
+        lives: 2000,
+        // 적이 무리 지어 오래 버틴다: 방벽으로 붙잡아 두고 녹이는 맵 (밸런스: tests/survival-probe.mjs)
+        hpMul: 2.45,
+        speedMul: 1.15,
+        // 광산이 주 수입이라 처치 현상금은 적다 (그래도 잡으면 조금씩 들어온다)
+        bountyMul: 0.7,
+        // 맵 전체 크기(반폭): 카메라·주변 연출이 쓴다
+        island: { rx: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2, rz: (SNOW_BASIN.size * SNOW_BASIN.tile) / 2 },
+        view: { distance: 30 },
+        survival: SNOW_BASIN,
+        paths: survivalPaths(SNOW_BASIN),
+        sockets: [],
+        links: [],
+        waves: 'mountain'
+    },
+    randomtd: {
+        id: 'randomtd',
+        name: '운명의 제단',
+        en: 'Altar of Fate',
+        desc: '숲속 경기장. 적이 칸 격자를 감싼 고리 길을 끝없이 돈다. 골드로 무작위 타워를 소환하고, 같은 타워 셋을 합쳐 더 높은 등급을 노려라. 필드에 적이 100마리를 넘으면 진다.',
+        difficulty: 2,
+        theme: 'fate',
+        siegeOnly: true,
+        genre: 'defense',
+        // 랜덤 타워 디펜스 규칙 (src/core/randomtd.js): 소환·합성·필드 한도·보스 제한 시간.
+        // 떠 있는 섬 대신 직사각형 경기장으로 그린다 (src/render/env/arena.js)
+        rtd: true,
+        noHero: true,
+        startGold: 100,
+        lives: 20,
+        hpMul: 1,
+        speedMul: 0.9,
+        // 카메라가 움직일 수 있는 범위
+        island: { rx: 9.5, rz: 6.5 },
+        view: { distance: 21 },
+        paths: [loopTrack()],
+        sockets: ARENA_GRID.sockets,
+        links: ARENA_GRID.links,
+        waves: 'randomtd'
     }
 };

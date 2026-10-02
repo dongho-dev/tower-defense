@@ -14,15 +14,25 @@ import {
     createSockets,
     createLeyLines
 } from './env/structures.js';
+import { createFortress } from './env/fortress.js';
+import { createNightCycle } from './env/nightcycle.js';
+import { buildSurvivalWorld } from './survival/world.js';
+import { buildArena } from './env/arena.js';
 
 export class World {
     constructor(renderer, state, quality) {
         this.state = state;
         const th = (this.theme = themeOf(state.map));
         const scene = (this.scene = new THREE.Scene());
+        // 살아남기는 섬이 아니라 넓은 설원 한 장이다 (survival/world.js가 같은 모양으로 채운다)
+        if (state.survival) {
+            buildSurvivalWorld(this, renderer, state, quality, th);
+            return;
+        }
         scene.fog = new THREE.Fog(th.fog, 60, 150);
 
         const { sky, env } = createSky(renderer, th);
+        this.sky = sky;
         scene.add(sky);
         scene.environment = env;
         scene.environmentIntensity = th.env;
@@ -44,10 +54,16 @@ export class World {
         sun.shadow.normalBias = 0.03;
         sun.shadow.radius = 3;
         scene.add(sun, sun.target);
-        scene.add(new THREE.HemisphereLight(th.hemi.sky, th.hemi.ground, th.hemi.intensity));
+        const hemi = new THREE.HemisphereLight(th.hemi.sky, th.hemi.ground, th.hemi.intensity);
+        scene.add(hemi);
         const rim = new THREE.DirectionalLight(th.rim.color, th.rim.intensity);
         rim.position.set(18, 14, -22);
         scene.add(rim);
+        // 랜덤 디펜스: 떠 있는 섬 대신 숲속 직사각형 경기장 (env/arena.js)
+        if (state.rtd) {
+            buildArena(this, scene, state, th, quality);
+            return;
+        }
 
         const cloud = (this.cloud = createCloudSea(sunDir, th));
         scene.add(cloud.sea, cloud.puffs);
@@ -60,7 +76,11 @@ export class World {
         this.vegetation = createVegetation(terrain, { island: state.map.island, quality: quality.grass, theme: th });
         scene.add(this.vegetation.group);
         this.lanterns = createLanterns(state, terrain);
-        this.ramparts = createRamparts(state, terrain, th);
+        // 성채 맵은 섬 가장자리 성벽 대신 수정을 둘러싼 성벽과 성문을 세운다
+        this.ramparts = state.map.fortress
+            ? { group: new THREE.Group(), update() {} }
+            : createRamparts(state, terrain, th);
+        this.fortress = createFortress(state, terrain, th);
         // 시작점이 같은 갈래(갈라지는 길)는 포털 하나를 같이 쓴다
         const starts = [];
         state.paths.forEach((p, i) => {
@@ -72,11 +92,20 @@ export class World {
         this.core = createCore(state, terrain);
         this.sockets = createSockets(state, terrain);
         this.ley = createLeyLines(state, terrain);
-        for (const o of [this.lanterns, this.ramparts, ...this.portals, this.core, this.sockets, this.ley])
+        for (const o of [
+            this.lanterns,
+            this.ramparts,
+            this.fortress,
+            ...this.portals,
+            this.core,
+            this.sockets,
+            this.ley
+        ])
             scene.add(o.group);
         this.hoverSocket = null;
         this.range = createRangeIndicator((x, z) => terrain.heightAt(x, z));
         scene.add(this.range.mesh);
+        this.night = createNightCycle(state, th, { scene, sky, cloud, sun, hemi, rim, core: this.core });
     }
 
     showRange(opt) {
@@ -93,7 +122,9 @@ export class World {
         this.islets.update(t);
         this.lanterns.update(t);
         this.ramparts.update(t);
+        this.fortress.update(t, dt, this.state);
         for (const p of this.portals) p.update(t);
+        this.night.update(dt);
         this.core.update(t);
         this.core.setHealth(this.state.lives / this.state.maxLives);
         this.sockets.update(t, this.state, this.hoverSocket);

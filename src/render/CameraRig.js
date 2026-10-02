@@ -1,5 +1,6 @@
 // 전술 카메라: 고정 기울기, 드래그 이동, 휠 줌, 부드러운 감쇠, 흔들림, 인트로 비행.
 import * as THREE from 'three';
+import { keyOf } from '../ui/keys.js';
 
 const PITCH = THREE.MathUtils.degToRad(52);
 
@@ -30,7 +31,20 @@ export class CameraRig {
     attach(dom) {
         this.dom = dom;
         let drag = null;
+        const cancelInput = () => {
+            this.keys.clear();
+            drag = null;
+            this.dragging = false;
+        };
+        // 창 밖에서 놓인 키·포인터는 keyup/pointerup이 돌아오지 않을 수 있다.
+        window.addEventListener('blur', cancelInput);
+        window.addEventListener('pointercancel', cancelInput);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) cancelInput();
+        });
         dom.addEventListener('pointerdown', (e) => {
+            // 살아남기 건설 중에는 왼쪽 끌기가 방벽 줄 긋기다
+            if (this.dragLock && e.button === 0) return;
             if (e.button === 1 || e.button === 2 || e.button === 0) {
                 drag = { x: e.clientX, y: e.clientY, moved: false, button: e.button };
             }
@@ -67,11 +81,18 @@ export class CameraRig {
             { passive: false }
         );
         dom.addEventListener('contextmenu', (e) => e.preventDefault());
-        window.addEventListener('keydown', (e) => this.keys.add(e.key.toLowerCase()));
-        window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+        // 한글 입력 상태에서도 WASD가 먹도록 자판 위치로 읽는다
+        window.addEventListener('keydown', (e) => this.keys.add(keyOf(e).toLowerCase()));
+        window.addEventListener('keyup', (e) => this.keys.delete(keyOf(e).toLowerCase()));
     }
 
     clampGoal() {
+        // 살아남기(넓은 맵): 맵 전체를 자유롭게 (rect = { x0, x1, z0, z1 })
+        if (this.rect) {
+            this.goal.x = THREE.MathUtils.clamp(this.goal.x, this.rect.x0, this.rect.x1);
+            this.goal.z = THREE.MathUtils.clamp(this.goal.z, this.rect.z0, this.rect.z1);
+            return;
+        }
         const { rx, rz } = this.bounds;
         this.goal.x = THREE.MathUtils.clamp(this.goal.x, -rx * 0.7, rx * 0.7);
         this.goal.z = THREE.MathUtils.clamp(this.goal.z, -rz * 0.7, rz * 0.8);

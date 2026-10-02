@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { registerHooks } from 'node:module';
 import assert from 'node:assert/strict';
 import { createGame, buildTower, upgradeTower } from '../src/core/game.js';
 import { keyOf } from '../src/ui/keys.js';
@@ -30,7 +31,15 @@ class El {
 const win = new El();
 globalThis.window ??= win;
 globalThis.document ??= { createElement: () => new El() };
+// 패널이 끌어오는 UI 모듈이 스타일 파일을 import한다
+const cssHook = registerHooks({
+    load(url, context, nextLoad) {
+        if (url.endsWith('.css')) return { format: 'module', source: '', shortCircuit: true };
+        return nextLoad(url, context);
+    }
+});
 const { Inspector } = await import('../src/ui/panel.js');
+cssHook.deregister();
 
 function rig() {
     const s = createGame('dusk', { gold: 5000 });

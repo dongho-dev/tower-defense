@@ -553,6 +553,27 @@ export class Effects {
         this.burst(this.add, p, 10, { color: COL.void, size: 0.25, speed: 1.5, life: 0.5 });
     }
 
+    /** 살아남기: 동이 트면 남은 적이 금빛으로 타 사라진다 */
+    on_dawnBurn(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.5);
+        this.burst(this.add, p, 12, { color: COL.goldSoft, size: 0.16, speed: 1.4, life: 0.9, grav: -1.2 });
+        this.burst(this.smoke, p, 5, {
+            color: [0.2, 0.14, 0.1],
+            size: 0.5,
+            size1: 1.1,
+            speed: 0.6,
+            upMin: 0.6,
+            upMax: 1.4,
+            life: 1.2
+        });
+    }
+
+    on_dawn() {
+        const c = this.world.core.top;
+        this.flash(c, 0xffd8a0, 60, 2.4, 40);
+        this.ring(new THREE.Vector3(c.x, 0, c.z), 7, COL.goldSoft, 1.4, 0.8);
+    }
+
     on_leak() {
         const c = this.world.core.top;
         this.burst(this.add, c, 40, { color: COL.blood, size: 0.3, speed: 4, life: 0.7, grav: 2 });
@@ -772,6 +793,24 @@ export class Effects {
     // ---------- 공성전 ----------
     /** 적이 타워에 던지는 공격: 날아가는 불씨와 도착 시 파편 */
     on_enemyShot(ev) {
+        // 살아남기: 붙어서 치는 근접 공격은 던지지 않고 맞닿은 자리에서 불똥·돌가루가 튄다
+        if (ev.melee) {
+            const dx = ev.tx - ev.x;
+            const dz = ev.tz - ev.z;
+            const l = Math.hypot(dx, dz) || 1;
+            const k = Math.min(0.45, l);
+            const at = this.groundPoint(ev.x + (dx / l) * k, ev.z + (dz / l) * k, ev.boss ? 1.1 : 0.55);
+            this.burst(this.add, at, ev.boss ? 16 : 5, { color: COL.ember, size: 0.1, speed: 2.2, life: 0.3, grav: 6 });
+            this.burst(this.smoke, at, ev.boss ? 5 : 1, {
+                color: [0.45, 0.4, 0.38],
+                size: 0.25,
+                size1: 0.6,
+                speed: 0.7,
+                life: 0.6,
+                alpha: 0.5
+            });
+            return;
+        }
         const from = this.groundPoint(ev.x, ev.z, ev.boss ? 1.6 : 0.7);
         const to = this.entities.towerTop(ev.towerId, new THREE.Vector3()) || this.groundPoint(ev.tx, ev.tz, 1);
         to.y -= 0.3;
@@ -804,6 +843,12 @@ export class Effects {
         });
     }
 
+    /** 살아남기: 본진 붕괴 */
+    on_baseDestroyed(ev) {
+        this.on_towerDestroyed(ev);
+        this.flash(this.groundPoint(ev.x, ev.z, 1.5), 0xffb45a, 60, 3, 18);
+    }
+
     on_towerDestroyed(ev) {
         const p = this.groundPoint(ev.x, ev.z, 0.5);
         this.burst(this.smoke, p, 40, {
@@ -830,6 +875,64 @@ export class Effects {
         this.ring(p, 2.2, COL.blood, 0.6, 1.2);
         this.flash(p, 0xff6a3a, 20, 0.5, 8);
         this.rig.shake(0.35);
+    }
+
+    /** 성문 붕괴: 나무 파편·돌가루·먼지 기둥, 크게 흔들림 */
+    on_gateBroken(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.8);
+        this.burst(this.smoke, p, 55, {
+            color: [0.5, 0.43, 0.36],
+            size: 1.1,
+            size1: 2.6,
+            speed: 3,
+            upMin: 0.3,
+            upMax: 1.4,
+            life: 2.4,
+            alpha: 0.75,
+            drag: 1.3,
+            spread: 1.2
+        });
+        // 쪼개진 문짝 (갈색 파편)
+        this.burst(this.smoke, p, 26, {
+            color: [0.32, 0.2, 0.1],
+            size: 0.16,
+            speed: 5,
+            upMin: 1,
+            upMax: 2.6,
+            life: 1.3,
+            grav: 9,
+            alpha: 1,
+            drag: 0.6
+        });
+        this.burst(this.add, p, 34, {
+            color: COL.ember,
+            size: 0.12,
+            speed: 5.5,
+            upMin: 1,
+            upMax: 2.4,
+            life: 1,
+            grav: 8
+        });
+        this.ring(p, 3.2, COL.blood, 0.8, 1.4);
+        this.ring(p, 1.8, COL.fireHot, 0.5, 1);
+        this.decal(p, 1.3, 'scorch', 30);
+        this.flash(p, 0xff7a3a, 30, 0.6, 10);
+        this.rig.shake(0.5);
+    }
+
+    on_gateReinforce(ev) {
+        const p = this.groundPoint(ev.x, ev.z, 0.4);
+        this.burst(this.add, p, 30, {
+            color: COL.gold,
+            size: 0.1,
+            speed: 1.2,
+            upMin: 2,
+            upMax: 3.5,
+            life: 1,
+            spread: 1.6
+        });
+        this.ring(p, 1.8, COL.goldSoft, 0.6);
+        this.flash(p, 0xffc45a, 10, 0.4, 6);
     }
 
     on_repair(ev) {
@@ -1078,6 +1181,38 @@ export class Effects {
         this.ambientT += dt;
         this.updateBeams(state, t);
         const q = this.q;
+        // 무너진 성문: 그을린 잔해에서 연기 기둥과 불씨가 오른다 (멀리서도 보이게)
+        for (const g of state.gates || []) {
+            if (!g.broken || Math.random() > dt * 9 * q) continue;
+            const p = this.groundPoint(g.x + (Math.random() - 0.5) * 1.2, g.z + (Math.random() - 0.5) * 1.2, 0.3);
+            this.smoke.emit({
+                x: p.x,
+                y: p.y,
+                z: p.z,
+                vx: 0.15,
+                vy: 1.1 + Math.random() * 0.5,
+                vz: -0.1,
+                life: 2.6,
+                size: 0.5,
+                size1: 1.6,
+                color: [0.24, 0.21, 0.2],
+                alpha: 0.5,
+                drag: 0.3
+            });
+            if (Math.random() < 0.5)
+                this.add.emit({
+                    x: p.x,
+                    y: p.y,
+                    z: p.z,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: 0.8 + Math.random(),
+                    vz: (Math.random() - 0.5) * 0.4,
+                    life: 1.2,
+                    size: 0.08,
+                    color: COL.ember,
+                    drag: 0.5
+                });
+        }
         // 투사체 궤적
         for (const p of state.projectiles) {
             const mesh = this.entities.projectileAt?.(p.id);
@@ -1300,7 +1435,7 @@ export class Effects {
                 fadeIn: 0.3
             });
         }
-        if (Math.random() < 0.7 * q) {
+        if (this.world.portals.length && Math.random() < 0.7 * q) {
             const portals = this.world.portals;
             const pg = portals[Math.floor(Math.random() * portals.length)].group.position;
             const a = Math.random() * Math.PI * 2;

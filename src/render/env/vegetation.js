@@ -259,7 +259,11 @@ export function createVegetation(terrain, opts = {}) {
     const tuftGeo = paint(mergeGeometries(blades), new THREE.Color(0.35, 0.4, 0.3), new THREE.Color(0.95, 0.95, 0.8));
     const grassSpots = place(
         Math.round(2100 * quality * veg.grassDensity),
-        (x, z) => terrain.pathDist(x, z) > 1.05 && terrain.socketDist(x, z) > 0.95 && terrain.ellipseR(x, z) < 0.985
+        (x, z) =>
+            terrain.pathDist(x, z) > 1.05 &&
+            terrain.socketDist(x, z) > 0.95 &&
+            terrain.ellipseR(x, z) < 0.985 &&
+            terrain.fortDist(x, z) > 0.45
     );
     const grassMat = windMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }, 0.18);
     const grass = new THREE.InstancedMesh(tuftGeo, grassMat, grassSpots.length);

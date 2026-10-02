@@ -9,6 +9,10 @@ import {
     drainEvents,
     repairTower,
     repairCost,
+    repairGate,
+    gateRepairCost,
+    repairBase,
+    baseRepairCost,
     TICK
 } from '../src/core/game.js';
 import { TOWERS, MAX_TIER } from '../src/core/data/towers.js';
@@ -29,7 +33,8 @@ export function playWithPlan(mapId, plan, opts = {}) {
     const branchOf = new Map(plan.map(([sid, , br]) => [sid, br || 'a']));
     let think = 0;
     const log = [];
-    callWave(state);
+    // 살아남기는 밤 시계가 저절로 흐른다 (첫 습격 전 짓는 시간을 그대로 쓴다)
+    if (!state.survival) callWave(state);
     while (state.status === 'playing' && state.time < (opts.maxTime ?? 3000)) {
         step(state, TICK);
         const evs = drainEvents(state);
@@ -41,11 +46,25 @@ export function playWithPlan(mapId, plan, opts = {}) {
         if (state.siege) {
             const hurt = state.towers.find((t) => t.hp < t.maxHp * 0.5 && repairCost(t) <= state.gold);
             if (hurt) repairTower(state, hurt.id);
+            // 성문: 절반 아래면 수리, 무너졌으면 재건
+            const gate = state.gates.find((g) => (g.broken || g.hp < g.maxHp * 0.5) && gateRepairCost(g) <= state.gold);
+            if (gate && !opts.noGateRepair) repairGate(state, gate.id);
+            // 살아남기: 본진이 절반 아래면 수리
+            if (state.survival && !opts.noBaseRepair && state.lives < state.maxLives * 0.5) {
+                if (baseRepairCost(state) <= state.gold) repairBase(state);
+            }
         }
         // 1) 계획상 다음 소켓에 건설
         const next = plan.find(([sid]) => state.sockets[sid].towerId == null);
         const builtCount = state.towers.length;
-        if (next && (builtCount < (opts.minTowers ?? 4) || !opts.upgradeFirst)) {
+        // tierGate: 지은 타워(광산 제외)가 모두 이 레벨에 닿아야 다음 것을 짓는다 (넓게만 짓지 않는 플레이)
+        const gated =
+            opts.tierGate && state.towers.some((t) => t.type !== 'mine' && !t.branch && t.tier < opts.tierGate);
+        if (
+            next &&
+            !(gated && TOWERS[next[1]].attack !== 'none') &&
+            (builtCount < (opts.minTowers ?? 4) || !opts.upgradeFirst)
+        ) {
             const cost = TOWERS[next[1]].tiers[0].cost;
             if (state.gold >= cost) {
                 buildTower(state, next[0], next[1]);
@@ -82,7 +101,10 @@ export function playWithPlan(mapId, plan, opts = {}) {
                 }
                 if (bestN >= 5 || lead.def.boss) castSkill(state, 'meteor', (bestE || lead).x, (bestE || lead).z);
             }
-            if (state.skills.freeze.cd <= 0 && lead.d > state.paths[0].length * 0.8) castSkill(state, 'freeze');
+            const deep = state.survival
+                ? state.enemies.some((e) => e.atkTargetId != null)
+                : lead.d > state.paths[0].length * 0.8;
+            if (state.skills.freeze.cd <= 0 && deep) castSkill(state, 'freeze');
         }
         if (opts.callEarly && state.nextWaveIn != null && state.nextWaveIn < WAVE_EARLY) callWave(state);
         if (state.waveIndex !== log.length)
