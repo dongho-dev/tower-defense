@@ -30,6 +30,17 @@ export class CameraRig {
     attach(dom) {
         this.dom = dom;
         let drag = null;
+        const cancelInput = () => {
+            this.keys.clear();
+            drag = null;
+            this.dragging = false;
+        };
+        // 창 밖에서 놓인 키·포인터는 keyup/pointerup이 돌아오지 않을 수 있다.
+        window.addEventListener('blur', cancelInput);
+        window.addEventListener('pointercancel', cancelInput);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) cancelInput();
+        });
         dom.addEventListener('pointerdown', (e) => {
             // 살아남기 건설 중에는 왼쪽 끌기가 방벽 줄 긋기다
             if (this.dragLock && e.button === 0) return;

@@ -1510,7 +1510,10 @@ export function step(state, dt = TICK) {
     if (state.survival) {
         const sv = state.survival;
         updateNight(state, dt);
-        if (state.status === 'playing') payMines(state, dt, (t) => towerStats(state, t).income);
+        // 동이 튼 순간에는 이 틱의 나머지 시뮬레이션을 실행하지 않는다.
+        // 특히 동이 트는 틱에 생존자 건설을 진행하면 승리 이벤트 뒤에 built가 발생한다.
+        if (state.status !== 'playing') return;
+        payMines(state, dt, (t) => towerStats(state, t).income);
         updateWorker(state, dt, workerHooks(state));
         // 지킬 건물이 없어 생존자를 쫓는 동안은 흐름장을 자주 다시 구한다
         if (sv.chaseWorker && (sv.flowT -= dt) <= 0) {
