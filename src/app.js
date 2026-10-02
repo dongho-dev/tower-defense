@@ -111,7 +111,7 @@ export class App {
 
         this.state = createGame(params.get('map') || 'dusk');
         this.buildWorld();
-        this.audio = new Audio();
+        this.audio = new Audio({ mode: () => this.mode, camera: () => this.rig.camera });
         this.audio.enabled = this.save.settings.sound;
         this.rig.shakeEnabled = this.save.settings.shake;
 
@@ -133,7 +133,8 @@ export class App {
             openSettings: () => this.openSettings(true),
             openBestiary: () => this.openBestiary(false),
             selectHero: () => this.selectHero(),
-            heroSkill: () => this.useHeroSkill()
+            heroSkill: () => this.useHeroSkill(),
+            deny: () => this.audio.play('deny')
         });
         this.hud.setVisible(false);
         this.radial = new Radial(this.uiRoot, {

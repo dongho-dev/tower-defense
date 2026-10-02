@@ -26,7 +26,8 @@ As of 2026-10-01. Design rationale lives in [REMAKE_DESIGN.md](REMAKE_DESIGN.md)
 | `src/render/Renderer.js` | Renderer, MSAA + bloom + grading, quality presets |
 | `src/render/CameraRig.js` | Pitch/distance/pan/shake/intro/title orbit |
 | `src/ui/*` | HUD, radial menus and cards, screens, overlay (HP bars, floating text), icons, styles |
-| `src/audio/audio.js` | WebAudio synthesized SFX and ambience |
+| `src/audio/audio.js` | WebAudio synthesized SFX: buses (sfx/ui/music/ambience), ducking, voice limits, screen panning, UI click/deny sounds |
+| `src/audio/music.js` | Layered state music (prep pad and bells, combat drums and ostinato, boss brass, low-lives pulse) scheduled per bar |
 | `tests/` | `core.test.js` (rules), `balance.test.js` (headless AI regression), `balance-probe.mjs` (exploration) |
 | `tools/` | Map preview, socket placement helper |
 | `prototypes/` | Direction comparison demos (archived) |
