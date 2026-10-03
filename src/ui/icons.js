@@ -57,6 +57,9 @@ export const ICONS = {
     ),
     close: svg('<path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
     play: svg('<path d="M7 4.5 L19 12 L7 19.5 Z" fill="currentColor"/>'),
+    back: svg(
+        '<path d="M14.5 5 L7.5 12 L14.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
     fast: svg('<path d="M3 5 L12 12 L3 19 Z M12 5 L21 12 L12 19 Z" fill="currentColor"/>'),
     pause: svg(
         '<rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/>'

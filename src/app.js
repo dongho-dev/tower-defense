@@ -53,7 +53,7 @@ import { Hud } from './ui/hud.js';
 import { Radial } from './ui/radial.js';
 import { Inspector } from './ui/panel.js';
 import { keyOf } from './ui/keys.js';
-import { Screens, Coach, recordOf, recordKey } from './ui/screens.js';
+import { Screens, Coach, recordOf, recordKey, lobbyModeOf } from './ui/screens.js';
 import { Audio } from './audio/audio.js';
 import { SurvivalUI } from './ui/survival/controller.js';
 import { loadSave, SAVE_KEY } from './save.js';
@@ -99,7 +99,6 @@ export class App {
         this.targeting = null;
         this.pending = [];
         this.raycaster = new THREE.Raycaster();
-        this.thumbs = {};
 
         this.hud = new Hud(this.uiRoot, {
             callWave: () => this.callWave(),
@@ -357,13 +356,11 @@ export class App {
         return { stars, maxStars: Object.keys(MAPS).length * 3, heroCleared, bestWave, hasProgress: recs.length > 0 };
     }
 
+    /** 선택 화면. back: 판을 마치고 돌아갈 때는 그 판의 놀이 방식·전장 자리로 */
     toSelect(opts = {}) {
         this.startMapToken = (this.startMapToken || 0) + 1;
         this.liftFade();
-        if (opts.endless) {
-            this.save.lastEndless = true;
-            this.persist();
-        }
+        const back = opts.back && this.state;
         this.rig.shift = 0;
         this.endSurvivalUI();
         this.mode = 'select';
@@ -373,8 +370,7 @@ export class App {
         this.coach?.destroy();
         this.rig.orbit = true;
         this.rig.setPitch(16);
-        this.wantThumb = true;
-        this.screens.select(this.save, this.thumbs);
+        this.screens.select(this.save, back ? lobbyModeOf(this.state) : null, back ? this.state.mapId : null);
     }
 
     startMap(mapId, opts = {}) {
@@ -1233,17 +1229,6 @@ export class App {
 
     draw() {
         this.renderer.render(this.t);
-        if (this.wantThumb) {
-            this.wantThumb = false;
-            try {
-                const url = this.renderer.renderer.domElement.toDataURL('image/jpeg', 0.7);
-                this.thumbs[this.worldMap] = url;
-                const el = this.uiRoot.querySelector(`[data-thumb="${this.worldMap}"]`);
-                if (el) el.style.backgroundImage = `url(${url})`;
-            } catch {
-                /* 캡처 불가 시 무시 */
-            }
-        }
     }
 
     // ---------- 개발용 ----------

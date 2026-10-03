@@ -6,7 +6,8 @@ export const SAVE_KEY = 'lastlight.v2';
 const DEFAULT_SETTINGS = { quality: 'high', sound: true, shake: true };
 const QUALITIES = new Set(['high', 'medium', 'low']);
 const DIFFICULTIES = new Set(Object.keys(DIFFICULTY));
-const MODES = new Set(['campaign', 'endless', 'siege']);
+// 마지막으로 고른 놀이 방식 ('siege'는 예전 저장의 공성전 버튼 값)
+const MODES = new Set(['campaign', 'endless', 'siege', 'fortress', 'survival', 'rtd']);
 
 function isRecord(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
