@@ -31,6 +31,22 @@ export function edgeWidth(w, h) {
     return Math.round(Math.min(32, Math.max(18, Math.min(w, h) * 0.03)));
 }
 
+/**
+ * 커서가 창 밖으로 나간 쪽 ([-1|0|1, -1|0|1]). 창 모드에서 위·아래 끝으로 밀면 커서가 탭 줄·작업 표시줄로
+ * 빠져나가므로, 나간 쪽으로 계속 움직여 준다. 빠르게 밀면 마지막 좌표가 끝에서 멀 수 있어 짧은 변의 25%까지 보고,
+ * 그래도 애매하면 마지막으로 움직이던 방향을 쓴다.
+ */
+export function exitSide(x, y, w, h, vx = 0, vy = 0) {
+    const m = Math.min(w, h) * 0.25;
+    const side = (p, len) => (p < m ? -1 : p > len - 1 - m ? 1 : 0);
+    const out = [side(x, w), side(y, h)];
+    if (!out[0] && !out[1] && (vx || vy)) {
+        if (Math.abs(vx) >= Math.abs(vy)) out[0] = Math.sign(vx);
+        else out[1] = Math.sign(vy);
+    }
+    return out;
+}
+
 /** 여럿에게 이동 명령을 줄 때 흩어 설 자리 (가운데 한 명, 둘레에 고리로) */
 function spreadOffsets(n, gap) {
     const out = [[0, 0]];
@@ -52,7 +68,7 @@ export class SurvivalUI {
         this.f = sv.field;
         this.placing = null;
         this.box = null;
-        this.mouse = { x: 0, y: 0, seen: false, inWindow: false };
+        this.mouse = { x: 0, y: 0, seen: false, inWindow: false, out: null, vx: 0, vy: 0 };
         this.bossWarned = -1;
         this.v = new THREE.Vector3();
         // 고른 생존자 id (렌더러의 발밑 고리와 같은 모음을 쓴다)
@@ -131,14 +147,33 @@ export class SurvivalUI {
             this.mouse.y = e.clientY;
             this.mouse.seen = true;
             this.mouse.inWindow = true;
+            this.mouse.out = null;
+            if (e.movementX || e.movementY) {
+                this.mouse.vx = e.movementX;
+                this.mouse.vy = e.movementY;
+            }
             this.mouse.overCanvas = e.target === dom;
             if (this.box) this.dragBox(e);
         });
-        // 커서가 창 밖으로 나가면 가장자리 이동을 멈춘다 (마지막 자리가 가장자리여도)
-        listen(document, 'pointerleave', () => (this.mouse.inWindow = false));
-        listen(document.documentElement, 'mouseleave', () => (this.mouse.inWindow = false));
-        listen(window, 'blur', () => {
+        // 커서가 가장자리 쪽으로 창 밖에 나가면 다시 들어오거나 다른 창을 누를 때까지 그쪽으로 계속 움직인다
+        const leave = (e) => {
+            const m = this.mouse;
+            if (!m.inWindow) return;
+            m.inWindow = false;
+            const out = exitSide(e.clientX, e.clientY, window.innerWidth, window.innerHeight, m.vx, m.vy);
+            m.out = out[0] || out[1] ? out : null;
+        };
+        listen(document.documentElement, 'mouseleave', leave);
+        listen(window, 'mouseout', (e) => {
+            if (!e.relatedTarget) leave(e);
+        });
+        const stop = () => {
             this.mouse.inWindow = false;
+            this.mouse.out = null;
+        };
+        listen(document, 'visibilitychange', () => document.hidden && stop());
+        listen(window, 'blur', () => {
+            stop();
             this.endBox(null);
         });
         listen(dom, 'pointerdown', (e) => this.onDown(e));
@@ -631,7 +666,8 @@ export class SurvivalUI {
     /** 화면 가장자리 이동: 띠 안에 있으면 끝에 가까울수록 빠르게 (-1~1) */
     edgePan() {
         const m = this.mouse;
-        if (!m.seen || !m.inWindow || this.box?.active || this.minimap.dragging) return [0, 0];
+        if (!m.seen || this.box?.active || this.minimap.dragging) return [0, 0];
+        if (!m.inWindow) return m.out ? [m.out[0], m.out[1]] : [0, 0];
         const W = window.innerWidth;
         const H = window.innerHeight;
         const E = edgeWidth(W, H);
@@ -658,7 +694,8 @@ export class SurvivalUI {
             mz = Math.max(-1, Math.min(1, mz + ez));
             if (mx || mz) {
                 rig.goal.x += mx * pan;
-                rig.goal.z += mz * pan;
+                // 비스듬히 내려다보므로 앞뒤는 화면에서 짧아 보인다: 좌우와 같은 빠르기로 보이게 늘린다
+                rig.goal.z += (mz * pan) / Math.sin(rig.pitch);
                 rig.clampGoal();
             }
         }
