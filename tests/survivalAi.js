@@ -1,6 +1,6 @@
 // 살아남기(얼어붙은 분지) 헤드리스 AI: 밸런스 검증과 스크린샷 준비에 함께 쓴다.
 // 플레이어처럼 생존자 한 명을 움직인다: 가운데에서 출발 → 고원 하나로 걸어가 탐험 → 본진 → 광산 →
-// 비탈마다 방벽 한 줄(바깥)과 한 줄 더(안) → 그 뒤 고원 위에 타워 → 남는 광맥·채굴 기술·업그레이드.
+// 비탈마다 큰 방벽 하나(입구 전체) → 그 뒤 고원 위에 타워 → 방벽 2단계 → 남는 광맥·채굴 기술·업그레이드.
 // 다친 벽·타워·본진은 생존자를 보내 고치고, 무너진 벽은 다시 짓게 한다. 업그레이드는 그 자리에서 (생존자 없이).
 import {
     createGame,
@@ -28,7 +28,8 @@ const N4 = [
 const rampCell = (r, t, l) => [r.ri + r.d[0] * t + r.p[0] * l, r.rj + r.d[1] * t + r.p[1] * l];
 
 /**
- * 고원의 방어 계획: wall1 = 비탈 통로 위 끝 줄(t=0), wall2 = 그 바로 안쪽 고원 칸 한 줄(t=-1),
+ * 고원의 방어 계획: wall1 = 비탈 통로 위 끝 줄(t=0, 방벽이 덮는 칸), wallAt = 비탈마다 방벽 주문 칸 하나,
+ * wall2 = 그 바로 안쪽 고원 칸 한 줄(t=-1, 예전 두 줄 방벽 자리: 지금은 비워 둔다),
  * spots = 벽 앞(통로 바깥 줄)에 사거리가 닿는 고원 위 2×2 타워 자리 (가까운 순, 통로 앞 길목은 비운다),
  * allSpots = 고원 안 어디든 2×2, veins = 고원 안 광맥.
  */
@@ -38,6 +39,7 @@ export function sitePlan(state, siteId) {
     const s = f.sites.find((x) => x.id === siteId);
     const ramps = f.ramps.filter((r) => r.owner === siteId);
     const wall1 = ramps.flatMap((r) => r.rows[0]);
+    const wallAt = ramps.map((r) => r.rows[0][0]);
     // 안쪽 줄: 위 끝 바로 앞 고원 칸 (통로 폭 그대로. 양옆은 절벽이라 모서리로 새지 못한다)
     const wall2 = ramps.flatMap((r) => {
         const out = [];
@@ -89,7 +91,7 @@ export function sitePlan(state, siteId) {
         }
     spots.sort((a, b) => a.d - b.d);
     const veins = f.veins.filter((v) => v.site === s.n);
-    return { site: s, ramps, wall1, wall2, spots, allSpots, veins, dist, lane, stage };
+    return { site: s, ramps, wall1, wallAt, wall2, spots, allSpots, veins, dist, lane, stage };
 }
 
 /**
@@ -193,7 +195,7 @@ function fieldBaseSpot(state, plan) {
 
 /**
  * 생존자를 움직이는 AI. think()를 0.5초마다 부른다.
- * opts: { site, idle, walls: true, wall2: true, field: false, towers: [...종류], mines: true, upgrades: true,
+ * opts: { site, idle, walls: true, wall2: true(방벽 2단계를 일찍), field: false, towers: [...종류], mines: true, upgrades: true,
  *         repair: true, maxTowers, tierGate }
  */
 export function createSurvivalAi(state, opts = {}) {
@@ -339,10 +341,11 @@ export function createSurvivalAi(state, opts = {}) {
         const wallsOn = opts.walls !== false && !fieldBase;
         // 3) 광산 하나 → 비탈 바깥 줄 방벽(무너지면 다시) → 타워 → 광산 → 타워 …
         if (useMines && mines < 1 && buildMine()) return;
+        const wallCost = TOWERS.wall.tiers[0].cost;
         if (wallsOn) {
             let any = false;
-            for (const k of plan.wall1)
-                if (sv.occ[k] === 0 && !sv.reserved[k] && state.gold >= 12)
+            for (const k of plan.wallAt)
+                if (sv.occ[k] === 0 && !sv.reserved[k] && state.gold >= wallCost)
                     any = order('wall', k % N, Math.floor(k / N)) || any;
             if (any) return;
         }
@@ -351,13 +354,11 @@ export function createSurvivalAi(state, opts = {}) {
         if (towerCount < 2 && wantTower()) return;
         if (towerCount < 3 && wantTower()) return;
         if (useMines && buildMine()) return;
-        // 4) 안쪽 줄 방벽
+        // 4) 방벽 2단계 (예전 안쪽 줄 방벽 자리)
+        const walls = state.towers.filter((t) => t.type === 'wall' && !t.build);
         if (wallsOn && opts.wall2 !== false && towerCount >= 3) {
-            let any = false;
-            for (const k of plan.wall2)
-                if (sv.occ[k] === 0 && !sv.reserved[k] && state.gold >= 40)
-                    any = order('wall', k % N, Math.floor(k / N)) || any;
-            if (any) return;
+            const wl = walls.find((t) => t.tier < 2);
+            if (wl && state.gold >= TOWERS.wall.tiers[1].cost + 10 && upgradeTower(state, wl.id).ok) return;
         }
         // 5) 채굴 기술, 업그레이드 (광산 먼저, 그다음 tierGate 레벨까지 타워), 타워 더, 벽 강화
         if (opts.upgrades !== false) {
@@ -381,10 +382,7 @@ export function createSurvivalAi(state, opts = {}) {
         }
         if (wantTower()) return;
         if (opts.upgrades !== false && wallsOn) {
-            const w1 = new Set(plan.wall1);
-            const wl = state.towers.find(
-                (t) => t.type === 'wall' && !t.build && t.tier < MAX_TIER && w1.has(t.cell.j * N + t.cell.i)
-            );
+            const wl = walls.find((t) => t.tier < MAX_TIER);
             if (wl && state.gold > 200) upgradeTower(state, wl.id);
         }
     }

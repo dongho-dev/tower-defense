@@ -10,7 +10,7 @@ import { createSurvivalTerrain } from './terrainMesh.js';
 import { createSurvivalProps } from './props.js';
 import { createNest } from './nest.js';
 import { createSurvivalBuildings } from './buildings.js';
-import { createWorker } from './worker.js';
+import { createWorkers } from './worker.js';
 import { createBuildGrid } from './buildGrid.js';
 
 const NONE = () => ({ group: new THREE.Group(), pickables: [], update() {} });
@@ -61,7 +61,7 @@ export function buildSurvivalWorld(world, renderer, state, quality, th) {
     scene.add(world.nest.group);
     world.buildings = createSurvivalBuildings(state, terrain);
     scene.add(world.buildings.group);
-    world.worker = createWorker(state, terrain);
+    world.worker = createWorkers(state, terrain);
     scene.add(world.worker.group);
     world.buildGrid = createBuildGrid(state, terrain);
     scene.add(world.buildGrid.group);

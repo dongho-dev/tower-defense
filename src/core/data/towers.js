@@ -290,8 +290,10 @@ export const TOWERS = {
 };
 
 /**
- * 살아남기 전용 방벽(1×1 타일). 건설 메뉴(TOWER_ORDER)에는 없고, 자유 배치 건설 막대에만 나온다.
- * 공격하지 않는다. 붙여 지어 길목을 막으면 적은 돌아가거나, 너무 멀면 벽부터 부순다. 레벨마다 체력이 오른다.
+ * 살아남기 전용 방벽. 고원으로 오르는 비탈(입구) 하나를 통째로 막는 큰 벽 하나다 (비탈 폭 × 1칸).
+ * 건설 메뉴(TOWER_ORDER)에는 없고 자유 배치 건설 막대에만 나온다. 공격하지 않는다.
+ * 생존자는 문처럼 지나가고, 적은 돌아가거나(다른 입구) 벽을 부순다. 그 자리에서 3단계까지 올린다.
+ * 값·체력은 예전 1칸 방벽으로 입구 하나(3~5칸)를 막던 총량 언저리 (체력은 map.survival.wallHp를 곱한다).
  */
 TOWERS.wall = {
     id: 'wall',
@@ -300,14 +302,14 @@ TOWERS.wall = {
     hotkey: '1',
     dmgType: 'none',
     color: '#c9d4e6',
-    role: '적을 가로막는 튼튼한 돌벽. 길을 막으면 적은 돌아가거나 벽부터 부순다',
+    role: '비탈 입구 하나를 통째로 막는 벽. 생존자는 지나가고, 적은 돌아가거나 벽부터 부순다',
     attack: 'wall',
     noBranch: true,
     resonance: { stat: 'none', value: 0, name: '없음', desc: '' },
     tiers: [
-        { cost: 12, range: 0, hp: 900 },
-        { cost: 20, range: 0, hp: 1700 },
-        { cost: 35, range: 0, hp: 2800 }
+        { cost: 45, range: 0, hp: 3200, name: '나무 방책' },
+        { cost: 70, range: 0, hp: 5600, name: '돌 방벽' },
+        { cost: 120, range: 0, hp: 9000, name: '강화 방벽' }
     ],
     branches: {}
 };

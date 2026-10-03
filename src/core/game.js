@@ -31,7 +31,6 @@ import {
     occupy,
     release,
     placeBase as placeSurvivalBase,
-    footprintCenter,
     sizeOf,
     updateFog,
     updateWorker,
@@ -51,7 +50,9 @@ export {
     cancelOrders,
     upgradeMining,
     rampStates,
-    workerOrders
+    workerOrders,
+    addWorker,
+    wallSpan
 } from './survival.js';
 export {
     repairGate,
@@ -393,14 +394,18 @@ export function placeBuilding(state, type, i, j, opts = {}) {
     const cost = def.tiers[0].cost;
     if (!opts.paid && state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
     if (!opts.paid) state.gold -= cost;
+    // 방벽은 비탈 입구 전체(cw×ch)로 맞춘 자리에 선다
+    ({ i, j } = chk);
     const s = sizeOf(type);
-    const c = footprintCenter(sv.field, i, j, s);
+    const { cw, ch } = chk;
     const f = sv.field;
+    const c = { x: -f.half + (i + cw / 2) * f.T, z: -f.half + (j + ch / 2) * f.T };
     const tower = {
         id: state.nextId++,
         type,
         socketId: null,
-        cell: { i, j, s },
+        cell: cw === s && ch === s ? { i, j, s } : { i, j, s, cw, ch },
+        ramp: chk.ramp,
         veinId: type === 'mine' ? chk.vein : null,
         h: f.level[j * f.N + i],
         x: c.x,
@@ -419,7 +424,7 @@ export function placeBuilding(state, type, i, j, opts = {}) {
         builtAt: state.time
     };
     state.towers.push(tower);
-    occupy(state, i, j, s, tower.id);
+    occupy(state, tower.cell, tower.id, type === 'wall');
     state.statsVersion++;
     state.stats.built++;
     tower.hp = tower.maxHp = maxHpOf(state, tower);

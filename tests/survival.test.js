@@ -19,13 +19,18 @@ import {
     upgradeMining,
     rampStates,
     damageTower,
+    workerOrders,
     TICK
 } from '../src/core/game.js';
+import { TOWERS } from '../src/core/data/towers.js';
 import { MAPS } from '../src/core/data/maps.js';
 import { WAVES } from '../src/core/data/waves.js';
 import { KIND, RAMP_LEN, reachable } from '../src/core/snowfield.js';
 import {
     checkPlacement,
+    wallSpan,
+    addWorker,
+    WALL_RAMP_ONLY,
     computeFlow,
     updateFog,
     nightPhase,
@@ -162,7 +167,7 @@ test('비탈: 폭 3~5칸의 곧은 통로, 양옆은 절벽 벽, 높이는 위 �
     }
 });
 
-test('(a) 고원의 비탈마다 통로를 가로질러 벽 한 줄을 세우면 둥지에서 그 고원 안으로 가는 길이 없다 (어느 줄이든)', () => {
+test('(a) 고원의 비탈마다 방벽 하나를 세우면(통로 어느 줄을 눌러도 입구 전체로 맞춰진다) 둥지에서 그 고원 안으로 가는 길이 없다', () => {
     const base = createGame('mountain');
     const f = base.survival.field;
     const N = f.N;
@@ -174,8 +179,15 @@ test('(a) 고원의 비탈마다 통로를 가로질러 벽 한 줄을 세우면
             assert.ok(placeBase(s, site.base[0], site.base[1]).ok);
             s.gold = 1e6;
             const ramps = f.ramps.filter((r) => r.owner === site.id);
-            for (const r of ramps)
-                for (const k of r.rows[t]) assert.ok(placeBuilding(s, 'wall', k % N, Math.floor(k / N)).ok);
+            for (const r of ramps) {
+                const k = r.rows[t][t % r.rows[t].length];
+                const res = placeBuilding(s, 'wall', k % N, Math.floor(k / N));
+                assert.ok(res.ok, res.reason);
+                // 비탈 위 끝 줄 전체를 덮는 방벽 하나
+                for (const q of r.rows[0]) assert.equal(s.survival.occ[q], res.tower.id);
+                assert.equal(res.tower.cell.cw * res.tower.cell.ch, r.w);
+            }
+            assert.equal(s.towers.filter((x) => x.type === 'wall').length, ramps.length, '입구마다 방벽 하나');
             const seen = walkFrom(s, f.cellAt(gate.x, gate.z));
             for (let k = 0; k < N * N; k++)
                 if (f.site[k] === site.n) assert.ok(!seen[k], `${site.id} 비탈 줄 ${t}: 벽을 지나지 않고 ${k}에 닿음`);
@@ -222,16 +234,21 @@ test('(b) 시뮬레이션 내내 적은 막힌 칸에 서지 않고, 비탈이 �
     assert.ok(checked > 10000, `확인한 걸음 ${checked}`);
 });
 
-test('(c) 대각선으로 놓인 벽 두 개 사이로 빠져나가지 못한다', () => {
+test('(c) 대각선으로 놓인 건물 두 개 사이로 빠져나가지 못한다', () => {
     const { s, f } = started('nw');
     s.gold = 1e6;
     const sv = s.survival;
     const N = f.N;
-    // 벌판의 빈 땅에 다이아몬드(대각선으로만 이어진 벽 고리)를 두르고 그 안에 적을 둔다
+    // 벌판의 빈 땅에 다이아몬드(모서리로만 맞닿은 2×2 건물 고리)를 두르고 그 안에 적을 둔다
     const diamond = (ci, cj) => {
         const ring = [];
-        for (let d = 0; d < 4; d++)
-            ring.push([ci + d, cj - 4 + d], [ci + 4 - d, cj + d], [ci - d, cj + 4 - d], [ci - 4 + d, cj - d]);
+        for (let d = 0; d < 2; d++)
+            ring.push(
+                [ci + 2 * d, cj - 4 + 2 * d],
+                [ci + 4 - 2 * d, cj + 2 * d],
+                [ci - 2 * d, cj + 4 - 2 * d],
+                [ci - 4 + 2 * d, cj - 2 * d]
+            );
         return ring;
     };
     const open = (i, j) => {
@@ -253,10 +270,13 @@ test('(c) 대각선으로 놓인 벽 두 개 사이로 빠져나가지 못한다
     const ring = diamond(ci, cj);
     for (const [i, j] of ring) {
         assert.ok(f.walkableKind(j * N + i), `빈 땅 ${i},${j}`);
-        assert.ok(placeBuilding(s, 'wall', i, j).ok);
+        const r = placeBuilding(s, 'ranger', i, j);
+        assert.ok(r.ok, r.reason);
+        // 공격하지 않는 고리 (적이 안에서 죽지 않게)
+        r.tower.stunT = 1e9;
     }
     for (const t of s.towers) t.hp = t.maxHp = 1e9;
-    const p = f.toWorld(ci, cj);
+    const p = f.toWorld(ci + 1, cj + 1);
     const enemies = [];
     for (let n = 0; n < 12; n++)
         enemies.push(spawnEnemyAt(s, n % 2 ? 'stalker' : 'grunt', 0, { x: p.x + (n % 3) * 0.2, z: p.z }));
@@ -266,16 +286,17 @@ test('(c) 대각선으로 놓인 벽 두 개 사이로 빠져나가지 못한다
     computeFlow(s);
     const inside = (e) => {
         const c = cellOf(f, e.x, e.z);
-        return Math.abs(c.i - ci) + Math.abs(c.j - cj) < 4;
+        return Math.abs(c.i - ci - 0.5) + Math.abs(c.j - cj - 0.5) < 5;
     };
     for (let t = 0; t < 30; t += TICK) {
         step(s, TICK);
         drainEvents(s);
         for (const e of enemies) if (e.alive) assert.ok(inside(e), `빠져나감 ${e.type}`);
     }
-    // 한 칸짜리 직접 시험: 벽 (ci+1, cj-3)과 (ci+2, cj-2) 사이로 안(ci+1, cj-2)에서 밖(ci+2, cj-3)으로 가는 대각선은 막힌다
+    // 한 칸짜리 직접 시험: 건물 (ci..ci+1, cj-4..cj-3)과 (ci+2..ci+3, cj-2..cj-1)이 모서리로 맞닿은 곳.
+    // 안(ci+1, cj-2)에서 밖(ci+2, cj-3)으로 가는 대각선은 막힌다
     const at = (i, j) => j * N + i;
-    assert.equal(canStep(sv, at(ci + 1, cj - 2), at(ci + 2, cj - 3)), false, '두 벽 사이 대각선');
+    assert.equal(canStep(sv, at(ci + 1, cj - 2), at(ci + 2, cj - 3)), false, '두 건물 사이 대각선');
     assert.equal(canStep(sv, at(ci + 2, cj - 3), at(ci + 1, cj - 2)), false, '밖에서 안으로도');
     assert.equal(canStep(sv, at(ci + 1, cj - 2), at(ci + 1, cj - 1)), true, '안쪽 이웃 칸끼리는 갈 수 있다');
 });
@@ -296,7 +317,7 @@ test('시작: 둥지 곁 생존자 한 명, 맵은 생존자 둘레 말고 검�
     run(s, 3);
     assert.ok(sv.clock > 2.9, '시계가 흐른다');
     // 본진보다 먼저 다른 건물은 못 짓는다
-    assert.match(checkPlacement(s, 'wall', 30, 30).reason, /탐험|본진/);
+    assert.match(checkPlacement(s, 'ranger', 30, 30).reason, /탐험|본진/);
 });
 
 test('생존자: 우클릭 이동은 절벽을 돌아 비탈로 오르고, 본진을 지으러 걸어가 짓는 동안 진행이 오른다 (가까운 고원 15~25초)', () => {
@@ -339,20 +360,24 @@ test('생존자 건설 주문: 값을 먼저 치르고 자리를 예약하며, �
     const b = sv.base;
     s.gold = 500;
     const N = f.N;
+    const ramp = f.ramps.find((r) => r.owner === 'nw');
+    const k0 = ramp.rows[2][1];
     const cells = [
-        [b.i + 5, b.j],
-        [b.i + 5, b.j + 1],
-        [b.i + 5, b.j + 2]
+        [k0 % N, Math.floor(k0 / N), 'wall'],
+        [b.i + 5, b.j, 'ranger'],
+        [b.i + 5, b.j + 3, 'ranger']
     ];
-    for (const [i, j] of cells) assert.ok(orderBuild(s, 'wall', i, j, true).ok);
-    assert.equal(s.gold, 500 - 3 * 12);
-    // 예약된 자리에는 다른 주문이 못 들어간다
-    assert.match(checkPlacement(s, 'wall', cells[0][0], cells[0][1], { plan: true }).reason, /예정/);
-    run(s, 25);
-    for (const [i, j] of cells) {
-        const id = sv.occ[j * N + i];
+    for (const [i, j, type] of cells) assert.ok(orderBuild(s, type, i, j, true).ok);
+    assert.equal(s.gold, 500 - TOWERS.wall.tiers[0].cost - 2 * TOWERS.ranger.tiers[0].cost);
+    // 예약된 자리에는 다른 주문이 못 들어간다 (방벽은 같은 비탈 어느 칸을 눌러도 같은 자리)
+    const k1 = ramp.rows[0][0];
+    assert.match(checkPlacement(s, 'wall', k1 % N, Math.floor(k1 / N), { plan: true }).reason, /예정/);
+    assert.match(checkPlacement(s, 'ranger', b.i + 5, b.j, { plan: true }).reason, /예정/);
+    run(s, 40);
+    for (const [i, j, type] of cells) {
+        const id = sv.occ[type === 'wall' ? ramp.rows[0][0] : j * N + i];
         const t = s.towers.find((x) => x.id === id);
-        assert.ok(t && t.type === 'wall' && !t.build, `벽 ${i},${j}`);
+        assert.ok(t && t.type === type && !t.build, `${type} ${i},${j}`);
     }
     // 아직 짓지 않은 주문은 취소하면 돌려받는다
     const before = s.gold;
@@ -431,21 +456,90 @@ test('자유 배치: 빈 땅 어디든 격자에 맞춰 짓고, 절벽·바위·
     const b = s.survival.base;
     const i = b.i + 5;
     const j = b.j;
-    assert.ok(placeBuilding(s, 'wall', i, j).ok);
-    assert.equal(placeBuilding(s, 'wall', i, j).reason, '이미 건물이 있습니다.');
     const tower = placeBuilding(s, 'ranger', i + 1, j);
     assert.ok(tower.ok, tower.reason);
     assert.equal(tower.tower.cell.s, 2);
+    assert.equal(placeBuilding(s, 'ranger', i + 1, j).reason, '이미 건물이 있습니다.');
     assert.equal(placeBuilding(s, 'frost', i + 2, j + 1).ok, false);
     const cliff = [...f.kind.keys()].find((k) => f.kind[k] === KIND.cliff);
-    assert.match(checkPlacement(s, 'wall', cliff % f.N, Math.floor(cliff / f.N)).reason, /절벽/);
+    assert.match(checkPlacement(s, 'ranger', cliff % f.N, Math.floor(cliff / f.N)).reason, /절벽/);
     const fresh = createGame('mountain');
     fresh.survival.base = b;
     const far = [...f.kind.keys()].find((k) => f.walkableKind(k) && !fresh.survival.fog.explored[k] && !f.nobuild[k]);
-    assert.match(checkPlacement(fresh, 'wall', far % f.N, Math.floor(far / f.N)).reason, /탐험/);
-    assert.equal(checkPlacement(s, 'wall', f.center.i + 5, f.center.j).ok, false);
+    assert.match(checkPlacement(fresh, 'ranger', far % f.N, Math.floor(far / f.N)).reason, /탐험/);
+    assert.equal(checkPlacement(s, 'ranger', f.center.i + 5, f.center.j).ok, false);
+    // 방벽은 비탈(입구)에만: 벌판·고원 빈 땅, 분지 비탈에는 못 짓는다
+    assert.equal(checkPlacement(s, 'wall', i, j).reason, WALL_RAMP_ONLY);
+    const basinRamp = f.ramps.find((r) => r.owner === 'basin');
+    const bk = basinRamp.rows[1][1];
+    assert.equal(checkPlacement(s, 'wall', bk % f.N, Math.floor(bk / f.N)).reason, WALL_RAMP_ONLY);
     sellTower(s, tower.tower.id);
     assert.ok(placeBuilding(s, 'frost', i + 1, j).ok);
+});
+
+test('큰 방벽: 비탈 어귀를 눌러도 입구 전체로 맞춰지고, 입구 하나에 하나만. 생존자는 문처럼 지나가고 적은 막힌다', () => {
+    const { s, f } = started('n');
+    s.gold = 99999;
+    const sv = s.survival;
+    const N = f.N;
+    const r = f.ramps.find((x) => x.owner === 'n');
+    // 아래 끝 바로 뒤(벌판 쪽) 칸을 눌러도 같은 자리
+    const below = [r.ri + r.d[0] * (RAMP_LEN + 1) + r.p[0] * r.a, r.rj + r.d[1] * (RAMP_LEN + 1) + r.p[1] * r.a];
+    const sp = wallSpan(sv, below[0], below[1]);
+    assert.ok(sp && sp.n === r.n);
+    const w = placeBuilding(s, 'wall', below[0], below[1]);
+    assert.ok(w.ok, w.reason);
+    assert.deepEqual(
+        r.rows[0].map((k) => sv.occ[k]),
+        r.rows[0].map(() => w.tower.id)
+    );
+    // 같은 입구에 또는 못 짓는다
+    const k2 = r.rows[3][0];
+    assert.equal(placeBuilding(s, 'wall', k2 % N, Math.floor(k2 / N)).reason, '이미 건물이 있습니다.');
+    // 생존자는 지나간다 (문), 적의 걸음은 막힌다
+    const a = r.rows[1][0];
+    const top = r.rows[0][0];
+    assert.equal(canStep(sv, a, top), false, '적은 막힌다');
+    assert.equal(canStep(sv, a, top, true), true, '생존자는 지나간다');
+    assert.equal(rampStates(sv)[r.n], 1, '봉쇄됨');
+    // 실제로 생존자가 방벽을 지나 비탈 아래로 내려갔다 돌아온다
+    const home = { x: sv.worker.x, z: sv.worker.z };
+    const p = f.toWorld(r.rows[RAMP_LEN - 1][1] % N, Math.floor(r.rows[RAMP_LEN - 1][1] / N));
+    assert.ok(orderMove(s, p.x, p.z).ok);
+    run(s, 15);
+    assert.equal(f.rampOf[f.cellAt(sv.worker.x, sv.worker.z)], r.n, '비탈로 내려갔다');
+    assert.ok(orderMove(s, home.x, home.z).ok);
+    run(s, 15);
+    assert.ok(Math.hypot(sv.worker.x - home.x, sv.worker.z - home.z) < 1, '고원으로 돌아왔다');
+});
+
+test('생존자 여럿: 저마다 주문을 받고, 모두 쓰러져야(본진이 없을 때) 진다', () => {
+    const { s } = started('nw');
+    const sv = s.survival;
+    const b = sv.base;
+    const w2 = addWorker(s, sv.worker.x, sv.worker.z);
+    const w3 = addWorker(s, sv.worker.x, sv.worker.z);
+    assert.equal(sv.workers.length, 3);
+    s.gold = 1000;
+    assert.ok(orderBuild(s, 'ranger', b.i + 6, b.j, false, w2).ok);
+    assert.ok(orderBuild(s, 'ranger', b.i + 6, b.j + 4, false, w3).ok);
+    assert.equal(workerOrders(sv).length, 2);
+    assert.equal(workerOrders(sv, w2).length, 1);
+    run(s, 25);
+    assert.equal(s.towers.filter((t) => t.type === 'ranger' && !t.build).length, 2, '둘이 따로 지었다');
+    // 본진 없는 판: 한 명이 쓰러져도 다른 생존자가 있으면 계속
+    const lone = createGame('mountain');
+    const lv = lone.survival;
+    addWorker(lone, lv.worker.x, lv.worker.z + 2);
+    lv.worker.hp = 1;
+    const e = spawnEnemyAt(lone, 'grunt', 0, { x: lv.worker.x + 0.4, z: lv.worker.z });
+    e.atkCd = 0;
+    for (let t = 0; t < 3 && lv.worker.alive; t += TICK) {
+        step(lone, TICK);
+        drainEvents(lone);
+    }
+    assert.equal(lv.worker.alive, false);
+    assert.equal(lone.status, 'playing', '다른 생존자가 살아 있다');
 });
 
 test('광산은 광맥 2×2에 꼭 맞게만, 광맥에는 다른 건물을 못 짓는다. 광산은 시간마다 캐고 채굴 기술로 수입이 는다', () => {
@@ -505,7 +599,7 @@ test('길을 완전히 막으면 적은 벽을 부순다. 비탈 하나를 열�
     s.gold = 99999;
     const N = f.N;
     const plan = sitePlan(s, 'n');
-    for (const k of plan.wall1) assert.ok(placeBuilding(s, 'wall', k % N, Math.floor(k / N)).ok);
+    for (const k of plan.wallAt) assert.ok(placeBuilding(s, 'wall', k % N, Math.floor(k / N)).ok);
     const r = plan.ramps[0];
     const p = { x: -f.half + r.to[0] * f.T, z: -f.half + r.to[1] * f.T };
     s.survival.worker.alive = false;
@@ -539,19 +633,22 @@ test('길을 완전히 막으면 적은 벽을 부순다. 비탈 하나를 열�
 test('벽을 부수면 칸이 비고 길이 다시 열린다 (흐름장은 건물이 바뀔 때만 다시 구한다)', () => {
     const { s } = started();
     s.gold = 999;
-    const b = s.survival.base;
+    const f = s.survival.field;
     computeFlow(s);
     const builds = s.survival.flowBuilds;
     run(s, 1);
     assert.equal(s.survival.flowBuilds, builds);
-    const w = placeBuilding(s, 'wall', b.i + 6, b.j).tower;
+    const r = f.ramps.find((x) => x.owner === 'nw');
+    const w = placeBuilding(s, 'wall', r.rows[1][0] % f.N, Math.floor(r.rows[1][0] / f.N)).tower;
     assert.equal(s.survival.flowDirty, true);
     computeFlow(s);
     assert.equal(s.survival.flowBuilds, builds + 1);
-    const k = w.cell.j * s.survival.field.N + w.cell.i;
-    assert.equal(s.survival.occ[k], w.id);
+    for (const k of r.rows[0]) assert.equal(s.survival.occ[k], w.id);
+    assert.ok(s.survival.wallCost[r.rows[0][1]] > 0, '방벽 칸마다 부수는 비용');
     w.hp = 1;
-    const e = spawnEnemyAt(s, 'grunt', 0, { x: w.x + 0.9, z: w.z });
+    const out = r.rows[1][1];
+    const po = f.toWorld(out % f.N, Math.floor(out / f.N));
+    const e = spawnEnemyAt(s, 'grunt', 0, { x: po.x, z: po.z });
     e.atkCd = 0;
     for (let t = 0; t < 3 && s.towers.includes(w); t += TICK) {
         e.atkTarget = w;
@@ -559,18 +656,26 @@ test('벽을 부수면 칸이 비고 길이 다시 열린다 (흐름장은 건�
         drainEvents(s);
     }
     assert.ok(!s.towers.includes(w));
-    assert.equal(s.survival.occ[k], 0);
+    for (const k of r.rows[0]) {
+        assert.equal(s.survival.occ[k], 0);
+        assert.equal(s.survival.door[k], 0);
+    }
 });
 
-test('방벽은 레벨마다 체력이 오르고 분기가 없다. 짓는 중인 건물은 올릴 수 없다', () => {
-    const { s } = started();
+test('방벽은 3단계(나무 → 돌 → 강화)로 체력이 오르고 분기가 없다. 짓는 중인 건물은 올릴 수 없다', () => {
+    const { s, f } = started();
     s.gold = 999;
     const b = s.survival.base;
-    const w = placeBuilding(s, 'wall', b.i + 6, b.j).tower;
+    const r = f.ramps.find((x) => x.owner === 'nw');
+    const w = placeBuilding(s, 'wall', r.rows[0][0] % f.N, Math.floor(r.rows[0][0] / f.N)).tower;
     const hp1 = w.maxHp;
+    assert.equal(hp1, Math.round(TOWERS.wall.tiers[0].hp * s.map.survival.wallHp));
     assert.ok(upgradeTower(s, w.id).ok);
+    assert.equal(w.tier, 2);
     assert.ok(upgradeTower(s, w.id).ok);
+    assert.equal(w.tier, 3);
     assert.ok(w.maxHp > hp1 * 2);
+    assert.equal(upgradeTower(s, w.id).ok, false, '3단계가 끝');
     assert.equal(upgradeTower(s, w.id, 'a').ok, false);
     const t = placeBuilding(s, 'ranger', b.i + 7, b.j + 3, { construct: true }).tower;
     assert.ok(t.build);

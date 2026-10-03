@@ -1,11 +1,10 @@
-// 살아남기 건물 보조 렌더: 방벽(인스턴스 메시 하나로 수백 개), 2×2·4×4 건물의 돌 기단, 배치 미리보기 고스트,
-// 생존자가 지으러 갈 예정 자리(하늘색 상자), 짓는 중인 건물의 나무 비계.
+// 살아남기 건물 보조 렌더: 큰 방벽(비탈 폭만큼 긴 벽, 단계마다 나무 방책 → 돌 방벽 → 강화 방벽),
+// 2×2·4×4 건물의 돌 기단, 배치 미리보기 고스트, 생존자가 지으러 갈 예정 자리(하늘색 상자), 짓는 중인 건물의 나무 비계.
 // 타워·광산 모델 자체는 EntityView가 그리고, 여기서는 그 아래 기단 높이를 알려 준다.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { workerOrders } from '../../core/survival.js';
 
-const MAX_WALLS = 3000;
 const MAX_PADS = 400;
 const MAX_GHOST = 400;
 const MAX_PLAN = 200;
@@ -25,23 +24,84 @@ function painted(g, color, snowAbove = null) {
     return g;
 }
 
-/** 방벽 한 칸: 땅에 깊이 박힌 돌 블록 + 줄눈 띠 + 눈 덮인 윗면 (칸 크기 T 기준) */
-function wallGeometry(T) {
-    const w = T * 0.9;
-    const top = 1.05;
-    const bottom = -0.7;
+/** 단계별 방벽 높이 (땅 위) */
+const WALL_TOP = [1.15, 1.3, 1.5];
+const WALL_BOTTOM = -0.9;
+
+/**
+ * 큰 방벽: X축으로 len만큼 긴 벽 (두께 d). 바닥은 비탈에 묻히게 깊다. 가운데에 생존자가 드나드는 쪽문.
+ * tier 1 = 끝을 깎은 통나무를 줄지어 박은 나무 방책, 2 = 돌 쌓은 벽 + 성가퀴,
+ * 3 = 더 높고 어두운 돌벽에 쇠띠·부벽·징을 덧댄 강화 방벽. 윗면에는 눈.
+ */
+function wallGeometry(len, d, tier) {
     const parts = [];
-    const body = new THREE.BoxGeometry(w, top - bottom, w);
-    body.translate(0, (top + bottom) / 2, 0);
-    parts.push(painted(body, '#8f877c'));
-    for (const y of [0.18, 0.62]) {
-        const band = new THREE.BoxGeometry(w * 1.015, 0.06, w * 1.015);
-        band.translate(0, y, 0);
-        parts.push(painted(band, '#5e5750'));
+    const box = (w, h, dd, x, y, z, color, snowAbove = null) => {
+        const g = new THREE.BoxGeometry(w, h, dd);
+        g.translate(x, y, z);
+        parts.push(painted(g, color, snowAbove));
+    };
+    const top = WALL_TOP[tier - 1] ?? WALL_TOP[0];
+    const bot = WALL_BOTTOM;
+    if (tier <= 1) {
+        // 통나무 말뚝: 높이를 조금씩 달리해 손으로 박은 느낌
+        const n = Math.max(6, Math.round(len / 0.26));
+        const step = len / n;
+        for (let k = 0; k < n; k++) {
+            const x = -len / 2 + step * (k + 0.5);
+            const h = top - 0.12 + ((k * 37) % 5) * 0.03;
+            const log = new THREE.CylinderGeometry(step * 0.48, step * 0.52, h - bot, 6);
+            log.translate(x, (h + bot) / 2, 0);
+            parts.push(painted(log, k % 2 ? '#7b5a3a' : '#8d6a45'));
+            const tip = new THREE.ConeGeometry(step * 0.48, 0.22, 6);
+            tip.translate(x, h + 0.11, 0);
+            parts.push(painted(tip, '#e9edf5'));
+        }
+        // 가로 버팀목 두 줄 (앞뒤)
+        for (const y of [0.25, 0.8])
+            for (const z of [-1, 1]) box(len * 1.01, 0.1, 0.08, 0, y, z * (d * 0.5 + 0.02), '#5c4128');
+        // 쪽문: 가운데 판자문
+        box(0.62, 0.92, d * 1.08, 0, 0.46, 0, '#4a3422');
+    } else {
+        const dark = tier >= 3;
+        const stone = dark ? '#7a7672' : '#8f877c';
+        const band = dark ? '#4a4f58' : '#5e5750';
+        const dd = d * (dark ? 1.0 : 0.9);
+        box(len, top - bot, dd, 0, (top + bot) / 2, 0, stone);
+        // 줄눈 띠
+        for (const y of dark ? [0.2, 0.62, 1.04] : [0.22, 0.7]) box(len * 1.005, 0.06, dd * 1.03, 0, y, 0, band);
+        // 위 덮개(눈)와 성가퀴
+        box(len * 1.02, 0.1, dd * 1.06, 0, top + 0.03, 0, '#eef2fa');
+        const n = Math.max(3, Math.round(len / 0.5));
+        const step = len / n;
+        for (let k = 0; k < n; k++) {
+            if (k % 2) continue;
+            const x = -len / 2 + step * (k + 0.5);
+            box(step * 0.62, 0.15, dd * 0.78, x, top + 0.155, 0, stone);
+            box(step * 0.66, 0.035, dd * 0.82, x, top + 0.245, 0, '#eef2fa');
+        }
+        // 쪽문 (돌벽에 박은 나무문, 강화는 쇠띠를 두른 문)
+        box(0.64, 0.95, dd * 1.06, 0, 0.47, 0, dark ? '#3c3a3a' : '#4a3422');
+        box(0.8, 0.12, dd * 1.1, 0, 1.0, 0, band);
+        if (dark) {
+            // 부벽: 양 끝과 사이사이 (앞뒤로 튀어나온 돌기둥)
+            const nb = Math.max(2, Math.round(len / 1.3));
+            for (let k = 0; k <= nb; k++) {
+                const x = -len / 2 + (len * k) / nb;
+                if (Math.abs(x) < 0.5) continue;
+                for (const z of [-1, 1]) {
+                    const zz = z * (dd / 2 + 0.07);
+                    box(0.22, top - bot - 0.22, 0.16, x, (top + bot - 0.22) / 2, zz, '#5f5b58');
+                    box(0.25, 0.04, 0.19, x, top - 0.2, zz, '#eef2fa');
+                }
+            }
+            // 쇠 징
+            for (let k = 0; k < Math.round(len / 0.32); k++) {
+                const x = -len / 2 + 0.16 + k * 0.32;
+                if (Math.abs(x) < 0.45) continue;
+                for (const z of [-1, 1]) box(0.06, 0.06, 0.04, x, 0.83, z * (dd / 2 + 0.02), '#2c3038');
+            }
+        }
     }
-    const cap = new THREE.BoxGeometry(w * 1.03, 0.12, w * 1.03);
-    cap.translate(0, top + 0.03, 0);
-    parts.push(painted(cap, '#eef2fa'));
     const g = mergeGeometries(parts);
     g.computeVertexNormals();
     return g;
@@ -80,7 +140,6 @@ function scaffoldGeometry() {
     return g;
 }
 
-const WALL_TINT = [new THREE.Color('#ffffff'), new THREE.Color('#d8e2ee'), new THREE.Color('#aebfe0')];
 const HURT = new THREE.Color('#6a3a30');
 
 export function createSurvivalBuildings(state, terrain) {
@@ -91,13 +150,43 @@ export function createSurvivalBuildings(state, terrain) {
     group.name = 'survival-buildings';
 
     const stone = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
-    const walls = new THREE.InstancedMesh(wallGeometry(T), stone, MAX_WALLS);
-    walls.count = 0;
-    walls.castShadow = true;
-    walls.receiveShadow = true;
-    walls.frustumCulled = false;
-    walls.setColorAt(0, WALL_TINT[0]);
-    group.add(walls);
+    // 큰 방벽: 방벽마다 메시 하나 (입구 수만큼이라 몇 개 안 된다). 단계가 바뀌면 모델을 바꾼다
+    const wallGroup = new THREE.Group();
+    wallGroup.name = 'survival-walls';
+    group.add(wallGroup);
+    const wallViews = new Map();
+    const wallLen = (t) => {
+        const cw = t.cell.cw ?? t.cell.s;
+        const ch = t.cell.ch ?? t.cell.s;
+        return { len: Math.max(cw, ch) * T, along: cw >= ch };
+    };
+    function wallView(t) {
+        let v = wallViews.get(t.id);
+        if (v && v.tier === t.tier) return v;
+        if (v) {
+            v.mesh.geometry.dispose();
+            v.mesh.removeFromParent();
+        }
+        const { len, along } = wallLen(t);
+        const mat = v?.mesh.material ?? stone.clone();
+        const mesh = new THREE.Mesh(wallGeometry(len * 0.995, T * 0.78, t.tier), mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.rotation.y = along ? 0 : Math.PI / 2;
+        mesh.userData.towerId = t.id;
+        wallGroup.add(mesh);
+        v = { mesh, tier: t.tier };
+        wallViews.set(t.id, v);
+        return v;
+    }
+    /** 방벽이 설 땅 높이: 벽이 덮은 칸들 가운데 가장 낮은 곳 (비탈에 묻히게) */
+    const wallGround = (t) => {
+        const { len, along } = wallLen(t);
+        let h = Infinity;
+        for (const s of [-0.4, 0, 0.4])
+            h = Math.min(h, terrain.heightAt(t.x + (along ? s * len : 0), t.z + (along ? 0 : s * len)));
+        return h;
+    };
     const pads = new THREE.InstancedMesh(padGeometry(), stone, MAX_PADS);
     pads.count = 0;
     pads.castShadow = true;
@@ -151,7 +240,6 @@ export function createSurvivalBuildings(state, terrain) {
     const q = new THREE.Quaternion();
     const v = new THREE.Vector3();
     const s = new THREE.Vector3();
-    const c = new THREE.Color();
     const GOOD = new THREE.Color('#4dff8a');
     const BAD = new THREE.Color('#ff4a4a');
 
@@ -181,30 +269,31 @@ export function createSurvivalBuildings(state, terrain) {
             }
             return y;
         },
+        /** 방벽 메시들 (고르기용 광선 검사) */
+        wallGroup,
         /** 방벽 체력바 위치 */
         wallTop(tower, out) {
-            return out.set(tower.x, terrain.heightAt(tower.x, tower.z) + 1.0, tower.z);
+            return out.set(tower.x, wallGround(tower) + (WALL_TOP[tower.tier - 1] ?? 1.2) + 0.15, tower.z);
         },
         update() {
-            let nw = 0;
             let np = 0;
             const now = state.time;
+            const seen = new Set();
             for (const t of state.towers) {
                 if (!t.cell) continue;
                 if (t.type === 'wall') {
-                    if (nw >= MAX_WALLS) continue;
-                    const y = terrain.heightAt(t.x, t.z);
+                    seen.add(t.id);
+                    const wv = wallView(t);
+                    const y = wallGround(t);
                     // 맞은 직후 살짝 흔들린다
                     const hit = t.hitT != null && now - t.hitT < 0.15 ? 0.04 : 0;
-                    v.set(t.x + (hit ? Math.sin(now * 90) * hit : 0), y, t.z);
-                    // 짓는 중이면 다 지은 만큼만 솟아 있다
-                    s.set(1, t.build ? Math.max(0.15, t.build.t / t.build.T) : 1, 1);
-                    m4.compose(v, q.identity(), s);
-                    walls.setMatrixAt(nw, m4);
+                    wv.mesh.position.set(t.x + (hit ? Math.sin(now * 90) * hit : 0), y, t.z);
+                    // 짓는 중이면 다 지은 만큼만 솟아 있다 (묻힌 바닥부터)
+                    const k = t.build ? Math.max(0.15, t.build.t / t.build.T) : 1;
+                    wv.mesh.scale.set(1, k, 1);
+                    wv.mesh.position.y = y + WALL_BOTTOM * (1 - k);
                     const r = t.hp / t.maxHp;
-                    c.copy(WALL_TINT[t.tier - 1] || WALL_TINT[0]).lerp(HURT, Math.max(0, 0.7 - r) * 1.1);
-                    walls.setColorAt(nw, c);
-                    nw++;
+                    wv.mesh.material.color.set('#ffffff').lerp(HURT, Math.max(0, 0.7 - r) * 1.1);
                 } else if (np < MAX_PADS) {
                     const half = (t.cell.s * T) / 2;
                     const top = this.buildingY(t);
@@ -227,37 +316,44 @@ export function createSurvivalBuildings(state, terrain) {
                 m4.compose(v, q.identity(), s);
                 pads.setMatrixAt(np++, m4);
             }
-            walls.count = nw;
+            // 무너지거나 팔린 방벽
+            for (const [id, wv] of wallViews)
+                if (!seen.has(id)) {
+                    wv.mesh.geometry.dispose();
+                    wv.mesh.material.dispose();
+                    wv.mesh.removeFromParent();
+                    wallViews.delete(id);
+                }
             pads.count = np;
             // 비계: 짓는 중인 건물 (본진 포함)
             let ns = 0;
-            const scaffold = (x, z, size, hgt) => {
+            const scaffold = (x, z, sw, sd, hgt) => {
                 if (ns >= MAX_SCAFFOLD) return;
-                const w = size * T * 0.92;
                 v.set(x, terrain.heightAt(x, z) + hgt / 2, z);
-                m4.compose(v, q.identity(), s.set(w, hgt, w));
+                m4.compose(v, q.identity(), s.set(sw * T * 0.92, hgt, sd * T * 0.92));
                 scaffolds.setMatrixAt(ns++, m4);
             };
             for (const t of state.towers)
-                if (t.build && t.cell) scaffold(t.x, t.z, t.cell.s, t.type === 'wall' ? 1.1 : 2.2);
-            if (b?.build) scaffold(b.x, b.z, b.s, 3.2);
+                if (t.build && t.cell)
+                    scaffold(t.x, t.z, t.cell.cw ?? t.cell.s, t.cell.ch ?? t.cell.s, t.type === 'wall' ? 1.3 : 2.2);
+            if (b?.build) scaffold(b.x, b.z, b.s, b.s, 3.2);
             scaffolds.count = ns;
             scaffolds.instanceMatrix.needsUpdate = true;
             // 예정 자리
             let npl = 0;
             for (const o of workerOrders(sv)) {
                 if (o.type !== 'build' || o.started || npl >= MAX_PLAN) continue;
-                const c = { x: -f.half + (o.i + o.s / 2) * T, z: -f.half + (o.j + o.s / 2) * T };
-                const hgt = o.btype === 'wall' ? 1.0 : o.btype === 'base' ? 2.6 : o.btype === 'mine' ? 1.3 : 1.9;
-                const w = o.s * T * (o.btype === 'wall' ? 0.94 : 0.8);
+                const cw = o.cw ?? o.s;
+                const ch = o.ch ?? o.s;
+                const c = { x: -f.half + (o.i + cw / 2) * T, z: -f.half + (o.j + ch / 2) * T };
+                const hgt = o.btype === 'wall' ? 1.1 : o.btype === 'base' ? 2.6 : o.btype === 'mine' ? 1.3 : 1.9;
+                const k = o.btype === 'wall' ? 0.96 : 0.8;
                 v.set(c.x, terrain.heightAt(c.x, c.z) + hgt / 2, c.z);
-                m4.compose(v, q.identity(), s.set(w, hgt, w));
+                m4.compose(v, q.identity(), s.set(cw * T * k, hgt, ch * T * k));
                 plans.setMatrixAt(npl++, m4);
             }
             plans.count = npl;
             plans.instanceMatrix.needsUpdate = true;
-            walls.instanceMatrix.needsUpdate = true;
-            if (walls.instanceColor) walls.instanceColor.needsUpdate = true;
             pads.instanceMatrix.needsUpdate = true;
             // 사라진 건물의 높이 기록은 지운다
             if (tops.size > state.towers.length + 20) {
@@ -271,7 +367,7 @@ export function createSurvivalBuildings(state, terrain) {
             return b ? padTop(b.x, b.z, (b.s * T) / 2) - 0.1 : 0;
         },
         /**
-         * 배치 고스트: items = [{ cells: [{ i, j, ok }], size, type }]. null이면 숨긴다.
+         * 배치 고스트: items = [{ cells: [{ i, j, ok }], i, j, cw, ch, type }]. null이면 숨긴다.
          */
         setGhost(items) {
             let nq = 0;
@@ -288,14 +384,14 @@ export function createSurvivalBuildings(state, terrain) {
                     nq++;
                 }
                 if (nb >= MAX_GHOST || !it.cells.length) continue;
-                const i0 = it.cells[0].i;
-                const j0 = it.cells[0].j;
-                const x = -f.half + (i0 + it.size / 2) * T;
-                const z = -f.half + (j0 + it.size / 2) * T;
-                const hgt = it.type === 'wall' ? 1.0 : it.type === 'base' ? 2.6 : it.type === 'mine' ? 1.3 : 1.9;
-                const w = it.size * T * (it.type === 'wall' ? 0.96 : 0.8);
+                const cw = it.cw ?? 1;
+                const ch = it.ch ?? 1;
+                const x = -f.half + (it.i + cw / 2) * T;
+                const z = -f.half + (it.j + ch / 2) * T;
+                const hgt = it.type === 'wall' ? 1.15 : it.type === 'base' ? 2.6 : it.type === 'mine' ? 1.3 : 1.9;
+                const k = it.type === 'wall' ? 0.98 : 0.8;
                 v.set(x, terrain.heightAt(x, z) + hgt / 2, z);
-                m4.compose(v, q.identity(), s.set(w, hgt, w));
+                m4.compose(v, q.identity(), s.set(cw * T * k, hgt, ch * T * k));
                 ghostBlocks.setMatrixAt(nb, m4);
                 ghostBlocks.setColorAt(nb, it.cells.every((cl) => cl.ok) ? GOOD : BAD);
                 nb++;

@@ -43,8 +43,8 @@ export class CameraRig {
             if (document.hidden) cancelInput();
         });
         dom.addEventListener('pointerdown', (e) => {
-            // 살아남기 건설 중에는 왼쪽 끌기가 방벽 줄 긋기다
-            if (this.dragLock && e.button === 0) return;
+            // 살아남기: 왼쪽 끌기는 범위 선택이라 카메라는 오른쪽·가운데 끌기로만 (leftPan = false)
+            if (this.leftPan === false && e.button === 0) return;
             if (e.button === 1 || e.button === 2 || e.button === 0) {
                 drag = { x: e.clientX, y: e.clientY, moved: false, button: e.button };
             }

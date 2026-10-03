@@ -1,10 +1,41 @@
 // 살아남기 생존자(일꾼) 모델: 주황 방한복에 털모자, 등짐과 망치를 든 작은 사람.
 // 걸을 때는 몸이 흔들리고, 짓거나 고칠 때는 망치를 내리친다. 발밑에 옅은 하늘색 고리를 둬서 넓은 맵에서도 찾기 쉽다.
+// 고른(선택한) 생존자는 발밑 고리가 밝은 초록으로 또렷해진다. 생존자가 여럿이면 저마다 모델 하나.
 // 쓰러지면 감춘다 (다시 살아나면 본진 곁에 나타난다).
 import * as THREE from 'three';
 
-export function createWorker(state, terrain) {
+const SEL = 0x8dffa8;
+const IDLE = 0x7fe0ff;
+
+/** 생존자들 (sv.workers): selected = 고른 생존자 id 모음 (조작 UI가 채운다) */
+export function createWorkers(state, terrain) {
     const sv = state.survival;
+    const group = new THREE.Group();
+    group.name = 'survival-workers';
+    const views = new Map();
+    const api = {
+        group,
+        selected: new Set(),
+        /** 머리 위 (체력바·이름표 자리) */
+        top(w, out) {
+            return out.set(w.x, terrain.heightAt(w.x, w.z) + 1.25, w.z);
+        },
+        update(t, dt) {
+            for (const w of sv.workers) {
+                let v = views.get(w.id);
+                if (!v) {
+                    v = createWorker(state, terrain, w);
+                    views.set(w.id, v);
+                    group.add(v.group);
+                }
+                v.update(t, dt, api.selected.has(w.id));
+            }
+        }
+    };
+    return api;
+}
+
+function createWorker(state, terrain, w) {
     const g = new THREE.Group();
     g.name = 'survival-worker';
     const mat = (color, extra = {}) =>
@@ -70,19 +101,13 @@ export function createWorker(state, terrain) {
 
     const legL = body.getObjectByName('legL');
     const legR = body.getObjectByName('legR');
-    let lastX = sv.worker.x;
-    let lastZ = sv.worker.z;
+    let lastX = w.x;
+    let lastZ = w.z;
     let walk = 0;
     let yaw = 0;
     return {
         group: g,
-        /** 머리 위 (체력바·이름표 자리) */
-        top(out) {
-            const w = sv.worker;
-            return out.set(w.x, terrain.heightAt(w.x, w.z) + 1.25, w.z);
-        },
-        update(t, dt) {
-            const w = sv.worker;
+        update(t, dt, selected) {
             g.visible = w.alive;
             if (!w.alive) return;
             const moved = Math.hypot(w.x - lastX, w.z - lastZ);
@@ -102,10 +127,11 @@ export function createWorker(state, terrain) {
             legR.rotation.x = walking ? -Math.sin(walk) * 0.6 : 0;
             const working = w.task === 'build' || w.task === 'repair';
             arm.rotation.x = working ? -1.2 + Math.abs(Math.sin(t * 7)) * 1.5 : walking ? Math.sin(walk) * 0.4 : 0.15;
-            // 맞은 직후 고리가 붉게
+            // 맞은 직후 고리가 붉게. 고른 생존자는 밝은 초록 고리 (크고 또렷하게)
             const hurt = state.time - w.hitT < 0.3;
-            ring.material.color.setHex(hurt ? 0xff5a4a : 0x7fe0ff);
-            ring.material.opacity = 0.55 + 0.25 * Math.sin(t * 3);
+            ring.material.color.setHex(hurt ? 0xff5a4a : selected ? SEL : IDLE);
+            ring.material.opacity = selected ? 0.95 : 0.45 + 0.2 * Math.sin(t * 3);
+            ring.scale.setScalar(selected ? 1.18 : 1);
             ring.position.y = 0.05;
         }
     };

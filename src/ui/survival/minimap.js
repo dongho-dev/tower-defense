@@ -49,11 +49,18 @@ export class Minimap {
         this.canvas.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return;
             down = true;
+            // 미니맵을 끄는 동안에는 화면 가장자리 이동을 쉰다
+            this.dragging = true;
             this.canvas.setPointerCapture(e.pointerId);
             jump(e);
         });
         this.canvas.addEventListener('pointermove', (e) => down && jump(e));
-        this.canvas.addEventListener('pointerup', () => (down = false));
+        const up = () => {
+            down = false;
+            this.dragging = false;
+        };
+        this.canvas.addEventListener('pointerup', up);
+        this.canvas.addEventListener('lostpointercapture', up);
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         this.ray = new THREE.Raycaster();
         this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5);
@@ -122,7 +129,7 @@ export class Minimap {
             const hurt = t.hp < t.maxHp * 0.5;
             g.fillStyle =
                 t.type === 'wall' ? (hurt ? '#e0a050' : '#9ff0b0') : t.type === 'mine' ? '#5cf0b8' : '#36d86a';
-            g.fillRect(i * k, j * k, s * k, s * k);
+            g.fillRect(i * k, j * k, (t.cell.cw ?? s) * k, (t.cell.ch ?? s) * k);
         }
         // 안개
         this.refreshFog();
@@ -154,15 +161,16 @@ export class Minimap {
             if (o.type !== 'build' || o.started) continue;
             g.strokeStyle = 'rgba(127,224,255,0.9)';
             g.lineWidth = 1;
-            g.strokeRect(o.i * k, o.j * k, o.s * k, o.s * k);
+            g.strokeRect(o.i * k, o.j * k, (o.cw ?? o.s) * k, (o.ch ?? o.s) * k);
         }
-        // 생존자: 하늘색 점 (쓰러졌으면 본진에 부활 표시)
-        const w = sv.worker;
-        if (w.alive) {
+        // 생존자: 하늘색 점 (고른 생존자는 초록)
+        const sel = extra.selected;
+        for (const w of sv.workers) {
+            if (!w.alive) continue;
             const x = this.px(w.x);
             const y = this.px(w.z);
             const r = 3 + Math.sin(this.t * 6) * 0.6;
-            g.fillStyle = '#7fe0ff';
+            g.fillStyle = sel?.has(w.id) ? '#8dffa8' : '#7fe0ff';
             g.beginPath();
             g.arc(x, y, r, 0, Math.PI * 2);
             g.fill();
@@ -213,8 +221,9 @@ export class Minimap {
             g.closePath();
             g.stroke();
         }
-        const txt = !w.alive
-            ? `생존자 부활 ${Math.ceil(w.respawnT)}초`
+        const down = sv.workers.find((c) => !c.alive);
+        const txt = !sv.workers.some((c) => c.alive)
+            ? `생존자 부활 ${Math.ceil(down.respawnT)}초`
             : sv.base
               ? `보이는 적 ${shown}`
               : '고원을 찾아 본진을 지으세요';

@@ -365,3 +365,27 @@
         bottom: 200px;
     }
 }
+
+/* 고른 생존자: 머리 위 체력바 테두리가 초록 */
+.sv-wtag.sel .bar {
+    box-shadow: 0 0 0 1px rgba(141, 255, 168, 0.9);
+}
+
+/* 왼쪽 끌기 범위 선택 사각형 */
+.sv-box {
+    position: fixed;
+    left: 0;
+    top: 0;
+    border: 1px solid rgba(141, 255, 168, 0.95);
+    background: rgba(141, 255, 168, 0.1);
+    box-shadow: 0 0 0 1px rgba(6, 30, 14, 0.5);
+    pointer-events: none;
+    display: none;
+    z-index: 5;
+}
+
+/* 정보 창이 열리면 생존자 카드는 잠시 숨긴다 (아래쪽 가운데에서 겹치지 않게) */
+.sv-mode:has(.inspector.show) .sv-worker {
+    opacity: 0;
+    pointer-events: none;
+}

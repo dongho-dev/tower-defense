@@ -50,10 +50,12 @@ function diff(a, b, better = 'up') {
 function statsRow(s, dps, prev) {
     const def = s.__def;
     if (def.attack === 'wall') {
-        const hp = def.tiers[(s.__tier || 1) - 1].hp;
+        // 살아남기 큰 방벽: 단계 이름과 실제 체력 (맵의 방벽 체력 배율을 곱한다)
+        const tier = def.tiers[(s.__tier || 1) - 1];
+        const hp = Math.round(tier.hp * (s.__hpMul ?? 1));
         return `<div class="ip-stats">
-            <div><b>${hp}</b><span>체력</span></div>
-            <div><b>1×1</b><span>칸</span></div>
+            <div><b>${hp}${diff(hp, prev?.hp)}</b><span>체력</span></div>
+            <div><b>${tier.name ?? s.__tier}</b><span>${s.__tier || 1}단계</span></div>
         </div>`;
     }
     if (def.attack === 'barracks') {
@@ -218,6 +220,7 @@ export class Inspector {
         cur.__resValue = tower.branch ? def.branches[tower.branch].resonanceValue : null;
         Object.assign(cur, veinInfo(state, tower));
         cur.__tier = tower.tier;
+        cur.__hpMul = state.map.survival?.wallHp ?? 1;
         const curDps = estimateDps(state, tower);
         let shown = cur;
         let shownDps = curDps;
@@ -241,8 +244,10 @@ export class Inspector {
             shown.__resValue = h.kind === 'branch' ? def.branches[h.key].resonanceValue : cur.__resValue;
             Object.assign(shown, veinInfo(state, tower));
             shown.__tier = h.kind === 'tier' ? tower.tier + 1 : tower.tier;
+            shown.__hpMul = cur.__hpMul;
             shownDps = p.dps;
             prev = {
+                hp: def.attack === 'wall' ? Math.round(def.tiers[tower.tier - 1].hp * cur.__hpMul) : null,
                 dps: curDps,
                 range: cur.range,
                 rate: cur.rate,
@@ -254,17 +259,25 @@ export class Inspector {
                 h.kind === 'branch'
                     ? `<b>${def.branches[h.key].name}</b> · ${def.branches[h.key].desc}`
                     : h.kind === 'tier'
-                      ? `레벨 ${tower.tier + 1}로 강화`
+                      ? def.attack === 'wall'
+                          ? `<b>${def.tiers[tower.tier].name}</b>(으)로 올린다 · 체력이 오르고 모양이 바뀐다`
+                          : `레벨 ${tower.tier + 1}로 강화`
                       : `각성 ${tower.mastery + 1}단계 · 피해 +25%, 사거리 +5%${def.attack === 'none' ? ', 수입 +30%' : ''}`;
         }
-        const title = tower.branch ? `${def.name} · ${def.branches[tower.branch].name}` : def.name;
+        const title = tower.branch
+            ? `${def.name} · ${def.branches[tower.branch].name}`
+            : def.attack === 'wall'
+              ? `${def.name} · ${def.tiers[tower.tier - 1].name}`
+              : def.name;
         const opts = upgradeOptions(tower);
         const optBtn = (o) => {
             const label =
                 o.kind === 'branch'
                     ? `${o.label}`
                     : o.kind === 'tier'
-                      ? `레벨 ${tower.tier + 1}`
+                      ? def.attack === 'wall'
+                          ? def.tiers[tower.tier].name
+                          : `레벨 ${tower.tier + 1}`
                       : `각성 ${tower.mastery + 1}`;
             const hk = o.kind === 'branch' ? o.key.toUpperCase() : 'U';
             const poor = state.gold < o.cost;
@@ -378,7 +391,12 @@ export class Inspector {
     buildHtml(socket, type, state) {
         const def = TOWERS[type];
         const p = previewStats(state, { type, tier: 1, branch: null, mastery: 0, socketId: socket.id }, {});
-        const s = { ...p.stats, __def: def, ...(state.survival ? {} : veinInfo(state, socket)) };
+        const s = {
+            ...p.stats,
+            __def: def,
+            __hpMul: state.map.survival?.wallHp ?? 1,
+            ...(state.survival ? {} : veinInfo(state, socket))
+        };
         const dps = p.dps;
         const info = resonancePreview(state, socket.id, type);
         const cost = def.tiers[0].cost;

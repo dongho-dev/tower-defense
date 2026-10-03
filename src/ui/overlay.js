@@ -313,7 +313,7 @@ export class Overlay {
             if (showHp) {
                 const r = Math.max(0, t.hp / t.maxHp);
                 const recent = t.hitT != null && now - t.hitT < 0.15;
-                const bw = t.type === 'wall' ? 26 : 44;
+                const bw = t.type === 'wall' ? 56 : 44;
                 bar(
                     Math.round(p.x - bw / 2),
                     Math.round(p.y),

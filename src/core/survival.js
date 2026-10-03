@@ -1,9 +1,12 @@
 // 살아남기(공성전 전용 맵 장르, 스타1 유즈맵 '살아남기' 류).
 // - 맵은 넓은 눈벌판 전체(snowfield.js)다. 발판·소켓이 없고, 짓고 싶은 빈 땅 어디에나 타일 격자에 맞춰 짓는다.
-//   방벽 1×1, 타워·광산 2×2(광산은 광맥 위만), 본진 4×4. 건물을 붙여 지어 길목(비탈)을 막는 것이 핵심이다.
+//   타워·광산 2×2(광산은 광맥 위만), 본진 4×4. 방벽은 고원 비탈(입구) 하나를 통째로 막는 큰 벽 하나로,
+//   비탈 위 끝 줄 전체(폭 3~5칸 × 1칸)를 덮는다. 방벽은 그 자리에서 3단계까지 올린다(나무 → 돌 → 강화).
 // - 판은 맵 한가운데 둥지 곁에서 생존자(일꾼) 한 명으로 시작한다. 처음엔 생존자 둘레만 보이고 나머지는 검다.
 //   생존자를 우클릭으로 움직여 땅을 밝히고, 고원을 찾아 본진을 짓는다. 건설·수리는 생존자가 그 자리에 가서 한다.
-//   생존자는 싸우지 못하고 적이 노린다. 죽으면 본진에서 다시 살아나고, 본진이 없으면 패배다.
+//   생존자는 싸우지 못하고 적이 노린다. 죽으면 본진에서 다시 살아나고, 본진이 없는데 모두 쓰러지면 패배다.
+//   생존자는 여럿일 수 있다(sv.workers, sv.worker = 처음 생존자). 주문은 생존자마다 따로 받는다.
+//   생존자는 자기 방벽을 문처럼 지나간다 (적은 막힌다).
 // - 밤 시계는 판이 시작될 때부터 흐른다. 정해진 시각에 맵 한가운데 둥지가 깨어나 웨이브를 쏟아낸다.
 //   동이 틀 때(dawn초)까지 본진을 지키면 승리.
 // - 적은 흐름장으로 길을 찾는다. 목표는 가장 가까운 '지킬 건물'(본진·타워·광산)이고, 방벽은 지나갈 수 있되
@@ -20,7 +23,7 @@ export const SURVIVAL_DEFAULTS = {
     baseSize: 4
 };
 
-/** 건물 크기(타일): 방벽 1×1, 본진 4×4, 그 밖의 타워·광산 2×2 */
+/** 건물 크기(타일): 본진 4×4, 그 밖의 타워·광산 2×2. 방벽은 두께 1칸 (길이는 비탈 폭: wallSpan) */
 export function sizeOf(type) {
     return type === 'wall' ? 1 : type === 'base' ? SURVIVAL_DEFAULTS.baseSize : 2;
 }
@@ -35,9 +38,9 @@ export const HEIGHT_RANGE = 0.06;
 export const BREAK_BASE = 10;
 export const BREAK_PER_HP = 1 / 45;
 /** 시야(타일) */
-export const VISION = { base: 13, wall: 3, mine: 6, tower: 9, worker: 9 };
+export const VISION = { base: 13, wall: 4, mine: 6, tower: 9, worker: 9 };
 /** 짓는 데 걸리는 시간(초) */
-export const BUILD_TIME = { base: 10, wall: 1.4, mine: 5, tower: 5 };
+export const BUILD_TIME = { base: 10, wall: 6, mine: 5, tower: 5 };
 /** 생존자(일꾼) */
 export const WORKER = {
     hp: 160,
@@ -60,6 +63,13 @@ export const MINE_TECH = [
     { cost: 500, mul: 1.8 }
 ];
 const NO_DIST = 1e9;
+/** 방벽은 고원 비탈에만 */
+export const WALL_RAMP_ONLY = '방벽은 고원으로 오르는 비탈(입구)에만 지을 수 있습니다.';
+
+/** 건물 칸의 가로·세로 (정사각형이면 s×s, 방벽은 cw×ch) */
+export function cellDims(c) {
+    return [c.cw ?? c.s, c.ch ?? c.s];
+}
 
 function config(cfg) {
     return { ...SURVIVAL_DEFAULTS, ...cfg };
@@ -116,6 +126,8 @@ export function createSurvival(map, state) {
         base: null,
         mineTech: 0,
         occ: new Int32Array(n),
+        // 방벽 칸 (생존자는 문처럼 지나간다)
+        door: new Uint8Array(n),
         // 생존자가 지으러 갈 자리 (건설 예정 주문 번호)
         reserved: new Int32Array(n),
         dist: new Float64Array(n),
@@ -132,6 +144,8 @@ export function createSurvival(map, state) {
         fog,
         pings: [],
         worker: null,
+        workers: [],
+        workerId: 1,
         orderId: 1,
         // 길 찾기 버퍼 (생존자 A*)
         path: { g: new Float32Array(n), from: new Int32Array(n), seen: new Uint32Array(n), stamp: 0 },
@@ -147,8 +161,19 @@ export function createSurvival(map, state) {
     };
     // 생존자: 둥지 남쪽 곁 빈 땅
     const start = nearestFree(sv, field.cellAt(0, (field.nestR + 2.2) * field.T), 6);
-    const p = field.toWorld(start % N, Math.floor(start / N));
-    sv.worker = {
+    sv.worker = makeWorker(sv, start);
+    // 처음 보이는 곳은 생존자 둘레뿐 (나머지는 검다)
+    revealCircle(field, fog.visible, (start % N) + 0.5, Math.floor(start / N) + 0.5, VISION.worker);
+    fog.explored.set(fog.visible);
+    return sv;
+}
+
+/** 칸 k에 생존자 하나를 세운다 (sv.workers에 넣는다) */
+function makeWorker(sv, k) {
+    const f = sv.field;
+    const p = f.toWorld(k % f.N, Math.floor(k / f.N));
+    const w = {
+        id: sv.workerId++,
         x: p.x,
         z: p.z,
         sx: p.x,
@@ -166,12 +191,26 @@ export function createSurvival(map, state) {
         task: 'idle',
         hitT: -9,
         debt: 0,
-        lastK: start
+        lastK: k,
+        // 자기 방벽은 문처럼 지나간다
+        door: true
     };
-    // 처음 보이는 곳은 생존자 둘레뿐 (나머지는 검다)
-    revealCircle(field, fog.visible, (start % N) + 0.5, Math.floor(start / N) + 0.5, VISION.worker);
-    fog.explored.set(fog.visible);
-    return sv;
+    sv.workers.push(w);
+    return w;
+}
+
+/** 생존자를 하나 더 세운다 ((x, z) 곁 빈 칸). 반환: 새 생존자 */
+export function addWorker(state, x, z) {
+    const sv = state.survival;
+    const k = nearestFree(sv, sv.field.cellAt(x, z), 6);
+    const w = makeWorker(sv, k);
+    updateFog(state, true);
+    return w;
+}
+
+/** 살아 있는 생존자들 */
+export function aliveWorkers(sv) {
+    return sv.workers.filter((w) => w.alive);
 }
 
 function revealCircle(field, arr, ci, cj, r) {
@@ -182,9 +221,9 @@ function revealCircle(field, arr, ci, cj, r) {
             if ((i + 0.5 - ci) ** 2 + (j + 0.5 - cj) ** 2 <= r2) arr[j * N + i] = 1;
 }
 
-/** 걸을 수 있고 건물이 없는 칸 */
-export function freeCell(sv, k) {
-    return k >= 0 && sv.field.walkableKind(k) && sv.occ[k] === 0;
+/** 걸을 수 있고 건물이 없는 칸. door: 방벽 칸도 빈 칸으로 친다 (생존자) */
+export function freeCell(sv, k, door = false) {
+    return k >= 0 && sv.field.walkableKind(k) && (sv.occ[k] === 0 || (door && sv.door[k] === 1));
 }
 
 /** 칸 k에서 가장 가까운 빈 칸 (반경 r칸 안, 없으면 k) */
@@ -216,9 +255,9 @@ function nearestFree(sv, k, r = 4) {
  * 칸 a에서 칸 b로 한 걸음에 옮겨 갈 수 있는가: b가 비어 있고 이웃 칸이며, 대각선이면 양쪽 직교 칸도 비어 있어야 한다.
  * (벽 두 개가 대각선으로 놓인 틈, 절벽 모서리로 빠져나가지 못하게)
  */
-export function canStep(sv, a, b) {
+export function canStep(sv, a, b, door = false) {
     if (a === b) return true;
-    if (!freeCell(sv, b)) return false;
+    if (!freeCell(sv, b, door)) return false;
     if (a < 0) return true;
     const N = sv.field.N;
     const ai = a % N;
@@ -228,16 +267,16 @@ export function canStep(sv, a, b) {
     const di = bi - ai;
     const dj = bj - aj;
     if (di < -1 || di > 1 || dj < -1 || dj > 1) return false;
-    if (di && dj && (!freeCell(sv, aj * N + bi) || !freeCell(sv, bj * N + ai))) return false;
+    if (di && dj && (!freeCell(sv, aj * N + bi, door) || !freeCell(sv, bj * N + ai, door))) return false;
     return true;
 }
 
-/** 몸(e: x, z)을 (nx, nz)로 옮긴다. 이동 규칙을 어기면 그대로 두고 false */
+/** 몸(e: x, z)을 (nx, nz)로 옮긴다. 이동 규칙을 어기면 그대로 두고 false. 생존자(e.door)는 방벽을 지나간다 */
 function stepTo(sv, e, nx, nz) {
     const f = sv.field;
     const a = f.cellAt(e.x, e.z);
     const b = f.cellAt(nx, nz);
-    if (b < 0 || !canStep(sv, a, b)) return false;
+    if (b < 0 || !canStep(sv, a, b, e.door === true)) return false;
     e.x = nx;
     e.z = nz;
     return true;
@@ -259,13 +298,14 @@ function pin(sv, e) {
     const f = sv.field;
     const k = f.cellAt(e.x, e.z);
     const last = e.lastK ?? -1;
-    if (k >= 0 && (last < 0 || canStep(sv, last, k))) {
+    const door = e.door === true;
+    if (k >= 0 && (last < 0 || canStep(sv, last, k, door))) {
         e.lastK = k;
         e.sx = e.x;
         e.sz = e.z;
         return;
     }
-    if (last >= 0 && freeCell(sv, last)) {
+    if (last >= 0 && freeCell(sv, last, door)) {
         e.x = e.sx;
         e.z = e.sz;
         return;
@@ -282,7 +322,7 @@ function pin(sv, e) {
 export function pinBodies(state) {
     const sv = state.survival;
     for (const e of state.enemies) if (e.alive && !e.def.flying) pin(sv, e);
-    if (sv.worker.alive) pin(sv, sv.worker);
+    for (const w of sv.workers) if (w.alive) pin(sv, w);
 }
 
 // ---------- 건설 판정 ----------
@@ -301,8 +341,44 @@ export function snapFootprint(field, x, z, s) {
 
 /** 본진이 될 주문이 줄에 있는가 */
 function basePending(sv) {
-    const w = sv.worker;
-    return [w.order, ...w.queue].some((o) => o && o.type === 'build' && o.btype === 'base' && !o.started);
+    return workerOrders(sv).some((o) => o.type === 'build' && o.btype === 'base' && !o.started);
+}
+
+/**
+ * 방벽 자리: 칸 (i, j)가 고원 비탈 통로 안이거나 그 어귀(위 끝 앞 두 줄·아래 끝 뒤 두 줄)면
+ * 그 비탈의 위 끝 줄 전체를 덮는 자리 { n, i, j, cw, ch }. 아니면 null.
+ */
+export function wallSpan(sv, i, j) {
+    const f = sv.field;
+    if (!f.inside(i, j)) return null;
+    let ramp = null;
+    const own = f.rampOf[j * f.N + i];
+    if (own >= 0 && f.ramps[own].owner !== 'basin') ramp = f.ramps[own];
+    else
+        for (const r of f.ramps) {
+            if (r.owner === 'basin') continue;
+            // 통로 좌표: t = 위 끝에서 아래로, l = 옆으로
+            const t = (i - r.ri) * r.d[0] + (j - r.rj) * r.d[1];
+            const l = (i - r.ri) * r.p[0] + (j - r.rj) * r.p[1];
+            if (t >= -2 && t <= RAMP_LEN + 1 && l >= r.a - 1 && l <= r.b + 1) {
+                ramp = r;
+                break;
+            }
+        }
+    if (!ramp) return null;
+    let i0 = Infinity;
+    let j0 = Infinity;
+    let i1 = -Infinity;
+    let j1 = -Infinity;
+    for (const k of ramp.rows[0]) {
+        const ci = k % f.N;
+        const cj = (k - ci) / f.N;
+        i0 = Math.min(i0, ci);
+        j0 = Math.min(j0, cj);
+        i1 = Math.max(i1, ci);
+        j1 = Math.max(j1, cj);
+    }
+    return { n: ramp.n, i: i0, j: j0, cw: i1 - i0 + 1, ch: j1 - j0 + 1 };
 }
 
 /**
@@ -314,13 +390,24 @@ export function checkPlacement(state, type, i, j, opts = {}) {
     const sv = state.survival;
     const f = sv.field;
     const s = type === 'base' ? sv.cfg.baseSize : sizeOf(type);
+    let cw = s;
+    let ch = s;
+    let ramp = null;
+    // 방벽: 누른 칸이 속한 비탈의 위 끝 줄 전체로 맞춘다
+    if (type === 'wall') {
+        const sp = wallSpan(sv, i, j);
+        if (!sp)
+            return { ok: false, reason: WALL_RAMP_ONLY, cells: [{ i, j, ok: false }], size: 1, i, j, cw: 1, ch: 1 };
+        ({ i, j, cw, ch } = sp);
+        ramp = sp.n;
+    }
     const cells = [];
     let reason = null;
     const fail = (r) => (reason ??= r);
     let veinId = null;
     let veinCells = 0;
-    for (let dj = 0; dj < s; dj++)
-        for (let di = 0; di < s; di++) {
+    for (let dj = 0; dj < ch; dj++)
+        for (let di = 0; di < cw; di++) {
             const ci = i + di;
             const cj = j + dj;
             let ok = true;
@@ -370,8 +457,8 @@ export function checkPlacement(state, type, i, j, opts = {}) {
     if (!reason && !opts.plan) {
         const x0 = -f.half + i * f.T;
         const z0 = -f.half + j * f.T;
-        const x1 = x0 + s * f.T;
-        const z1 = z0 + s * f.T;
+        const x1 = x0 + cw * f.T;
+        const z1 = z0 + ch * f.T;
         const inside = (b, r) => b.x > x0 - r && b.x < x1 + r && b.z > z0 - r && b.z < z1 + r;
         for (const e of state.enemies) {
             if (!e.alive || e.def.flying) continue;
@@ -380,17 +467,24 @@ export function checkPlacement(state, type, i, j, opts = {}) {
                 break;
             }
         }
-        const w = sv.worker;
-        if (!reason && w.alive && inside(w, 0)) fail('생존자가 서 있는 자리입니다.');
+        // 방벽은 생존자가 지나가는 문이라 서 있어도 된다
+        if (!reason && type !== 'wall' && sv.workers.some((w) => w.alive && inside(w, 0)))
+            fail('생존자가 서 있는 자리입니다.');
     }
-    return { ok: !reason, reason, cells, vein: veinId, size: s };
+    return { ok: !reason, reason, cells, vein: veinId, size: s, i, j, cw, ch, ramp };
 }
 
-/** 건물이 차지한 칸에 id를 적는다 (본진은 -1) */
-export function occupy(state, i, j, s, id) {
+/** 건물이 차지한 칸(cell: { i, j, s, cw?, ch? })에 id를 적는다 (본진은 -1). door: 생존자가 지나가는 방벽 */
+export function occupy(state, cell, id, door = false) {
     const sv = state.survival;
     const N = sv.field.N;
-    for (let dj = 0; dj < s; dj++) for (let di = 0; di < s; di++) sv.occ[(j + dj) * N + i + di] = id;
+    const [cw, ch] = cellDims(cell);
+    for (let dj = 0; dj < ch; dj++)
+        for (let di = 0; di < cw; di++) {
+            const k = (cell.j + dj) * N + cell.i + di;
+            sv.occ[k] = id;
+            sv.door[k] = door ? 1 : 0;
+        }
     sv.flowDirty = true;
     sv.buildVer++;
 }
@@ -399,12 +493,16 @@ export function occupy(state, i, j, s, id) {
 export function release(state, tower) {
     const sv = state.survival;
     if (!sv || !tower.cell) return;
-    const { i, j, s } = tower.cell;
+    const { i, j } = tower.cell;
+    const [cw, ch] = cellDims(tower.cell);
     const N = sv.field.N;
-    for (let dj = 0; dj < s; dj++)
-        for (let di = 0; di < s; di++) {
+    for (let dj = 0; dj < ch; dj++)
+        for (let di = 0; di < cw; di++) {
             const k = (j + dj) * N + i + di;
-            if (sv.occ[k] === tower.id) sv.occ[k] = 0;
+            if (sv.occ[k] === tower.id) {
+                sv.occ[k] = 0;
+                sv.door[k] = 0;
+            }
         }
     sv.flowDirty = true;
     sv.buildVer++;
@@ -426,7 +524,7 @@ export function placeBase(state, i, j, construct = false, order = 0) {
         sv.base.build = { t: 0, T: BUILD_TIME.base };
         state.lives = Math.max(1, Math.round(state.maxLives * 0.2));
     }
-    occupy(state, i, j, s, -1);
+    occupy(state, sv.base.cell, -1);
     updateFog(state, true);
     return { ok: true, base: sv.base };
 }
@@ -480,13 +578,17 @@ export function computeFlow(state) {
     for (const t of state.towers) {
         const c = isGoal(t) ? 0 : BREAK_BASE + (t.maxHp ?? 600) * BREAK_PER_HP;
         cost.set(t.id, c);
-        if (c && t.cell) wallCost[t.cell.j * N + t.cell.i] = c;
+        if (!c || !t.cell) continue;
+        const [cw, ch] = cellDims(t.cell);
+        for (let dj = 0; dj < ch; dj++)
+            for (let di = 0; di < cw; di++) wallCost[(t.cell.j + dj) * N + t.cell.i + di] = c;
     }
     let seeds = 0;
     const seedBuilding = (b) => {
-        const { i, j, s } = b.cell;
-        for (let dj = 0; dj < s; dj++)
-            for (let di = 0; di < s; di++) {
+        const { i, j } = b.cell;
+        const [cw, ch] = cellDims(b.cell);
+        for (let dj = 0; dj < ch; dj++)
+            for (let di = 0; di < cw; di++) {
                 const k = (j + dj) * N + i + di;
                 dist[k] = 0;
                 heap.push(k, 0);
@@ -496,14 +598,16 @@ export function computeFlow(state) {
     if (sv.base) seedBuilding(sv.base);
     for (const t of state.towers) if (isGoal(t) && t.cell) seedBuilding(t);
     sv.chaseWorker = false;
-    if (!seeds && sv.worker.alive) {
-        const k = f.cellAt(sv.worker.x, sv.worker.z);
-        if (k >= 0) {
-            dist[k] = 0;
-            heap.push(k, 0);
-            sv.chaseWorker = true;
+    if (!seeds)
+        for (const w of sv.workers) {
+            if (!w.alive) continue;
+            const k = f.cellAt(w.x, w.z);
+            if (k >= 0) {
+                dist[k] = 0;
+                heap.push(k, 0);
+                sv.chaseWorker = true;
+            }
         }
-    }
     const passable = (k) => kind[k] === KIND.ground || kind[k] === KIND.ramp;
     const free = (k) => passable(k) && occ[k] === 0;
     while (heap.size) {
@@ -712,11 +816,12 @@ export function isWalkable(state, x, z) {
 /** 건물 사각형까지의 거리 (안이면 0) */
 function rectDist(sv, b, x, z) {
     const f = sv.field;
-    const { i, j, s } = b.cell;
+    const { i, j } = b.cell;
+    const [cw, ch] = cellDims(b.cell);
     const x0 = -f.half + i * f.T;
     const z0 = -f.half + j * f.T;
-    const dx = Math.max(x0 - x, 0, x - (x0 + s * f.T));
-    const dz = Math.max(z0 - z, 0, z - (z0 + s * f.T));
+    const dx = Math.max(x0 - x, 0, x - (x0 + cw * f.T));
+    const dz = Math.max(z0 - z, 0, z - (z0 + ch * f.T));
     return Math.hypot(dx, dz);
 }
 
@@ -822,17 +927,23 @@ export function updateSurvivalEnemy(state, e, sp, dt, hooks) {
     e.d = 500 - flowDistance(state, e.x, e.z);
 }
 
-/** 생존자가 가까우면 쫓아가 친다. 처리했으면 true */
+/** 생존자가 가까우면 쫓아가 친다 (가장 가까운 생존자). 처리했으면 true */
 function chaseWorker(state, e, sp, dt) {
     const sv = state.survival;
-    const w = sv.worker;
-    if (!w.alive) return false;
+    let w = null;
+    let d = Infinity;
+    for (const c of sv.workers) {
+        if (!c.alive) continue;
+        const dc = Math.hypot(c.x - e.x, c.z - e.z);
+        if (dc > WORKER.aggro + e.radius || dc >= d) continue;
+        // 벽·절벽 너머의 생존자는 쫓지 않는다 (곧은 걸음으로 닿을 때만)
+        if (!e.def.flying && !straightWalk(sv, e.x, e.z, c.x, c.z)) continue;
+        w = c;
+        d = dc;
+    }
+    if (!w) return false;
     const dx = w.x - e.x;
     const dz = w.z - e.z;
-    const d = Math.hypot(dx, dz);
-    if (d > WORKER.aggro + e.radius) return false;
-    // 벽·절벽 너머의 생존자는 쫓지 않는다 (곧은 걸음으로 닿을 때만)
-    if (!e.def.flying && !straightWalk(sv, e.x, e.z, w.x, w.z)) return false;
     e.atkTarget = null;
     if (d <= e.radius + WORKER.radius + REACH) {
         steer(e, dx / (d || 1), dz / (d || 1), dt);
@@ -853,7 +964,7 @@ function chaseWorker(state, e, sp, dt) {
             towerId: null,
             worker: true
         });
-        hurtWorker(state, Math.max(2, e.atk) * SURV_DMG * (e.def.boss ? 1.4 : 1));
+        hurtWorker(state, Math.max(2, e.atk) * SURV_DMG * (e.def.boss ? 1.4 : 1), w);
         return true;
     }
     steer(e, dx / d, dz / d, dt);
@@ -892,9 +1003,11 @@ function flyer(state, e, sp, dt, hooks) {
     }
     const t = e.flyTarget;
     if (!t) {
-        // 지킬 건물이 없으면 생존자 쪽으로
-        const w = sv.worker;
-        if (!w.alive) return;
+        // 지킬 건물이 없으면 가장 가까운 생존자 쪽으로
+        let w = null;
+        for (const c of sv.workers)
+            if (c.alive && (!w || Math.hypot(c.x - e.x, c.z - e.z) < Math.hypot(w.x - e.x, w.z - e.z))) w = c;
+        if (!w) return;
         const dx = w.x - e.x;
         const dz = w.z - e.z;
         const len = Math.hypot(dx, dz) || 1;
@@ -1165,8 +1278,7 @@ export function updateFog(state, force = false, dt = 0) {
         if (!t.cell) continue;
         src(t.x, t.z, t.type === 'wall' ? VISION.wall : t.type === 'mine' ? VISION.mine : VISION.tower);
     }
-    const w = sv.worker;
-    if (w.alive) src(w.x, w.z, VISION.worker);
+    for (const w of sv.workers) if (w.alive) src(w.x, w.z, VISION.worker);
     let changed = false;
     const ex = fog.explored;
     for (let k = 0; k < vis.length; k++)
@@ -1241,9 +1353,9 @@ export function rampStates(sv) {
 
 /**
  * A* 길 찾기 (생존자): start 칸에서 goals(Set) 중 하나까지, 이동 규칙을 지키는 칸 목록 (start 제외).
- * 닿을 수 없으면 null. (ti, tj)는 거리 어림의 기준점.
+ * 닿을 수 없으면 null. (ti, tj)는 거리 어림의 기준점. door: 방벽을 문처럼 지나간다 (생존자)
  */
-export function findPath(sv, start, goals, ti, tj) {
+export function findPath(sv, start, goals, ti, tj, door = true) {
     const f = sv.field;
     const { N } = f;
     if (goals.has(start)) return [];
@@ -1285,7 +1397,7 @@ export function findPath(sv, start, goals, ti, tj) {
             const nj = j + dj;
             if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
             const nk = nj * N + ni;
-            if (!canStep(sv, k, nk)) continue;
+            if (!canStep(sv, k, nk, door)) continue;
             const ng = g[k] + c;
             if (seen[nk] === stamp && ng >= g[nk]) continue;
             seen[nk] = stamp;
@@ -1300,13 +1412,13 @@ export function findPath(sv, start, goals, ti, tj) {
     return out.reverse();
 }
 
-/** 건물 둘레(손이 닿는 칸들): 발자국 바깥 r번째 겹의 빈 칸 */
-function ringCells(sv, i, j, s, r = 1) {
+/** 건물 둘레(손이 닿는 칸들): 발자국(cw×ch) 바깥 r번째 겹의 빈 칸 (방벽 칸은 서는 자리로 치지 않는다) */
+function ringCells(sv, i, j, cw, ch, r = 1) {
     const f = sv.field;
     const out = new Set();
-    for (let dj = -r; dj < s + r; dj++)
-        for (let di = -r; di < s + r; di++) {
-            if (di > -r && di < s + r - 1 && dj > -r && dj < s + r - 1) continue;
+    for (let dj = -r; dj < ch + r; dj++)
+        for (let di = -r; di < cw + r; di++) {
+            if (di > -r && di < cw + r - 1 && dj > -r && dj < ch + r - 1) continue;
             const ci = i + di;
             const cj = j + dj;
             if (!f.inside(ci, cj)) continue;
@@ -1316,19 +1428,24 @@ function ringCells(sv, i, j, s, r = 1) {
     return out;
 }
 
-function footRect(i, j, s) {
-    return { cell: { i, j, s } };
+function footRect(o) {
+    return { cell: { i: o.i, j: o.j, s: o.s, cw: o.cw ?? o.s, ch: o.ch ?? o.s } };
+}
+
+/** 주문의 생존자 (지정하지 않으면 처음 생존자) */
+function workerOf(sv, w) {
+    return w ?? sv.worker;
 }
 
 /**
  * 주문을 하나 넣는다. queue: false = 지금 하던 일과 줄을 버리고, true = 줄 끝에,
  * 'front' = 지금 하던 일 바로 다음에 (급한 수리)
  */
-function pushOrder(state, order, queue) {
+function pushOrder(state, order, queue, w) {
     const sv = state.survival;
-    const w = sv.worker;
     order.id = sv.orderId++;
-    if (!queue) cancelOrders(state);
+    order.wid = w.id;
+    if (!queue) cancelOrders(state, w);
     if (!w.order) {
         w.order = order;
         w.path = null;
@@ -1337,104 +1454,122 @@ function pushOrder(state, order, queue) {
     return order;
 }
 
-/** 생존자에게 이동 명령 */
-export function orderMove(state, x, z, queue = false) {
+/** 생존자에게 이동 명령 (w: 생존자, 없으면 처음 생존자) */
+export function orderMove(state, x, z, queue = false, w = null) {
     const sv = state.survival;
-    if (!sv.worker.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
+    w = workerOf(sv, w);
+    if (!w.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
     const k = sv.field.cellAt(x, z);
     if (k < 0) return { ok: false, reason: '갈 수 없는 곳입니다.' };
-    const o = pushOrder(state, { type: 'move', x, z }, queue);
+    const o = pushOrder(state, { type: 'move', x, z }, queue, w);
     return { ok: true, order: o };
 }
 
 /**
  * 생존자에게 건설 명령: 자리를 확인하고 값을 미리 치른 뒤(예약), 생존자가 그 자리에 가서 짓는다.
- * 주문이 취소되거나 지을 수 없게 되면 돌려받는다.
+ * 주문이 취소되거나 지을 수 없게 되면 돌려받는다. 방벽은 (i, j)가 속한 비탈 입구 전체로 맞춘다.
  */
-export function orderBuild(state, type, i, j, queue = false) {
+export function orderBuild(state, type, i, j, queue = false, w = null) {
     const sv = state.survival;
+    w = workerOf(sv, w);
     if (state.status !== 'playing') return { ok: false, reason: '게임이 끝났습니다.' };
-    if (!sv.worker.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
+    if (!w.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
     if (type !== 'base' && !TOWERS[type]) return { ok: false, reason: '잘못된 명령입니다.' };
     const chk = checkPlacement(state, type, i, j, { plan: true });
     if (!chk.ok) return { ok: false, reason: chk.reason };
     const cost = type === 'base' ? 0 : TOWERS[type].tiers[0].cost;
     if (state.gold < cost) return { ok: false, reason: '골드가 부족합니다.' };
-    const s = chk.size;
-    const o = { type: 'build', btype: type, i, j, s, cost, vein: chk.vein, started: false, wait: 0 };
+    const { size: s, cw, ch } = chk;
+    const o = {
+        type: 'build',
+        btype: type,
+        i: chk.i,
+        j: chk.j,
+        s,
+        cw,
+        ch,
+        cost,
+        vein: chk.vein,
+        started: false,
+        wait: 0
+    };
     // 예약은 주문 번호가 정해진 뒤에 (지금 하던 일을 버리면 그 값은 돌려받는다)
-    const placed = pushOrder(state, o, queue);
+    const placed = pushOrder(state, o, queue, w);
     state.gold -= cost;
-    for (let dj = 0; dj < s; dj++) for (let di = 0; di < s; di++) sv.reserved[(j + dj) * sv.field.N + i + di] = o.id;
+    for (let dj = 0; dj < ch; dj++)
+        for (let di = 0; di < cw; di++) sv.reserved[(o.j + dj) * sv.field.N + o.i + di] = o.id;
     sv.planVer = (sv.planVer || 0) + 1;
     return { ok: true, order: placed };
 }
 
 /** 생존자에게 수리·건설 재개 명령 (target: 타워 객체 또는 본진) */
-export function orderRepair(state, target, queue = false) {
+export function orderRepair(state, target, queue = false, w = null) {
     const sv = state.survival;
-    if (!sv.worker.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
+    w = workerOf(sv, w);
+    if (!w.alive) return { ok: false, reason: '생존자가 쓰러져 있습니다.' };
     if (!target) return { ok: false, reason: '잘못된 명령입니다.' };
     const base = target === sv.base;
     if (!target.build) {
         const full = base ? state.lives >= state.maxLives : target.hp >= target.maxHp;
         if (full) return { ok: false, reason: '수리할 곳이 없습니다.' };
     }
-    const o = pushOrder(state, { type: 'repair', target, base }, queue);
+    const o = pushOrder(state, { type: 'repair', target, base }, queue, w);
     return { ok: true, order: o };
 }
 
 function unreserve(sv, o) {
     const N = sv.field.N;
-    for (let dj = 0; dj < o.s; dj++)
-        for (let di = 0; di < o.s; di++) {
+    const cw = o.cw ?? o.s;
+    const ch = o.ch ?? o.s;
+    for (let dj = 0; dj < ch; dj++)
+        for (let di = 0; di < cw; di++) {
             const k = (o.j + dj) * N + o.i + di;
             if (sv.reserved[k] === o.id) sv.reserved[k] = 0;
         }
     sv.planVer = (sv.planVer || 0) + 1;
 }
 
-/** 생존자의 주문을 모두 거둔다: 아직 짓기 시작하지 않은 건설은 값을 돌려준다 */
-export function cancelOrders(state) {
+/** 생존자의 주문을 모두 거둔다 (w 없으면 모든 생존자): 아직 짓기 시작하지 않은 건설은 값을 돌려준다 */
+export function cancelOrders(state, w = null) {
     const sv = state.survival;
-    const w = sv.worker;
     let refund = 0;
-    for (const o of [w.order, ...w.queue]) {
-        if (!o || o.type !== 'build' || o.started) continue;
-        unreserve(sv, o);
-        refund += o.cost;
+    for (const c of w ? [w] : sv.workers) {
+        for (const o of [c.order, ...c.queue]) {
+            if (!o || o.type !== 'build' || o.started) continue;
+            unreserve(sv, o);
+            refund += o.cost;
+        }
+        c.order = null;
+        c.queue.length = 0;
+        c.path = null;
+        c.task = 'idle';
     }
     state.gold += refund;
-    w.order = null;
-    w.queue.length = 0;
-    w.path = null;
-    w.task = 'idle';
     return refund;
 }
 
 /** 다음 주문으로 */
-function nextOrder(sv) {
-    const w = sv.worker;
+function nextOrder(w) {
     w.order = w.queue.shift() ?? null;
     w.path = null;
     w.wait = 0;
 }
 
 /** 주문을 못 하게 됐다: 값을 돌려주고 알린다 */
-function failOrder(state, o, reason) {
+function failOrder(state, w, o, reason) {
     const sv = state.survival;
     if (o.type === 'build' && !o.started) {
         unreserve(sv, o);
         state.gold += o.cost;
     }
-    state.events.push({ type: 'workerFail', reason });
-    nextOrder(sv);
+    state.events.push({ type: 'workerFail', reason, wid: w.id });
+    nextOrder(w);
 }
 
-/** 생존자가 맞는다. 쓰러지면 본진에서 다시 살아나고, 본진이 없으면 패배 */
-export function hurtWorker(state, amount) {
+/** 생존자가 맞는다 (w 없으면 처음 생존자). 쓰러지면 본진에서 다시 살아나고, 본진도 산 생존자도 없으면 패배 */
+export function hurtWorker(state, amount, w = null) {
     const sv = state.survival;
-    const w = sv.worker;
+    w = workerOf(sv, w);
     if (!w.alive || state.status !== 'playing') return;
     w.hp -= amount;
     w.hitT = state.time;
@@ -1443,9 +1578,9 @@ export function hurtWorker(state, amount) {
     w.alive = false;
     w.respawnT = WORKER.respawn;
     // 짓기 시작하지 않은 주문은 돌려받는다
-    cancelOrders(state);
-    state.events.push({ type: 'workerDied', x: w.x, z: w.z, respawn: !!sv.base });
-    if (!sv.base) {
+    cancelOrders(state, w);
+    state.events.push({ type: 'workerDied', x: w.x, z: w.z, respawn: !!sv.base, wid: w.id });
+    if (!sv.base && !sv.workers.some((c) => c.alive)) {
         state.status = 'lost';
         state.events.push({ type: 'defeat', reason: 'worker' });
     }
@@ -1453,7 +1588,7 @@ export function hurtWorker(state, amount) {
 
 /**
  * 손이 닿는가: 건물 사각형까지 거리가 가깝거나, 건물 둘레 두 겹 안 칸에 서 있다
- * (두 줄로 쌓은 방벽의 바깥 줄도 안쪽에서 고칠 수 있게)
+ * (두 줄로 쌓은 건물의 바깥도 안쪽에서 고칠 수 있게)
  */
 function within(sv, w, b) {
     if (rectDist(sv, b, w.x, w.z) <= WORKER.reach) return true;
@@ -1461,8 +1596,9 @@ function within(sv, w, b) {
     const k = f.cellAt(w.x, w.z);
     const ci = k % f.N;
     const cj = Math.floor(k / f.N);
-    const { i, j, s } = b.cell;
-    return ci >= i - 2 && ci <= i + s + 1 && cj >= j - 2 && cj <= j + s + 1;
+    const { i, j } = b.cell;
+    const [cw, ch] = cellDims(b.cell);
+    return ci >= i - 2 && ci <= i + cw + 1 && cj >= j - 2 && cj <= j + ch + 1;
 }
 
 /**
@@ -1512,12 +1648,19 @@ function walkTo(state, w, dt, goalsFn, ti, tj, key) {
 }
 
 /**
- * 생존자 한 틱: 주문을 차례로 한다. hooks: { place(type, i, j, order) → { ok, reason, building },
+ * 생존자들 한 틱: 저마다 주문을 차례로 한다. hooks: { place(type, i, j, order) → { ok, reason, building },
  * repairCostPerHp(tower), finish(building) }
  */
 export function updateWorker(state, dt, hooks) {
     const sv = state.survival;
-    const w = sv.worker;
+    for (const w of sv.workers) {
+        if (state.status !== 'playing') return;
+        tickWorker(state, w, dt, hooks);
+    }
+}
+
+function tickWorker(state, w, dt, hooks) {
+    const sv = state.survival;
     const f = sv.field;
     if (!w.alive) {
         if (!sv.base) return;
@@ -1525,14 +1668,14 @@ export function updateWorker(state, dt, hooks) {
         if (w.respawnT > 0) return;
         // 본진 곁 빈 칸에서 다시 살아난다
         const b = sv.base;
-        const ring = [...ringCells(sv, b.i, b.j, b.s)];
-        const k = ring[0] ?? nearestFree(sv, f.cellAt(b.x, b.z), 6);
+        const ring = [...ringCells(sv, b.i, b.j, b.s, b.s)];
+        const k = ring[(w.id - 1) % Math.max(1, ring.length)] ?? nearestFree(sv, f.cellAt(b.x, b.z), 6);
         const p = f.toWorld(k % f.N, Math.floor(k / f.N));
         Object.assign(w, { x: p.x, z: p.z, sx: p.x, sz: p.z, lastK: k, hp: w.maxHp, alive: true, path: null });
-        state.events.push({ type: 'workerRespawn', x: p.x, z: p.z });
+        state.events.push({ type: 'workerRespawn', x: p.x, z: p.z, wid: w.id });
         return;
     }
-    if (!w.order && w.queue.length) nextOrder(sv);
+    if (!w.order && w.queue.length) nextOrder(w);
     const o = w.order;
     if (!o) {
         w.task = 'idle';
@@ -1542,27 +1685,29 @@ export function updateWorker(state, dt, hooks) {
         w.task = 'move';
         const tk = f.cellAt(o.x, o.z);
         const r = walkTo(state, w, dt, () => new Set([nearestFree(sv, tk, 5)]), tk % f.N, Math.floor(tk / f.N), o);
-        if (r === 'arrived') nextOrder(sv);
-        else if (r === 'fail') failOrder(state, o, '그곳으로 갈 길이 없습니다.');
+        if (r === 'arrived') nextOrder(w);
+        else if (r === 'fail') failOrder(state, w, o, '그곳으로 갈 길이 없습니다.');
         return;
     }
     if (o.type === 'build') {
         // 짓기 시작한 건물이 무너졌으면 끝
-        if (o.started && !buildingAlive(state, o.target)) return nextOrder(sv);
-        const rect = o.started ? o.target : footRect(o.i, o.j, o.s);
-        const inFoot = !o.started && inRect(f, w, o.i, o.j, o.s);
+        if (o.started && !buildingAlive(state, o.target)) return nextOrder(w);
+        const rect = o.started ? o.target : footRect(o);
+        const cw = o.cw ?? o.s;
+        const ch = o.ch ?? o.s;
+        const inFoot = !o.started && inRect(f, w, o.i, o.j, cw, ch);
         if (!within(sv, w, rect) || inFoot) {
             w.task = 'move';
             const r = walkTo(
                 state,
                 w,
                 dt,
-                () => [ringCells(sv, o.i, o.j, o.s), ringCells(sv, o.i, o.j, o.s, 2)],
-                o.i + o.s / 2,
-                o.j + o.s / 2,
+                () => [ringCells(sv, o.i, o.j, cw, ch), ringCells(sv, o.i, o.j, cw, ch, 2)],
+                o.i + cw / 2,
+                o.j + ch / 2,
                 o
             );
-            if (r === 'fail') failOrder(state, o, '지을 자리로 갈 길이 없습니다.');
+            if (r === 'fail') failOrder(state, w, o, '지을 자리로 갈 길이 없습니다.');
             return;
         }
         w.path = null;
@@ -1574,24 +1719,24 @@ export function updateWorker(state, dt, hooks) {
                     w.task = 'wait';
                     return;
                 }
-                return failOrder(state, o, chk.reason);
+                return failOrder(state, w, o, chk.reason);
             }
             unreserve(sv, o);
             const r = hooks.place(o.btype, o.i, o.j, o);
             if (!r.ok) {
                 state.gold += o.cost;
-                state.events.push({ type: 'workerFail', reason: r.reason });
-                return nextOrder(sv);
+                state.events.push({ type: 'workerFail', reason: r.reason, wid: w.id });
+                return nextOrder(w);
             }
             o.started = true;
             o.target = r.building;
         }
-        // 짓는다
+        // 짓는다 (여럿이 함께 지으면 그만큼 빨리 오른다)
         w.task = 'build';
         const b = o.target;
         faceTo(w, b);
         const bt = b.build;
-        if (!bt) return nextOrder(sv);
+        if (!bt) return nextOrder(w);
         const before = bt.t;
         bt.t = Math.min(bt.T, bt.t + dt);
         const frac = (bt.t - before) / bt.T;
@@ -1600,37 +1745,41 @@ export function updateWorker(state, dt, hooks) {
         if (bt.t >= bt.T) {
             delete b.build;
             hooks.finish(b);
-            nextOrder(sv);
+            nextOrder(w);
         }
         return;
     }
     if (o.type === 'repair') {
         const b = o.target;
-        if (!buildingAlive(state, b)) return nextOrder(sv);
+        if (!buildingAlive(state, b)) return nextOrder(w);
         // 짓다 만 건물이면 마저 짓는다
         if (b.build) {
+            const [cw, ch] = cellDims(b.cell);
             o.type = 'build';
             o.started = true;
             o.btype = b === sv.base ? 'base' : b.type;
             o.i = b.cell.i;
             o.j = b.cell.j;
             o.s = b.cell.s;
+            o.cw = cw;
+            o.ch = ch;
             o.cost = 0;
             return;
         }
         if (!within(sv, w, b)) {
             w.task = 'move';
-            const { i, j, s } = b.cell;
+            const { i, j } = b.cell;
+            const [cw, ch] = cellDims(b.cell);
             const r = walkTo(
                 state,
                 w,
                 dt,
-                () => [ringCells(sv, i, j, s), ringCells(sv, i, j, s, 2)],
-                i + s / 2,
-                j + s / 2,
+                () => [ringCells(sv, i, j, cw, ch), ringCells(sv, i, j, cw, ch, 2)],
+                i + cw / 2,
+                j + ch / 2,
                 o
             );
-            if (r === 'fail') failOrder(state, o, '수리할 건물로 갈 길이 없습니다.');
+            if (r === 'fail') failOrder(state, w, o, '수리할 건물로 갈 길이 없습니다.');
             return;
         }
         w.path = null;
@@ -1639,15 +1788,15 @@ export function updateWorker(state, dt, hooks) {
         const base = b === sv.base;
         const max = base ? state.maxLives : b.maxHp;
         const cur = base ? state.lives : b.hp;
-        if (cur >= max) return nextOrder(sv);
+        if (cur >= max) return nextOrder(w);
         const gain = Math.min(max - cur, max * (base ? WORKER.repairBase : WORKER.repair) * dt);
         const perHp = base ? BASE_REPAIR : hooks.repairCostPerHp(b);
         w.debt += gain * perHp;
         const pay = Math.floor(w.debt);
         if (pay > 0) {
             if (state.gold < pay) {
-                state.events.push({ type: 'workerFail', reason: '골드가 부족해 수리를 멈췄습니다.' });
-                return nextOrder(sv);
+                state.events.push({ type: 'workerFail', reason: '골드가 부족해 수리를 멈췄습니다.', wid: w.id });
+                return nextOrder(w);
             }
             state.gold -= pay;
             w.debt -= pay;
@@ -1658,7 +1807,7 @@ export function updateWorker(state, dt, hooks) {
         b.repairT = state.time;
         if (cur + gain >= max - 1e-6) {
             state.events.push({ type: 'repair', towerId: base ? null : b.id, base, x: b.x, z: b.z, cost: 0 });
-            nextOrder(sv);
+            nextOrder(w);
         }
     }
 }
@@ -1668,11 +1817,11 @@ function buildingAlive(state, b) {
     return b === state.survival.base || state.towers.includes(b);
 }
 
-function inRect(f, w, i, j, s) {
+function inRect(f, w, i, j, cw, ch) {
     const k = f.cellAt(w.x, w.z);
     const ci = k % f.N;
     const cj = Math.floor(k / f.N);
-    return ci >= i && ci < i + s && cj >= j && cj < j + s;
+    return ci >= i && ci < i + cw && cj >= j && cj < j + ch;
 }
 
 function faceTo(w, b) {
@@ -1685,10 +1834,14 @@ function faceTo(w, b) {
     }
 }
 
-/** 생존자 주문 목록 (지금 + 줄): UI가 예정 건물을 그릴 때 */
-export function workerOrders(sv) {
-    const w = sv.worker;
-    return w.order ? [w.order, ...w.queue] : w.queue.slice();
+/** 생존자 주문 목록 (지금 + 줄). w 없으면 모든 생존자의 주문: UI가 예정 건물을 그릴 때 */
+export function workerOrders(sv, w = null) {
+    const out = [];
+    for (const c of w ? [w] : sv.workers) {
+        if (c.order) out.push(c.order);
+        for (const o of c.queue) out.push(o);
+    }
+    return out;
 }
 
 // ---------- 웨이브 안내 ----------
