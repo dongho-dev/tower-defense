@@ -33,10 +33,14 @@ test('판에서 돌아갈 때 그 판의 놀이 방식을 찾는다', () => {
     assert.equal(lobbyModeOf(null), null);
 });
 
-test('예전 저장의 마지막 모드도 카드 초점으로 이어진다', () => {
-    assert.equal(lastLobbyMode({ lastMode: 'siege' }), 'fortress');
-    assert.equal(lastLobbyMode({ lastMode: 'rtd' }), 'rtd');
-    assert.equal(lastLobbyMode({ lastEndless: true }), 'endless');
+test('지금은 전투만 열려 있고, 준비 중인 방식이 마지막 모드면 전투에 초점', () => {
+    assert.deepEqual(
+        LOBBY_MODES.filter((m) => !m.soon).map((m) => m.id),
+        ['campaign']
+    );
+    assert.equal(lastLobbyMode({ lastMode: 'siege' }), 'campaign');
+    assert.equal(lastLobbyMode({ lastMode: 'rtd' }), 'campaign');
+    assert.equal(lastLobbyMode({ lastEndless: true }), 'campaign');
     assert.equal(lastLobbyMode({}), 'campaign');
 });
 

@@ -28,13 +28,14 @@ export const GENRES = {
 /**
  * 로비의 놀이 방식 다섯 가지. map이 있으면 전장이 하나뿐이라 난이도만 고르고 바로 시작한다.
  * thumb: 카드 그림으로 쓸 맵 (public/thumbs/{id}.jpg)
+ * soon: 아직 막아 둔 놀이 방식 (기본 전투를 먼저 다듬는 동안 '준비 중'으로 보인다)
  */
 export const LOBBY_MODES = [
     { id: 'campaign', name: '전투', rule: '20 웨이브를 막아 내고 별을 모읍니다', thumb: 'dusk', run: {} },
     {
         id: 'endless',
         name: '끝없는 밤',
-        beta: true,
+        soon: true,
         rule: '끝없이 몰려오는 적을 몇 웨이브까지 버틸까요',
         thumb: 'voidspire',
         run: { endless: true }
@@ -42,7 +43,7 @@ export const LOBBY_MODES = [
     {
         id: 'fortress',
         name: '성채 방어',
-        beta: true,
+        soon: true,
         map: 'fortress',
         rule: '적이 성문을 부숩니다. 무너지기 전에 고치세요',
         run: { siege: true }
@@ -50,7 +51,7 @@ export const LOBBY_MODES = [
     {
         id: 'survival',
         name: '살아남기',
-        beta: true,
+        soon: true,
         map: 'mountain',
         rule: '본진을 짓고 동이 틀 때까지 버팁니다',
         run: { siege: true }
@@ -58,7 +59,7 @@ export const LOBBY_MODES = [
     {
         id: 'rtd',
         name: '랜덤 디펜스',
-        beta: true,
+        soon: true,
         map: 'randomtd',
         rule: '무작위 타워를 소환하고, 셋을 합쳐 키웁니다',
         run: { siege: true }
@@ -79,9 +80,9 @@ export function lobbyModeOf(state) {
 
 /** 저장된 마지막 놀이 방식 (예전 저장의 'siege'는 성채 방어로) */
 export function lastLobbyMode(save) {
-    if (save.lastMode === 'siege') return 'fortress';
-    if (LOBBY[save.lastMode]) return save.lastMode;
-    return save.lastEndless ? 'endless' : 'campaign';
+    const last = save.lastMode === 'siege' ? 'fortress' : save.lastMode;
+    const id = LOBBY[last] ? last : save.lastEndless ? 'endless' : 'campaign';
+    return LOBBY[id]?.soon ? 'campaign' : id;
 }
 
 /** 로비 글자·카드 배율: 1080p에서 1.25배, 그보다 작은 창은 1배 */
@@ -282,6 +283,7 @@ export class Screens {
 
     /** 선택 화면 진입: 전투·끝없는 밤은 전장 목록으로, 그 밖에는 놀이 방식 화면 (그 카드에 초점) */
     select(save, modeId = null, mapId = null) {
+        if (LOBBY[modeId]?.soon) modeId = null;
         return modeId === 'campaign' || modeId === 'endless'
             ? this.fields(save, modeId, mapId)
             : this.modes(save, modeId);
@@ -294,14 +296,14 @@ export class Screens {
             const meta = map
                 ? dots(map.name === m.name ? mapMeta(map) : map.name, lengthOf(map))
                 : `전장 ${FIELD_MAPS.length}곳 · ${lengthOf(FIELD_MAPS[0], m.id === 'endless')}`;
-            return `<button class="mode-card" data-mode="${m.id}">
+            return `<button class="mode-card${m.soon ? ' is-soon' : ''}" data-mode="${m.id}"${m.soon ? ' disabled' : ''}>
                 <span class="mc-img" style="background-image:${thumbBg(m.map || m.thumb)}"></span>
-                ${m.beta ? '<span class="lb-beta">베타</span>' : ''}
+                ${m.soon ? '<span class="lb-beta lb-soon">준비 중</span>' : m.beta ? '<span class="lb-beta">베타</span>' : ''}
                 <span class="mc-body">
                     <span class="mc-name">${m.name}</span>
                     <span class="mc-rule">${m.rule}</span>
                     <span class="mc-meta">${meta}</span>
-                    <span class="mc-rec"><span class="k">내 기록</span>${recordHtml(m, modeRecord(save, m))}</span>
+                    ${m.soon ? '' : `<span class="mc-rec"><span class="k">내 기록</span>${recordHtml(m, modeRecord(save, m))}</span>`}
                 </span>
             </button>`;
         }).join('');
@@ -319,7 +321,7 @@ export class Screens {
                 ])}
             </div>
         </div>`);
-        const list = [...el.querySelectorAll('.mode-card')];
+        const list = [...el.querySelectorAll('.mode-card:not(:disabled)')];
         let sheet = null;
         const choose = (id) => {
             const m = LOBBY[id];
@@ -623,7 +625,7 @@ export class Screens {
                   ? '마지막 빛이 지켜졌다'
                   : `웨이브 ${state.waveIndex}에서 마지막 빛이 꺼졌다`;
         // 살아남기는 동이 트면 끝난다 (끝없는 밤으로 잇지 않는다)
-        const offerEndless = won && !endless && !sv && !R;
+        const offerEndless = won && !endless && !sv && !R && !LOBBY.endless?.soon;
         const el = h(`<div class="screen dim"><div class="modal panel ornate results" style="min-width:520px">
             <div class="diff-badge d-${diff.id}">${diff.id === 'hero' ? ICONS.crown : ''}${diff.name}${endless ? ' · 끝없는 밤' : ''}${state.siege ? ' · 공성전' : ''}${state.map.genre ? ' · ' + GENRES[state.map.genre].label : ''}</div>
             <h2 style="margin-bottom:6px;${won || endless ? '' : 'color:#ffb0b0'}">${title}</h2>
